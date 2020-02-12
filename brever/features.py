@@ -92,13 +92,12 @@ def itd(x_filt, frame_length=512, hop_length=256):
     '''
     if x_filt.ndim != 3 or x_filt.shape[2] != 2:
         raise ValueError('x_filt should have shape n_samples*n_filters*2')
-    frames_left = frame(x_filt[:, :, 0], frame_length, hop_length)
-    frames_right = frame(x_filt[:, :, 1], frame_length, hop_length)
-    n_frames, _, n_filters = frames_left.shape
+    frames = frame(x_filt, frame_length, hop_length)
+    n_frames, _, n_filters, _ = frames.shape
     ITD = np.zeros((n_frames, n_filters))
     for i in range(n_frames):
-        frame_left = frames_left[i, :, :]
-        frame_right = frames_right[i, :, :]
+        frame_left = frames[i, :, :, 0]
+        frame_right = frames[i, :, :, 1]
         CCF, lags = ccf(frame_right, frame_left, max_lag=16,
                         negative_lags=True, method='fft')
         ITD[i, :] = lags[np.argmax(CCF, axis=0)]
@@ -124,16 +123,9 @@ def ild(x_filt, frame_length=512, hop_length=256):
     '''
     if x_filt.ndim != 3 or x_filt.shape[2] != 2:
         raise ValueError('x_filt should have shape n_samples*n_filters*2')
-    frames_left = frame(x_filt[:, :, 0], frame_length, hop_length)
-    frames_right = frame(x_filt[:, :, 1], frame_length, hop_length)
-    n_frames, _, n_filters = frames_left.shape
-    ILD = np.zeros((n_frames, n_filters))
-    for i in range(n_frames):
-        frame_left = frames_left[i, :, :]
-        frame_right = frames_right[i, :, :]
-        energy_left = np.sum(frame_left**2, axis=0)
-        energy_right = np.sum(frame_right**2, axis=0)
-        ILD[i, :] = 10*np.log10(energy_right/energy_left)
+    frames = frame(x_filt, frame_length, hop_length)
+    energy = np.sum(frames**2, axis=1)
+    ILD = 10*np.log10(energy[:, :, 1]/energy[:, :, 0])
     return ILD
 
 

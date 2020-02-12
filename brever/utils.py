@@ -35,12 +35,11 @@ def zero_pad(x, pad_length, where='after'):
 
 def frame(x, frame_length, hop_length, center=False):
     '''
-    Slices an array into overlapping frames.
+    Slices an array into overlapping frames along first axis.
 
     Parameters:
         x:
-            Input array. Can be one- or two-dimensional. If two-dimensional,
-            should have shape n_samples*n_channels.
+            Input array. Can be multi-dimensional.
         frame_length:
             Frame length in samples.
         hop_length:
@@ -52,22 +51,21 @@ def frame(x, frame_length, hop_length, center=False):
 
     Returns:
         frames:
-            Sliced version of x with size n_frames*frame_length*n_channels.
+            Sliced version of x with size n_frames*frame_length*x.shape[1:].
     '''
-    if x.ndim == 1:
-        x = x.reshape(-1, 1)
-    elif x.ndim > 2:
-        raise ValueError('x should be two-dimensional at most')
     if center:
         x = zero_pad(x, frame_length//2, 'before')
-    n_samples, n_channels = x.shape
+    n_samples = len(x)
     n_frames = math.ceil(max(0, n_samples-frame_length)/hop_length) + 1
     x = zero_pad(x, (n_frames-1)*hop_length + frame_length - n_samples)
-    frames = np.zeros((n_frames, frame_length, n_channels), x.dtype)
+    output_shape = np.zeros(x.ndim + 1, int)
+    output_shape[[0, 1]] = n_frames, frame_length
+    output_shape[2:] = x.shape[1:]
+    frames = np.zeros(output_shape, x.dtype)
     for i in range(n_frames):
         j = i*hop_length
-        frames[i, :, :] = x[j:j+frame_length, :]
-    return frames
+        frames[i] = x[j:j+frame_length]
+    return frames.squeeze()
 
 
 def standardize(x):
