@@ -53,7 +53,7 @@ def ccf(x, y, method='convolve', max_lag=40, negative_lags=False):
             CCF_neg, lags_neg = ccf(y, x, method='convolve', max_lag=max_lag,
                                     negative_lags=False)
             CCF = np.hstack((CCF, CCF_neg[1:]))
-            lags = np.hstack((lags, lags[1:]))
+            lags = np.hstack((lags, -lags[1:]))
     elif method == 'fft':
         n = len(x)
         X = np.fft.fft(x, axis=0)
@@ -138,6 +138,28 @@ def ild(x_filt, frame_length=512, hop_length=256):
 
 
 def ic(x_filt, tau=0.1, fs=16e3, frame_length=512, hop_length=256):
+    '''
+    Interautal coherence from the output of a gammatone filterbank.
+
+    Parameters:
+        x_filt:
+            Signal decomposed by a gammatone filterbank. Size
+            n_samples*n_filters*2.
+        tau:
+            Smoothing constant in seconds.
+        fs:
+            Sampling frequency in hertz.
+        frame_length:
+            Frame length in samples.
+        hop_length:
+            Frame shift in samples.
+
+    Returns:
+        ILD:
+            ILD. Size n_frames*n_filters.
+    '''
+    if x_filt.ndim != 3 or x_filt.shape[2] != 2:
+        raise ValueError('x_filt should have shape n_samples*n_filters*2')
     alpha = np.exp(-hop_length/(tau*fs))
     b = [1 - alpha]
     a = [1, -alpha]

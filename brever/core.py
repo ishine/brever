@@ -12,8 +12,8 @@ def stft(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
 
     Parameters:
         x:
-            Input array. Can be one- or two-dimensional. If two-dimensional,
-            should have shape n_samples*n_channels.
+            Input array. Can be one- or two-dimensional. If two-dimensional
+            must have shape n_samples*n_channels.
         n_fft:
             Number of FFT points.
         hop_length:
@@ -44,8 +44,11 @@ def stft(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
 
     Returns:
         X:
-            STFT of x with size n_frames*n_fft*n_channels.
+            STFT of x with size n_frames*n_bins, or n_frames*n_bins*n_channels
+            if multichannel input.
     '''
+    if x.ndim == 1:
+        x = x.reshape(-1, 1)
     if frame_length is None:
         frame_length = n_fft
     if callable(window):
@@ -60,7 +63,7 @@ def stft(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
         X = np.fft.fft(frames, n_fft, axis=1)
     if normalization:
         X /= n_fft**0.5
-    return X
+    return X.squeeze()
 
 
 def spectrogram(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
@@ -71,8 +74,8 @@ def spectrogram(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
 
     Parameters:
         x:
-            Input array. Can be one- or two-dimensional. If two-dimensional,
-            should have shape n_samples*n_channels.
+            Input array. Can be one- or two-dimensional. If two-dimensional
+            must have shape n_samples*n_channels.
         n_fft:
             Number of FFT points.
         hop_length:
@@ -105,8 +108,11 @@ def spectrogram(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
 
     Returns:
         X:
-            STFT of x with size n_frames*n_fft*n_channels.
+            Spectrogram of x with size n_frames*n_bins, or
+            n_frames*n_bins*n_channels if multichannel input.
     '''
+    if x.ndim == 1:
+        x = x.reshape(-1, 1)
     X = stft(x, n_fft, hop_length, frame_length, window, onesided, center,
              normalization)
     if domain == 'mag':
@@ -114,16 +120,17 @@ def spectrogram(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
     elif domain == 'power':
         X = np.abs(X)**2
     elif domain == 'dB':
-        X = 20*np.log10(np.abs(X) + 1e-6)
+        X = 20*np.log10(np.abs(X) + 1e-10)
     else:
         raise ValueError('domain should be either mag, power or dB')
-    return X
+    return X.squeeze()
 
 
 def gammatone_coef(fc, fs=16e3):
     '''
     Get coefficients for a digital IIR gammatone filter. Inspired from the
-    AMT toolbox.
+    AMT Matlab/Octave toolbox, and from the lyon1996all and
+    katsiamis2007practical papers.
 
     Parameters:
         fc:
@@ -157,8 +164,8 @@ def gammatone_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3):
 
     Parameters:
         x:
-            Input array. Can be one- or two-dimensional. If two-dimensional,
-            should have shape n_samples*n_channels.
+            Input array. Can be one- or two-dimensional. If two-dimensional
+            must have shape n_samples*n_channels.
         n_filters:
             Number of filters.
         f_min:
@@ -170,10 +177,13 @@ def gammatone_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3):
 
     Returns:
         x_filt:
-            Decomposed signal. Shape n_samples*n_filters*n_channels.
+            Decomposed signal. Shape n_samples*n_filters, or
+            n_samples*n_filters*n_channels if multichannel input.
         fc:
             Center frequencies.
     '''
+    if x.ndim == 1:
+        x = x.reshape(-1, 1)
     erb_min, erb_max = freq_to_erb([f_min, f_max])
     erb = np.linspace(erb_min, erb_max, n_filters)
     fc = erb_to_freq(erb)
@@ -182,7 +192,7 @@ def gammatone_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3):
     for i in range(n_filters):
         b, a = gammatone_coef(fc[i], fs)
         x_filt[:, i, :] = scipy.signal.lfilter(b, a, x, axis=0)
-    return x_filt, fc
+    return x_filt.squeeze(), fc
 
 
 def cochleagram(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, rectify=True,
@@ -192,7 +202,8 @@ def cochleagram(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, rectify=True,
 
     Parameters:
         x:
-            Input signal.
+            Input array. Can be one- or two-dimensional. If two-dimensional
+            must have shape n_samples*n_channels.
         n_filters:
             Number of filters.
         f_min:
@@ -209,7 +220,8 @@ def cochleagram(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, rectify=True,
 
     Returns:
         C:
-            Cochleagram. Size n_filters*len(x).
+            Cochleagram. Size n_filters*len(x), or n_filters*len(x)*n_channels
+            if multichannel input.
         fc:
             Center frequencies in hertz.
     '''
@@ -224,7 +236,7 @@ def cochleagram(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, rectify=True,
         elif compression == 'cube':
             C = C**(1/3)
         elif compression == 'log':
-            C = np.log(C + 1e-6)
+            C = np.log(C + 1e-10)
     return C, fc
 
 
@@ -263,3 +275,38 @@ def mel_filterbank(n_filters=64, n_fft=512, f_min=50, f_max=8000, fs=16e3):
         mask = (fc[i+1] < f) & (f < fc[i+2])
         FB[mask, i] = (fc[i+2]-f[mask])/(fc[i+2]-fc[i+1])
     return FB, fc[1:-1]
+
+
+def irm(target, noise, frame_length=512, hop_length=256):
+    '''
+    Ideal ratio mask. If the input signals are multichannel, the channels are
+    averaged to create monaural signals.
+
+    Parameters:
+        target:
+            Target signal.
+        noise:
+            Noise signal.
+        frame_length:
+            Frame length in samples.
+        hop_length:
+            Frame shift in samples.
+
+    Returns:
+        IRM:
+            Ideal ratio mask.
+    '''
+    # TODO: add option to chose tf_analysis stage, either gammatone or stft
+    # TODO: add option to skip tf_analysis stage if inputs are already in tf domain to speed up computation
+    if target.ndim == 2:
+        target = target.mean(axis=-1)
+    if noise.ndim == 2:
+        noise = noise.mean(axis=-1)
+    target, _ = gammatone_filt(target)
+    noise, _ = gammatone_filt(noise)
+    target = frame(target, frame_length, hop_length)
+    noise = frame(noise, frame_length, hop_length)
+    energy_target = np.mean(target**2, axis=1)
+    energy_noise = np.mean(noise**2, axis=1)
+    IRM = ((energy_target + 1e-10)/(energy_target + energy_noise + 1e-10))**0.5
+    return IRM
