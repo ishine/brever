@@ -297,7 +297,6 @@ def irm(target, noise, frame_length=512, hop_length=256):
             Ideal ratio mask.
     '''
     # TODO: add option to chose tf_analysis stage, either gammatone or stft
-    # TODO: add option to skip tf_analysis stage if inputs are already in tf domain to speed up computation
     if target.ndim == 2:
         target = target.mean(axis=-1)
     if noise.ndim == 2:
