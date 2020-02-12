@@ -4,11 +4,10 @@ import scipy.signal
 from .utils import standardize, frame
 
 
-def ccf(x, y, method='convolve', max_lag=40, negative_lags=False):
+def ccf(x, y, method='convolve', max_lag=40, negative_lags=False, axis=0,
+        normalize=True):
     '''
-    Cross-correlation function. Output values are between -1 and 1, i.e. the
-    cross-covariance is normalized by the standard deviations of the input
-    series.
+    Cross-correlation function or cross-covariance function.
 
     Parameters:
         x:
@@ -20,14 +19,24 @@ def ccf(x, y, method='convolve', max_lag=40, negative_lags=False):
             - If 'convolve', the cross-correlation is calculated as usually
             done in time series analysis, i.e. purely in time domain by
             summation of products up to lag max_lag. This implementation
-            matches the equivalent funuction in R.
+            matches the equivalent funuction in R. Currently only supports one
+            dimensional inputs.
             - If 'fft', the calculation is done by multiplication in the
             frequency domain. The inputs should have same length and ideally a
             power of two. Supports multichannel input.
+            Supports multi-dimensional inputs.
         max_lag:
             Maximum lag to compute the cross-correlation for.
         negative_lags:
             If True, negative lags are also calculated i.e. y is also delayed.
+        axis:
+            Axis along which to compute the cross-correlation. Currently not
+            supported together with 'convolve' method.
+        normalize:
+            If True, the inputs are standardized before convolving. This
+            ensures the output values are between -1 and 1, and thus a true
+            cross-correlation function is calculated. If False, the output ends
+            up being the cross-covariance function instead.
 
     Returns:
         CCF:
@@ -35,8 +44,9 @@ def ccf(x, y, method='convolve', max_lag=40, negative_lags=False):
         lags:
             Lag vector in samples. Same length as CCF.
     '''
-    x = standardize(x)
-    y = standardize(y)
+    if normalize:
+        x = standardize(x, axis=axis)
+        y = standardize(y, axis=axis)
     if method == 'convolve':
         if x.ndim != 1 or y.ndim != 1:
             raise ValueError(('inputs must be one-dimensional when method is '
@@ -55,10 +65,10 @@ def ccf(x, y, method='convolve', max_lag=40, negative_lags=False):
             CCF = np.hstack((CCF, CCF_neg[1:]))
             lags = np.hstack((lags, -lags[1:]))
     elif method == 'fft':
-        n = len(x)
-        X = np.fft.fft(x, axis=0)
-        Y = np.fft.fft(y, axis=0)
-        CCF = 1/n*np.fft.ifft(np.conj(X)*Y, axis=0).real
+        n = x.shape[axis]
+        X = np.fft.fft(x, axis=axis)
+        Y = np.fft.fft(y, axis=axis)
+        CCF = 1/n*np.fft.ifft(np.conj(X)*Y, axis=axis).real
         # CCF = np.roll(CCF, (n+1)//2)
         lags = np.arange(n)
         mask = lags > n/2
@@ -66,7 +76,7 @@ def ccf(x, y, method='convolve', max_lag=40, negative_lags=False):
         mask = (lags <= max_lag) & (lags >= -max_lag)
         if not negative_lags:
             mask = mask & (lags >= 0)
-        CCF = CCF[mask]
+        CCF = np.compress(mask, CCF, axis=axis)
         lags = lags[mask]
     else:
         return ValueError('method should be either convolve or fft')
@@ -94,13 +104,9 @@ def itd(x_filt, frame_length=512, hop_length=256):
         raise ValueError('x_filt should have shape n_samples*n_filters*2')
     frames = frame(x_filt, frame_length, hop_length)
     n_frames, _, n_filters, _ = frames.shape
-    ITD = np.zeros((n_frames, n_filters))
-    for i in range(n_frames):
-        frame_left = frames[i, :, :, 0]
-        frame_right = frames[i, :, :, 1]
-        CCF, lags = ccf(frame_right, frame_left, max_lag=16,
-                        negative_lags=True, method='fft')
-        ITD[i, :] = lags[np.argmax(CCF, axis=0)]
+    CCF, lags = ccf(frames[:, :, :, 1], frames[:, :, :, 0], max_lag=16,
+                    negative_lags=True, method='fft', axis=1, normalize=False)
+    ITD = lags[np.argmax(CCF, axis=1)]
     return ITD
 
 
