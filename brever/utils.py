@@ -68,10 +68,10 @@ def frame(x, frame_length, hop_length, center=False):
     return frames.squeeze()
 
 
-def standardize(x):
+def standardize(x, axis=0):
     '''
-    Standardize an array along axis 0 i.e. remove mean and divide by standard
-    deviation along axis 0.
+    Standardize an array along given axis i.e. remove mean and divide by
+    standard deviation.
 
     Parameters:
         x:
@@ -82,8 +82,10 @@ def standardize(x):
             Standardized series.
     '''
     x = np.asarray(x)
-    means = x.mean(axis=0)
-    stds = x.std(axis=0)
+    means = x.mean(axis=axis)
+    stds = x.std(axis=axis)
+    means = np.expand_dims(means, axis=axis)
+    stds = np.expand_dims(stds, axis=axis)
     x_standard = (x - means)/stds
     return x_standard
 
