@@ -338,3 +338,18 @@ def cochleagram(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, rectify=True,
         elif compression == 'log':
             C = np.log(C + 1e-10)
     return C, fc
+
+
+def mel_iir_filterank(n_filters=64, f_min=50, f_max=8000, fs=16e3, order=60,
+                      low_pass=False, high_pass=False):
+    mel_min, mel_max = freq_to_mel([f_min, f_max])
+    mel = np.linspace(mel_min, mel_max, n_filters+2)
+    f_all = mel_to_freq(mel)
+    fc = f_all[1:-1]
+    f_low = np.sqrt(f_all[:-2]*fc)
+    f_high = np.sqrt(fc*f_all[2:])
+    b, a = np.zeros((2, n_filters, order+1))
+    for i in range(n_filters):
+        b[i], a[i] = scipy.signal.butter(order, [f_low[i], f_high[i]],
+                                         btype='bandpass', fs=fs)
+    return b, a, fc
