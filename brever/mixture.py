@@ -73,6 +73,8 @@ def make(target, brir, hrir, brirs, snr, padding=0):
             Binaural mixture.
         target:
             Anechoic target signal. Useful for IRM calculation.
+        noise:
+            Noise signal.
     '''
     target_reverb = spatialize(target, brir)
     target_reverb = zero_pad(target_reverb, padding, 'both')
@@ -86,4 +88,4 @@ def make(target, brir, hrir, brirs, snr, padding=0):
     energy_noise = np.sum(noise[padding:n_samples-padding]**2)
     energy_signal = np.sum(target_reverb**2)
     noise *= 10**(-snr/10)*(energy_signal/energy_noise)**0.5
-    return target_reverb+noise, target_anechoic
+    return target_reverb+noise, target_anechoic, noise
