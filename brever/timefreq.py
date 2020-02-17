@@ -67,8 +67,7 @@ def stft(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
 
 
 def spectrogram(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
-                onesided=True, center=False, normalization=False,
-                domain='power'):
+                center=False, normalization=False, domain='power'):
     '''
     Spectrogram of input signal.
 
@@ -93,8 +92,6 @@ def spectrogram(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
             frame_length.
             - If a function, it needs to take frame_length as an argument and
             return an array of length frame_length.
-        onesided:
-            If True, the one-sided FFT for real signals is computed.
         center:
             If True, the first frame is centered at the first sample by
             zero-padding at the beginning of x, such that the frame of index i
@@ -107,23 +104,126 @@ def spectrogram(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
             Output domain. Can be either 'mag', 'power' or 'dB'.
 
     Returns:
-        X:
+        S:
             Spectrogram of x with size n_frames*n_bins, or
             n_frames*n_bins*n_channels if multichannel input.
     '''
     if x.ndim == 1:
         x = x.reshape(-1, 1)
-    X = stft(x, n_fft, hop_length, frame_length, window, onesided, center,
-             normalization)
+    X = stft(x, n_fft, hop_length=hop_length, frame_length=frame_length,
+             window=window, center=center, normalization=normalization)
     if domain == 'mag':
-        X = np.abs(X)
+        S = np.abs(X)
     elif domain == 'power':
-        X = np.abs(X)**2
+        S = np.abs(X)**2
     elif domain == 'dB':
-        X = 20*np.log10(np.abs(X) + 1e-10)
+        S = 20*np.log10(np.abs(X) + 1e-10)
     else:
         raise ValueError('domain should be either mag, power or dB')
-    return X.squeeze()
+    return S.squeeze()
+
+
+def mel_filterbank(n_filters=64, n_fft=512, f_min=50, f_max=8000, fs=16e3):
+    '''
+    Triangular mel filters equally spaced on a mel scale. The output is a
+    two-dimensional array with size n_bins*n_filters so that a melspectrogram
+    is obtained by multiplying it with a spectrogram.
+
+    Parameters:
+        n_filters:
+            Number of filters.
+        n_fft:
+            Number of FFT points.
+        f_min:
+            Lower frequency of the lowest filter.
+        f_max:
+            Higher frequency of the highest filter.
+        fs:
+            Sampling frequency in hertz.
+
+    Returns:
+        FB:
+            Mel filterbank, with size n_bins*n_filters.
+        fc:
+            Center frequencies.
+    '''
+    mel_min, mel_max = freq_to_mel([f_min, f_max])
+    mel = np.linspace(mel_min, mel_max, n_filters+2)
+    fc = mel_to_freq(mel)
+    f = fft_freqs(fs, n_fft, onesided=True)
+    FB = np.zeros((len(f), n_filters))
+    for i in range(n_filters):
+        mask = (fc[i] < f) & (f <= fc[i+1])
+        FB[mask, i] = (f[mask]-fc[i])/(fc[i+1]-fc[i])
+        mask = (fc[i+1] < f) & (f < fc[i+2])
+        FB[mask, i] = (fc[i+2]-f[mask])/(fc[i+2]-fc[i+1])
+    return FB, fc[1:-1]
+
+
+def melspectrogram(x, n_fft=512, hop_length=256, frame_length=None,
+                   window='hann', n_filters=64, f_min=50, f_max=8000, fs=16e3,
+                   center=False, normalization=False, input_domain='power',
+                   output_domain='power'):
+    '''
+    Mel-spectrogram of input signal.
+
+    Parameters:
+        x:
+            Input array. Can be one- or two-dimensional. If two-dimensional
+            must have shape n_samples*n_channels.
+        n_fft:
+            Number of FFT points.
+        hop_length:
+            Frame shift in samples.
+        frame_length:
+            Frame length in samples. If None, matches n_fft. If specified and
+            higher than n_fft, the frames are zero-padded. If smaller than
+            n_fft, the frames are cropped.
+        window:
+            Window type. Can be a string, an array or a function.
+            - If a string, it is passed to scipy.signal.get_window together
+            with frame_length. Note that this creates a periodic (asymmetric)
+            window, which is recommended in spectral analysis.
+            - If an array, it should be one-dimensional with length
+            frame_length.
+            - If a function, it needs to take frame_length as an argument and
+            return an array of length frame_length.
+        n_filters:
+            Number of mel filters.
+        f_min:
+            Lower frequency of the lowest mel filter.
+        f_max:
+            Higher frequency of the highest mel filter.
+        fs:
+            Sampling frequency in hertz.
+        center:
+            If True, the first frame is centered at the first sample by
+            zero-padding at the beginning of x, such that the frame of index i
+            is centered at i*hop_length.
+        normalization:
+            If True, the output is divided by n_fft**0.5. This ensures
+            Parseval's theorem, i.e. the energy (sum of squares) in each frame
+            is the same in both the time domain and the frequency domain.
+        input_domain:
+            Input domain of the mel filterbank. Can be either 'mag', 'power' or
+            'dB'.
+        output_domain:
+            Output domain of the mel filterbank. Can be either 'mag', 'power'
+            or 'dB'.
+
+    Returns:
+        M:
+            Mel-spectrogram, with size n_frames*n_filters.
+        fc:
+            Center frequencies.
+    '''
+    S = spectrogram(x, n_fft=n_fft, hop_length=hop_length,
+                    frame_length=frame_length, window=window, center=center,
+                    normalization=normalization, domain=input_domain)
+    FB, fc = mel_filterbank(n_filters=n_filters, n_fft=n_fft, f_min=f_min,
+                            f_max=f_max, fs=fs)
+    M = np.einsum('ijk,jl->ilk', S, FB)
+    return M, fc
 
 
 def gammatone_coef(fc, fs=16e3):
@@ -238,74 +338,3 @@ def cochleagram(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, rectify=True,
         elif compression == 'log':
             C = np.log(C + 1e-10)
     return C, fc
-
-
-def mel_filterbank(n_filters=64, n_fft=512, f_min=50, f_max=8000, fs=16e3):
-    '''
-    Mel filters equally spaced on a mel scale. The output is a two-dimensional
-    array with size (n_fft//2+1)*n_filters so that a melspectrogram is
-    obtained by multiplying it with a spectrogram.
-
-    Parameters:
-        n_filters:
-            Number of filters.
-        n_fft:
-            Number of FFT points.
-        f_min:
-            Lower frequency of the lowest filter.
-        f_max:
-            Higher frequency of the highest filter.
-        fs:
-            Sampling frequency in hertz.
-
-    Returns:
-        FB:
-            Mel filterbank, with size (n_fft//2+1)*n_filters.
-        fc:
-            Center frequencies.
-    '''
-    mel_min, mel_max = freq_to_mel([f_min, f_max])
-    mel = np.linspace(mel_min, mel_max, n_filters+2)
-    fc = mel_to_freq(mel)
-    f = fft_freqs(fs, n_fft, onesided=True)
-    FB = np.zeros((len(f), n_filters))
-    for i in range(n_filters):
-        mask = (fc[i] < f) & (f <= fc[i+1])
-        FB[mask, i] = (f[mask]-fc[i])/(fc[i+1]-fc[i])
-        mask = (fc[i+1] < f) & (f < fc[i+2])
-        FB[mask, i] = (fc[i+2]-f[mask])/(fc[i+2]-fc[i+1])
-    return FB, fc[1:-1]
-
-
-def irm(target, noise, frame_length=512, hop_length=256):
-    '''
-    Ideal ratio mask. If the input signals are multichannel, the channels are
-    averaged to create monaural signals.
-
-    Parameters:
-        target:
-            Target signal.
-        noise:
-            Noise signal.
-        frame_length:
-            Frame length in samples.
-        hop_length:
-            Frame shift in samples.
-
-    Returns:
-        IRM:
-            Ideal ratio mask.
-    '''
-    # TODO: add option to chose tf_analysis stage, either gammatone or stft
-    if target.ndim == 2:
-        target = target.mean(axis=-1)
-    if noise.ndim == 2:
-        noise = noise.mean(axis=-1)
-    target, _ = gammatone_filt(target)
-    noise, _ = gammatone_filt(noise)
-    target = frame(target, frame_length, hop_length)
-    noise = frame(noise, frame_length, hop_length)
-    energy_target = np.mean(target**2, axis=1)
-    energy_noise = np.mean(noise**2, axis=1)
-    IRM = ((energy_target + 1e-10)/(energy_target + energy_noise + 1e-10))**0.5
-    return IRM

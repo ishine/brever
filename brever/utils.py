@@ -65,7 +65,7 @@ def frame(x, frame_length, hop_length, center=False):
     for i in range(n_frames):
         j = i*hop_length
         frames[i] = x[j:j+frame_length]
-    return frames.squeeze()
+    return frames
 
 
 def standardize(x, axis=0):
@@ -174,7 +174,7 @@ def frames_to_time(frames, fs=16e3, hop_length=256):
         t:
             Time vector.
     '''
-    t = np.arange(frames.shape[1])*hop_length/fs
+    t = np.arange(len(frames))*hop_length/fs
     return t
 
 
