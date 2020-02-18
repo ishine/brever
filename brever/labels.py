@@ -1,7 +1,7 @@
 import numpy as np
 
 from .utils import frame
-from .timefreq import gammatone_filt
+from .filters import gammatone_filt
 
 
 def irm(target, noise, frame_length=512, hop_length=256):
@@ -23,7 +23,9 @@ def irm(target, noise, frame_length=512, hop_length=256):
         IRM:
             Ideal ratio mask.
     '''
-    # TODO: add option to chose tf_analysis stage, either gammatone or stft
+    # TODO: add option to chose tf_analysis stage, either gammatone or mel
+    # TODO: take brir as input, split brir into direct sound and late
+    # reflections, and calculate the correct irm
     if target.ndim == 2:
         target = target.mean(axis=-1)
     if noise.ndim == 2:

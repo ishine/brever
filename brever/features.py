@@ -44,6 +44,8 @@ def ccf(x, y, method='convolve', max_lag=40, negative_lags=False, axis=0,
         lags:
             Lag vector in samples. Same length as CCF.
     '''
+    # TODO: do gcc instead, since the interaural coherance is taking very small
+    # values
     if normalize:
         x = standardize(x, axis=axis)
         y = standardize(y, axis=axis)
@@ -83,14 +85,37 @@ def ccf(x, y, method='convolve', max_lag=40, negative_lags=False, axis=0,
     return CCF, lags
 
 
-def itd(x_filt, frame_length=512, hop_length=256):
+def ild(x_filt, frame_length=512, hop_length=256):
     '''
-    ITD from the output of a gammatone filterbank.
+    ILD from the output of a filterbank.
 
     Parameters:
         x_filt:
-            Signal decomposed by a gammatone filterbank. Size
-            n_samples*n_filters*2.
+            Signal decomposed by a filterbank. Size n_samples*n_filters*2.
+        frame_length:
+            Frame length in samples.
+        hop_length:
+            Frame shift in samples.
+
+    Returns:
+        ILD:
+            ILD. Size n_frames*n_filters.
+    '''
+    if x_filt.ndim != 3 or x_filt.shape[2] != 2:
+        raise ValueError('x_filt should have shape n_samples*n_filters*2')
+    frames = frame(x_filt, frame_length, hop_length)
+    energy = np.sum(frames**2, axis=1)
+    ILD = 10*np.log10(energy[:, :, 1]/energy[:, :, 0])
+    return ILD
+
+
+def itd(x_filt, frame_length=512, hop_length=256):
+    '''
+    ITD from the output of a filterbank.
+
+    Parameters:
+        x_filt:
+            Signal decomposed by a filterbank. Size n_samples*n_filters*2.
         frame_length:
             Frame length in samples.
         hop_length:
@@ -110,14 +135,13 @@ def itd(x_filt, frame_length=512, hop_length=256):
     return ITD
 
 
-def ild(x_filt, frame_length=512, hop_length=256):
+def ic(x_filt, frame_length=512, hop_length=256):
     '''
-    ILD from the output of a gammatone filterbank.
+    Interautal coherence from the output of a filterbank.
 
     Parameters:
         x_filt:
-            Signal decomposed by a gammatone filterbank. Size
-            n_samples*n_filters*2.
+            Signal decomposed by a filterbank. Size n_samples*n_filters*2.
         frame_length:
             Frame length in samples.
         hop_length:
@@ -130,44 +154,8 @@ def ild(x_filt, frame_length=512, hop_length=256):
     if x_filt.ndim != 3 or x_filt.shape[2] != 2:
         raise ValueError('x_filt should have shape n_samples*n_filters*2')
     frames = frame(x_filt, frame_length, hop_length)
-    energy = np.sum(frames**2, axis=1)
-    ILD = 10*np.log10(energy[:, :, 1]/energy[:, :, 0])
-    return ILD
-
-
-def ic(x_filt, tau=0.1, fs=16e3, frame_length=512, hop_length=256):
-    '''
-    Interautal coherence from the output of a gammatone filterbank.
-
-    Parameters:
-        x_filt:
-            Signal decomposed by a gammatone filterbank. Size
-            n_samples*n_filters*2.
-        tau:
-            Smoothing constant in seconds.
-        fs:
-            Sampling frequency in hertz.
-        frame_length:
-            Frame length in samples.
-        hop_length:
-            Frame shift in samples.
-
-    Returns:
-        ILD:
-            ILD. Size n_frames*n_filters.
-    '''
-    if x_filt.ndim != 3 or x_filt.shape[2] != 2:
-        raise ValueError('x_filt should have shape n_samples*n_filters*2')
-    alpha = np.exp(-hop_length/(tau*fs))
-    b = [1 - alpha]
-    a = [1, -alpha]
-    phi_ll = x_filt[:, :, 0]**2
-    phi_rr = x_filt[:, :, 1]**2
-    phi_lr = x_filt[:, :, 0]*x_filt[:, :, 1]
-    phi_ll = scipy.signal.lfilter(b, a, phi_ll, axis=0)
-    phi_rr = scipy.signal.lfilter(b, a, phi_rr, axis=0)
-    phi_lr = scipy.signal.lfilter(b, a, phi_lr, axis=0)
-    IC = phi_lr/(phi_ll*phi_rr)**0.5
-    IC = frame(IC, frame_length, hop_length)
-    IC = np.mean(IC, axis=1)
+    n_frames, _, n_filters, _ = frames.shape
+    CCF, lags = ccf(frames[:, :, :, 1], frames[:, :, :, 0], max_lag=16,
+                    negative_lags=True, method='fft', axis=1, normalize=False)
+    IC = np.max(CCF, axis=1)
     return IC

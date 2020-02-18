@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.signal
 
-from .utils import freq_to_erb, erb_to_freq, freq_to_mel, mel_to_freq
-from .utils import fft_freqs, frame
+from .utils import frame
+from .filters import gammatone_filt, mel_triangle_filterbank
 
 
 def stft(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
@@ -123,43 +123,6 @@ def spectrogram(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
     return S.squeeze()
 
 
-def mel_filterbank(n_filters=64, n_fft=512, f_min=50, f_max=8000, fs=16e3):
-    '''
-    Triangular mel filters equally spaced on a mel scale. The output is a
-    two-dimensional array with size n_bins*n_filters so that a melspectrogram
-    is obtained by multiplying it with a spectrogram.
-
-    Parameters:
-        n_filters:
-            Number of filters.
-        n_fft:
-            Number of FFT points.
-        f_min:
-            Lower frequency of the lowest filter.
-        f_max:
-            Higher frequency of the highest filter.
-        fs:
-            Sampling frequency in hertz.
-
-    Returns:
-        FB:
-            Mel filterbank, with size n_bins*n_filters.
-        fc:
-            Center frequencies.
-    '''
-    mel_min, mel_max = freq_to_mel([f_min, f_max])
-    mel = np.linspace(mel_min, mel_max, n_filters+2)
-    fc = mel_to_freq(mel)
-    f = fft_freqs(fs, n_fft, onesided=True)
-    FB = np.zeros((len(f), n_filters))
-    for i in range(n_filters):
-        mask = (fc[i] < f) & (f <= fc[i+1])
-        FB[mask, i] = (f[mask]-fc[i])/(fc[i+1]-fc[i])
-        mask = (fc[i+1] < f) & (f < fc[i+2])
-        FB[mask, i] = (fc[i+2]-f[mask])/(fc[i+2]-fc[i+1])
-    return FB, fc[1:-1]
-
-
 def melspectrogram(x, n_fft=512, hop_length=256, frame_length=None,
                    window='hann', n_filters=64, f_min=50, f_max=8000, fs=16e3,
                    center=False, normalization=False, input_domain='power',
@@ -205,11 +168,11 @@ def melspectrogram(x, n_fft=512, hop_length=256, frame_length=None,
             Parseval's theorem, i.e. the energy (sum of squares) in each frame
             is the same in both the time domain and the frequency domain.
         input_domain:
-            Input domain of the mel filterbank. Can be either 'mag', 'power' or
-            'dB'.
+            Input domain of the filterbank, before grouping into mel bands. Can
+            be either 'mag', 'power' or 'dB'.
         output_domain:
-            Output domain of the mel filterbank. Can be either 'mag', 'power'
-            or 'dB'.
+            Output domain on the filterbank. Can be either 'mag', 'power' or
+            'dB'.
 
     Returns:
         M:
@@ -220,79 +183,24 @@ def melspectrogram(x, n_fft=512, hop_length=256, frame_length=None,
     S = spectrogram(x, n_fft=n_fft, hop_length=hop_length,
                     frame_length=frame_length, window=window, center=center,
                     normalization=normalization, domain=input_domain)
-    FB, fc = mel_filterbank(n_filters=n_filters, n_fft=n_fft, f_min=f_min,
-                            f_max=f_max, fs=fs)
+    FB, fc = mel_triangle_filterbank(n_filters=n_filters, n_fft=n_fft,
+                                     f_min=f_min, f_max=f_max, fs=fs)
     M = np.einsum('ijk,jl->ilk', S, FB)
+    if input_domain == output_domain:
+        pass
+    elif input_domain == 'mag' and output_domain == 'power':
+        M = M**2
+    elif input_domain == 'mag' and output_domain == 'dB':
+        M = 20*np.log10(np.abs(M) + 1e-10)
+    elif input_domain == 'power' and output_domain == 'mag':
+        M = M**0.5
+    elif input_domain == 'power' and output_domain == 'dB':
+        M = 10*np.log10(np.abs(M) + 1e-10)
+    elif input_domain == 'dB' and output_domain == 'mag':
+        M = 10**(M/20)
+    elif input_domain == 'dB' and output_domain == 'power':
+        M = 10**(M/10)
     return M, fc
-
-
-def gammatone_coef(fc, fs=16e3):
-    '''
-    Get coefficients for a digital IIR gammatone filter. Inspired from the
-    AMT Matlab/Octave toolbox, and from the lyon1996all and
-    katsiamis2007practical papers.
-
-    Parameters:
-        fc:
-            Center frequency of the filter.
-        fs:
-            Sampling frequency in hertz.
-
-    Returns:
-        b:
-            Numerator coefficients.
-        a:
-            Denominator coefficients.
-    '''
-    fc = np.asarray(fc)
-    ERB = 24.7*(1 + 4.37*fc*1e-3)
-    beta = 1.019*ERB
-    order = 4
-    pole = np.exp(-2*np.pi*(1j*fc+beta)/fs)
-    zero = np.real(pole)
-    a = np.poly(np.hstack((pole*np.ones(order), np.conj(pole)*np.ones(order))))
-    b = np.poly(zero*np.ones(order))
-    ejwc = np.exp(1j*2*np.pi*fc/fs)
-    gain = np.abs((ejwc - zero)/((ejwc - pole)*(ejwc - np.conj(pole))))**order
-    return b/gain, a
-
-
-def gammatone_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3):
-    '''
-    Filter a signal through a bank of gammatone filters equally spaced on an
-    ERB-rate scale.
-
-    Parameters:
-        x:
-            Input array. Can be one- or two-dimensional. If two-dimensional
-            must have shape n_samples*n_channels.
-        n_filters:
-            Number of filters.
-        f_min:
-            Minimum center frequency in hertz.
-        f_max:
-            Maximum center frequency in hertz.
-        fs:
-            Sampling frequency in hertz.
-
-    Returns:
-        x_filt:
-            Decomposed signal. Shape n_samples*n_filters, or
-            n_samples*n_filters*n_channels if multichannel input.
-        fc:
-            Center frequencies.
-    '''
-    if x.ndim == 1:
-        x = x.reshape(-1, 1)
-    erb_min, erb_max = freq_to_erb([f_min, f_max])
-    erb = np.linspace(erb_min, erb_max, n_filters)
-    fc = erb_to_freq(erb)
-    n_samples, n_channels = x.shape
-    x_filt = np.zeros((n_samples, n_filters, n_channels))
-    for i in range(n_filters):
-        b, a = gammatone_coef(fc[i], fs)
-        x_filt[:, i, :] = scipy.signal.lfilter(b, a, x, axis=0)
-    return x_filt.squeeze(), fc
 
 
 def cochleagram(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, rectify=True,
@@ -336,20 +244,5 @@ def cochleagram(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, rectify=True,
         elif compression == 'cube':
             C = C**(1/3)
         elif compression == 'log':
-            C = np.log(C + 1e-10)
+            C = np.log10(C + 1e-6)
     return C, fc
-
-
-def mel_iir_filterank(n_filters=64, f_min=50, f_max=8000, fs=16e3, order=60,
-                      low_pass=False, high_pass=False):
-    mel_min, mel_max = freq_to_mel([f_min, f_max])
-    mel = np.linspace(mel_min, mel_max, n_filters+2)
-    f_all = mel_to_freq(mel)
-    fc = f_all[1:-1]
-    f_low = np.sqrt(f_all[:-2]*fc)
-    f_high = np.sqrt(fc*f_all[2:])
-    b, a = np.zeros((2, n_filters, order+1))
-    for i in range(n_filters):
-        b[i], a[i] = scipy.signal.butter(order, [f_low[i], f_high[i]],
-                                         btype='bandpass', fs=fs)
-    return b, a, fc

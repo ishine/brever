@@ -44,7 +44,7 @@ def diffuse_noise(brirs, n_samples):
     return noise
 
 
-def make(target, brir, hrir, brirs, snr, padding=0):
+def make(target, brir, brirs, snr, padding=0):
     '''
     Make a binaural mixture consisting of a target signal and diffuse noise
     at a given SNR.
@@ -55,10 +55,6 @@ def make(target, brir, hrir, brirs, snr, padding=0):
         brir:
             Binaural room impulse response used to spatialize the target before
             mixing. This defines the position of the talker in the room.
-        hrir:
-            Anechoic impulse response. Should consist of brir without the
-            reflections. Used to create the anechoic talker signal required to
-            calculate the IRM. Can be set to None to skip.
         brirs:
             List of binaural room impulse responses used ot create diffuse
             noise. brir should ideally figure in this list.
@@ -70,22 +66,17 @@ def make(target, brir, hrir, brirs, snr, padding=0):
 
     Returns:
         mix:
-            Binaural mixture.
+            Reverberant Binaural mixture.
         target:
-            Anechoic target signal. Useful for IRM calculation.
+            Reverberant target signal.
         noise:
-            Noise signal.
+            Diffuse noise signal.
     '''
     target_reverb = spatialize(target, brir)
     target_reverb = zero_pad(target_reverb, padding, 'both')
-    if hrir is None:
-        target_anechoic = None
-    else:
-        target_anechoic = spatialize(target, hrir)
-        target_anechoic = zero_pad(target_anechoic, padding, 'both')
     n_samples = len(target_reverb) + padding*2
     noise = diffuse_noise(brirs, n_samples)
     energy_noise = np.sum(noise[padding:n_samples-padding]**2)
     energy_signal = np.sum(target_reverb**2)
     noise *= 10**(-snr/10)*(energy_signal/energy_noise)**0.5
-    return target_reverb+noise, target_anechoic, noise
+    return target_reverb+noise, target_reverb, noise

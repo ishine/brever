@@ -1,5 +1,4 @@
 import os
-import sys
 import soundfile as sf
 from resampy import resample
 import random
@@ -8,9 +7,6 @@ import numpy as np
 import time
 
 import brever
-import brever.utils
-import brever.features
-import brever.mixture
 
 
 # set random state for reproducibility
@@ -49,11 +45,6 @@ brir_filepath = 'data/brirs/SURREY/Room_A/16kHz/CortexBRIR_0_32s_0deg_16k.wav'
 brir, brir_fs = sf.read(brir_filepath)
 assert brir_fs == fs
 
-# anechoic brir correponding to target_brir
-hrir_filepath = 'data/brirs/SURREY/Anechoic/16kHz/CortexBRIR_0s_0deg_16k.wav'
-hrir, hrir_fs = sf.read(hrir_filepath)
-assert hrir_fs == fs
-
 # mixture parameters
 snrs = range(-5, 16)
 n_mixtures = 1
@@ -67,14 +58,14 @@ features = []
 labels = []
 times_spent = np.zeros(len(feature_list))
 for i in range(n_mixtures):
-    sys.stdout.write('\rProcessing mixture %i/%i...' % (i+1, n_mixtures))
+    print('Processing mixture %i/%i...' % (i+1, n_mixtures))
     sentence = random.choice(sentences)
     snr = random.choice(snrs)
     # make mixture
-    mix, target, noise = brever.mixture.mixture(sentence, brir, hrir, brirs,
-                                                snr, padding)
+    mix, target, noise = brever.mixture.make(sentence, brir, brirs, snr,
+                                             padding)
     # extract features
-    mixture_filt, _ = brever.gammatone_filt(mix)
+    mixture_filt, _ = brever.filters.gammatone_filt(mix)
     features_mix = []
     for i, feature_name in enumerate(feature_list):
         t = time.time()
@@ -84,9 +75,8 @@ for i in range(n_mixtures):
     features.append(np.hstack(features_mix))
 
     # extract labels
-    IRM = brever.irm(target, noise)
+    IRM = brever.labels.irm(target, noise)
     labels.append(IRM)
-print('')
 
 # print time spent
 for feature_name, time_spent in zip(feature_list, times_spent):
