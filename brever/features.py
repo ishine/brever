@@ -1,5 +1,4 @@
 import numpy as np
-import scipy.signal
 
 from .utils import standardize, frame
 
@@ -23,8 +22,7 @@ def ccf(x, y, method='convolve', max_lag=40, negative_lags=False, axis=0,
             dimensional inputs.
             - If 'fft', the calculation is done by multiplication in the
             frequency domain. The inputs should have same length and ideally a
-            power of two. Supports multichannel input.
-            Supports multi-dimensional inputs.
+            power of two. Supports multidimensional input.
         max_lag:
             Maximum lag to compute the cross-correlation for.
         negative_lags:
@@ -130,8 +128,8 @@ def itd(x_filt, frame_length=512, hop_length=256):
     frames = frame(x_filt, frame_length, hop_length)
     n_frames, _, n_filters, _ = frames.shape
     CCF, lags = ccf(frames[:, :, :, 1], frames[:, :, :, 0], max_lag=16,
-                    negative_lags=True, method='fft', axis=1, normalize=False)
-    ITD = lags[np.argmax(CCF, axis=1)]
+                    negative_lags=True, method='fft', axis=1, normalize=True)
+    ITD = lags[CCF.argmax(axis=1)]
     return ITD
 
 
@@ -156,6 +154,6 @@ def ic(x_filt, frame_length=512, hop_length=256):
     frames = frame(x_filt, frame_length, hop_length)
     n_frames, _, n_filters, _ = frames.shape
     CCF, lags = ccf(frames[:, :, :, 1], frames[:, :, :, 0], max_lag=16,
-                    negative_lags=True, method='fft', axis=1, normalize=False)
-    IC = np.max(CCF, axis=1)
+                    negative_lags=True, method='fft', axis=1, normalize=True)
+    IC = CCF.max(axis=1)
     return IC
