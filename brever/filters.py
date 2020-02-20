@@ -5,11 +5,11 @@ from .utils import freq_to_erb, erb_to_freq, freq_to_mel, mel_to_freq
 from .utils import fft_freqs
 
 
-def gammatone_iir(fc, fs=16e3):
+def gammatone_iir(fc, fs=16e3, order=4):
     '''
-    Coefficients for a digital IIR gammatone filter of order 4. Inspired from
-    the AMT Matlab/Octave toolbox, and from the lyon1996all and
-    katsiamis2007practical papers.
+    Coefficients for a digital IIR gammatone filter. Inspired from the AMT
+    Matlab/Octave toolbox, and from the lyon1996all and katsiamis2007practical
+    papers.
 
     Parameters:
         fc:
@@ -26,7 +26,6 @@ def gammatone_iir(fc, fs=16e3):
     fc = np.asarray(fc)
     ERB = 24.7*(1 + 4.37*fc*1e-3)
     beta = 1.019*ERB
-    order = 4
     pole = np.exp(-2*np.pi*(1j*fc+beta)/fs)
     zero = np.real(pole)
     a = np.poly(np.hstack((pole*np.ones(order), np.conj(pole)*np.ones(order))))
@@ -36,10 +35,11 @@ def gammatone_iir(fc, fs=16e3):
     return b/gain, a
 
 
-def gammatone_iir_filterbank(n_filters=64, f_min=50, f_max=8000, fs=16e3):
+def gammatone_filterbank(n_filters=64, f_min=50, f_max=8000, fs=16e3,
+                         order=4):
     '''
-    Coefficients for a bank of 4-th order gammatone IIR filters equally spaced
-    on an ERB-rate scale.
+    Coefficients for a bank of gammatone IIR filters equally spaced on an
+    ERB-rate scale.
 
     Parameters:
         n_filters:
@@ -65,14 +65,14 @@ def gammatone_iir_filterbank(n_filters=64, f_min=50, f_max=8000, fs=16e3):
     b = np.zeros((n_filters, 5))
     a = np.zeros((n_filters, 9))
     for i in range(n_filters):
-        b[i], a[i] = gammatone_iir(fc[i], fs)
+        b[i], a[i] = gammatone_iir(fc[i], fs, order)
     return b, a, fc
 
 
-def gammatone_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3):
+def gammatone_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, order=4):
     '''
-    Filter a signal through a bank of gammatone filters equally spaced on an
-    ERB-rate scale.
+    Filter a signal through a bank of gammatone IIR filters equally spaced on
+    an ERB-rate scale.
 
     Parameters:
         x:
@@ -81,11 +81,13 @@ def gammatone_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3):
         n_filters:
             Number of filters.
         f_min:
-            Minimum center frequency in hertz.
+            Center frequency of the lowest filter.
         f_max:
-            Maximum center frequency in hertz.
+            Center frequency of the highest filter.
         fs:
-            Sampling frequency in hertz.
+            Sampling frequency.
+        order:
+            Order of the filters.
 
     Returns:
         x_filt:
@@ -94,17 +96,10 @@ def gammatone_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3):
         fc:
             Center frequencies.
     '''
-    if x.ndim == 1:
-        x = x.reshape(-1, 1)
-    n_samples, n_channels = x.shape
-    x_filt = np.zeros((n_samples, n_filters, n_channels))
-    b, a, fc = gammatone_iir_filterbank(n_filters, f_min, f_max, fs)
-    for i in range(n_filters):
-        x_filt[:, i, :] = scipy.signal.lfilter(b[i], a[i], x, axis=0)
-    return x_filt.squeeze(), fc
+    return filt(x, 'mel', n_filters, f_min, f_max, fs, order)
 
 
-def mel_iir(f_low, f_high, fs=16e3, order=6):
+def mel_iir(f_low, f_high, fs=16e3, order=4):
     '''
     Coefficients for a bandpass Butterworth filter.
 
@@ -130,18 +125,18 @@ def mel_iir(f_low, f_high, fs=16e3, order=6):
     return b, a
 
 
-def mel_iir_filterbank(n_filters=64, f_min=50, f_max=8000, fs=16e3, order=6):
+def mel_filterbank(n_filters=64, f_min=50, f_max=8000, fs=16e3, order=4):
     '''
-    Coefficients for a filterbank of Butterworth filters equally spaced on a
-    mel scale.
+    Coefficients for a bank of Butterworth filters equally spaced on a mel
+    scale.
 
     Parameters:
         n_filters:
             Number of filters.
         f_min:
-            Lower frequency of the first filter.
+            Lower bandwidth frequency of the lowest filter.
         f_max:
-            Higher frequency of the last filter.
+            Upper bandwidth frequency of the highest filter.
         fs:
             Sampling frequency.
         order:
@@ -167,9 +162,9 @@ def mel_iir_filterbank(n_filters=64, f_min=50, f_max=8000, fs=16e3, order=6):
     return b, a, fc
 
 
-def mel_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, order=6):
+def mel_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, order=4):
     '''
-    Filter a signal through a bank of Butterworth filters equally spaced on an
+    Filter a signal through a bank of Butterworth filters equally spaced on a
     mel scale.
 
     Parameters:
@@ -179,9 +174,41 @@ def mel_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, order=6):
         n_filters:
             Number of filters.
         f_min:
-            Lower frequency of the first filter.
+            Lower bandwidth frequency of the lowest filter.
         f_max:
-            Higher frequency of the last filter.
+            Upper bandwidth frequency of the highest filter.
+        fs:
+            Sampling frequency.
+        order:
+            Order of the filters.
+
+    Returns:
+        x_filt:
+            Decomposed signal. Shape n_samples*n_filters, or
+            n_samples*n_filters*n_channels if multichannel input.
+        fc:
+            Center frequencies.
+    '''
+    return filt(x, 'mel', n_filters, f_min, f_max, fs, order)
+
+
+def filt(x, filter_type='gammatone', n_filters=64, f_min=50, f_max=8000,
+         fs=16e3, order=4):
+    '''
+    Filter a signal through a bank of IIR filters or the selected type.
+
+    Parameters:
+        x:
+            Input array. Can be one- or two-dimensional. If two-dimensional
+            must have shape n_samples*n_channels.
+        filter_type:
+            Filter type. Currently either 'gammatone' or 'mel'.
+        n_filters:
+            Number of filters.
+        f_min:
+            Lower frequency of the filterbank.
+        f_max:
+            Higher frequency of the filterbank.
         fs:
             Sampling frequency.
         order:
@@ -198,10 +225,42 @@ def mel_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, order=6):
         x = x.reshape(-1, 1)
     n_samples, n_channels = x.shape
     x_filt = np.zeros((n_samples, n_filters, n_channels))
-    b, a, fc = mel_iir_filterbank(n_filters, f_min, f_max, fs, order)
+    if filter_type == 'mel':
+        b, a, fc = mel_filterbank(n_filters, f_min, f_max, fs, order)
+    elif filter_type == 'gammatone':
+        b, a, fc = gammatone_filterbank(n_filters, f_min, f_max, fs, order)
+    else:
+        raise ValueError('filter_type must be mel or gammatone')
     for i in range(n_filters):
         x_filt[:, i, :] = scipy.signal.lfilter(b[i], a[i], x, axis=0)
     return x_filt.squeeze(), fc
+
+
+def reverse_filt(x_filt, filter_type, n_filters=64, f_min=50, f_max=8000,
+                 fs=16e3, order=4):
+    '''
+    Reconstruct the output of a filterbank.
+    '''
+    if x_filt.ndim < 2:
+        raise ValueError('x_filt should be at least 2-dimensional')
+    elif x_filt.ndim == 2:
+        x_filt = x_filt[:, :, np.newaxis]
+    elif x_filt.ndim > 3:
+        raise ValueError('x_filt should be at most 3-dimensional')
+    if x_filt.shape[1] != n_filters:
+        raise ValueError(('the specified number of filters (%i) does not '
+                          'match the second dimension of x_filt (%i)' %
+                          (x_filt.shape[1], n_filters)))
+    if filter_type == 'mel':
+        b, a, _ = mel_filterbank(n_filters, f_min, f_max, fs, order)
+    elif filter_type == 'gammatone':
+        b, a, _ = gammatone_filterbank(n_filters, f_min, f_max, fs, order)
+    else:
+        raise ValueError('filter_type must be mel or gammatone')
+    x = np.zeros((len(x_filt), x_filt.shape[2]))
+    for i in range(n_filters):
+        x += scipy.signal.lfilter(b[i], a[i], x_filt[::-1, i, :], axis=0)
+    return x[::-1].squeeze()
 
 
 def mel_triangle_filterbank(n_filters=64, n_fft=512, f_min=50, f_max=8000,
@@ -232,7 +291,7 @@ def mel_triangle_filterbank(n_filters=64, n_fft=512, f_min=50, f_max=8000,
     mel_min, mel_max = freq_to_mel([f_min, f_max])
     mel = np.linspace(mel_min, mel_max, n_filters+2)
     fc = mel_to_freq(mel)
-    f = fft_freqs(fs, n_fft, onesided=True)
+    f = fft_freqs(fs, n_fft)
     FB = np.zeros((len(f), n_filters))
     for i in range(n_filters):
         mask = (fc[i] < f) & (f <= fc[i+1])

@@ -53,6 +53,9 @@ padding = round(0*fs)
 # features to calculate
 feature_list = ['ild', 'itd', 'ic']
 
+# filterbank to use, either 'gammatone' or 'mel'
+filter_type = 'gammatone'
+
 # main loop
 features = []
 labels = []
@@ -62,20 +65,23 @@ for i in range(n_mixtures):
     sentence = random.choice(sentences)
     snr = random.choice(snrs)
     # make mixture
-    mix, target, noise = brever.mixture.make(sentence, brir, brirs, snr,
-                                             padding)
+    mix, _, target, _, _ = brever.mixture.make(sentence, brir, brirs, snr,
+                                               padding)
     # extract features
-    mixture_filt, _ = brever.filters.gammatone_filt(mix)
+    mix, _ = brever.filters.filt(mix, filter_type)
+    mix = brever.utils.frame(mix)
     features_mix = []
     for i, feature_name in enumerate(feature_list):
         t = time.time()
         feature_func = getattr(brever.features, feature_name)
-        features_mix.append(feature_func(mixture_filt))
+        features_mix.append(feature_func(mix, filtered=True,  framed=True))
         times_spent[i] += time.time() - t
     features.append(np.hstack(features_mix))
 
     # extract labels
-    IRM = brever.labels.irm(target, noise)
+    target, _ = brever.filters.filt(target, filter_type)
+    target = brever.utils.frame(target)
+    IRM = brever.labels.irm(target, mix, filtered=True, framed=True)
     labels.append(IRM)
 
 # print time spent

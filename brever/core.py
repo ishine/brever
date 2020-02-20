@@ -1,8 +1,29 @@
 import numpy as np
-import scipy.signal
+import soundfile as sf
+from resampy import resample
 
 from .utils import frame
 from .filters import gammatone_filt, mel_triangle_filterbank
+
+
+def load(filepath, fs=16e3, **kwargs):
+    '''
+    Loads a filename. Resamples to input sampling frequency.
+
+    Parameters:
+        filepath:
+            Path to audio file.
+        fs:
+            Sampling frequency to which resample the signal.
+
+    Returns:
+        x:
+            Audio signal.
+    '''
+    x, fs_old = sf.read(filepath, **kwargs)
+    if fs_old != fs:
+        x = resample(x, fs_old, fs, axis=0)
+    return x
 
 
 def stft(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
@@ -51,12 +72,7 @@ def stft(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
         x = x.reshape(-1, 1)
     if frame_length is None:
         frame_length = n_fft
-    if callable(window):
-        window = window(frame_length)
-    elif isinstance(window, str):
-        window = scipy.signal.get_window(window, frame_length)
-    window = window.reshape(1, -1, 1)
-    frames = frame(x, frame_length, hop_length, center)*window
+    frames = frame(x, frame_length, hop_length, window, center)
     if onesided:
         X = np.fft.rfft(frames, n_fft, axis=1)
     else:
@@ -110,7 +126,7 @@ def spectrogram(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
     '''
     if x.ndim == 1:
         x = x.reshape(-1, 1)
-    X = stft(x, n_fft, hop_length=hop_length, frame_length=frame_length,
+    X = stft(x, n_fft=n_fft, hop_length=hop_length, frame_length=frame_length,
              window=window, center=center, normalization=normalization)
     if domain == 'mag':
         S = np.abs(X)

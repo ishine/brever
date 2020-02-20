@@ -1,6 +1,7 @@
 import numpy as np
 
 from .utils import standardize, frame
+from .filters import filt
 
 
 def ccf(x, y, method='convolve', max_lag=40, negative_lags=False, axis=0,
@@ -42,8 +43,6 @@ def ccf(x, y, method='convolve', max_lag=40, negative_lags=False, axis=0,
         lags:
             Lag vector in samples. Same length as CCF.
     '''
-    # TODO: do gcc instead, since the interaural coherance is taking very small
-    # values
     if normalize:
         x = standardize(x, axis=axis)
         y = standardize(y, axis=axis)
@@ -83,77 +82,117 @@ def ccf(x, y, method='convolve', max_lag=40, negative_lags=False, axis=0,
     return CCF, lags
 
 
-def ild(x_filt, frame_length=512, hop_length=256):
+def ild(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
     '''
-    ILD from the output of a filterbank.
+    Interaural level difference.
 
     Parameters:
-        x_filt:
-            Signal decomposed by a filterbank. Size n_samples*n_filters*2.
-        frame_length:
-            Frame length in samples.
-        hop_length:
-            Frame shift in samples.
+        x:
+            Input signal.
+        filtered:
+            If True, the input signals are assumed to be already filtered. They
+            should then have size n_samples*n_filters*2.
+        filt_kwargs
+            Keyword arguments passed to filters.filt if filtered is
+            False.
+        framed:
+            If True, the input signals are assumed to be already framed. They
+            should then have size n_frames*frame_length*n_filters*2.
+        frame_kwargs:
+            Keyword arguments passed to utils.frame if framed is False.
 
     Returns:
-        ILD:
-            ILD. Size n_frames*n_filters.
+        ild:
+            Interaural level difference. Size n_frames*n_filters.
     '''
-    if x_filt.ndim != 3 or x_filt.shape[2] != 2:
-        raise ValueError('x_filt should have shape n_samples*n_filters*2')
-    frames = frame(x_filt, frame_length, hop_length)
-    energy = np.sum(frames**2, axis=1)
-    ILD = 10*np.log10(energy[:, :, 1]/energy[:, :, 0])
-    return ILD
+    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+    energy = np.sum(x**2, axis=1)
+    return 10*np.log10(energy[:, :, 1]/energy[:, :, 0])
 
 
-def itd(x_filt, frame_length=512, hop_length=256):
+def itd(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
     '''
-    ITD from the output of a filterbank.
+    Interaural time difference.
 
     Parameters:
-        x_filt:
-            Signal decomposed by a filterbank. Size n_samples*n_filters*2.
-        frame_length:
-            Frame length in samples.
-        hop_length:
-            Frame shift in samples.
+        x:
+            Input signal.
+        filtered:
+            If True, the input signals are assumed to be already filtered. They
+            should then have size n_samples*n_filters*2.
+        filt_kwargs
+            Keyword arguments passed to filters.filt if filtered is
+            False.
+        framed:
+            If True, the input signals are assumed to be already framed. They
+            should then have size n_frames*frame_length*n_filters*2.
+        frame_kwargs:
+            Keyword arguments passed to utils.frame if framed is False.
 
     Returns:
-        ITD:
-            ITD. Size n_frames*n_filters.
+        itd:
+            Interaural time difference. Size n_frames*n_filters.
     '''
-    if x_filt.ndim != 3 or x_filt.shape[2] != 2:
-        raise ValueError('x_filt should have shape n_samples*n_filters*2')
-    frames = frame(x_filt, frame_length, hop_length)
-    n_frames, _, n_filters, _ = frames.shape
-    CCF, lags = ccf(frames[:, :, :, 1], frames[:, :, :, 0], max_lag=16,
+    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+    CCF, lags = ccf(x[:, :, :, 1], x[:, :, :, 0], max_lag=16,
                     negative_lags=True, method='fft', axis=1, normalize=True)
-    ITD = lags[CCF.argmax(axis=1)]
-    return ITD
+    return lags[CCF.argmax(axis=1)]
 
 
-def ic(x_filt, frame_length=512, hop_length=256):
+def ic(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
     '''
-    Interautal coherence from the output of a filterbank.
+    Interaural coherence.
 
     Parameters:
-        x_filt:
-            Signal decomposed by a filterbank. Size n_samples*n_filters*2.
-        frame_length:
-            Frame length in samples.
-        hop_length:
-            Frame shift in samples.
+        x:
+            Input signal.
+        filtered:
+            If True, the input signals are assumed to be already filtered. They
+            should then have size n_samples*n_filters*2.
+        filt_kwargs
+            Keyword arguments passed to filters.filt if filtered is
+            False.
+        framed:
+            If True, the input signals are assumed to be already framed. They
+            should then have size n_frames*frame_length*n_filters*2.
+        frame_kwargs:
+            Keyword arguments passed to utils.frame if framed is False.
 
     Returns:
-        ILD:
-            ILD. Size n_frames*n_filters.
+        ic:
+            Interaural coherence. Size n_frames*n_filters.
     '''
-    if x_filt.ndim != 3 or x_filt.shape[2] != 2:
-        raise ValueError('x_filt should have shape n_samples*n_filters*2')
-    frames = frame(x_filt, frame_length, hop_length)
-    n_frames, _, n_filters, _ = frames.shape
-    CCF, lags = ccf(frames[:, :, :, 1], frames[:, :, :, 0], max_lag=16,
+    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+    CCF, lags = ccf(x[:, :, :, 1], x[:, :, :, 0], max_lag=16,
                     negative_lags=True, method='fft', axis=1, normalize=True)
-    IC = CCF.max(axis=1)
-    return IC
+    return CCF.max(axis=1)
+
+
+def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
+                 frame_kwargs=None):
+    if framed and not filtered:
+        raise ValueError('framed cannot be True if filtered is False, since '
+                         'framing must be done after filtering')
+    if filt_kwargs is None:
+        filt_kwargs = {}
+    if frame_kwargs is None:
+        frame_kwargs = {}
+    if x.shape[-1] != 2:
+        raise ValueError(('the last dimension of x must be the number of '
+                          'channels which must be 2'))
+    if not filtered:
+        if x.ndim != 2:
+            raise ValueError(('when filtered is False, x should be '
+                              '2-dimensional with size n_samples*2'))
+        x, _ = filt(x, **filt_kwargs)
+    if not framed:
+        if x.ndim != 3:
+            raise ValueError(('when filtered is True and framed is False, x '
+                              'should be 3-dimensional with size '
+                              'n_samples*n_filters*2'))
+        x = frame(x, **frame_kwargs)
+    if x.ndim != 4:
+        raise ValueError(('when filtered is True and framed is True, x should '
+                          'be 4-dimensional with size '
+                          'n_frames*frame_length*n_filters*2'))
+    return x

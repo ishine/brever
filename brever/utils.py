@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import scipy.signal
 
 
 def zero_pad(x, pad_length, where='after'):
@@ -15,7 +16,7 @@ def zero_pad(x, pad_length, where='after'):
             If 'after', zeros are padded at the end of the array. If 'before',
             they are padded at the beginning.
 
-    Return:
+    Returns:
         x_pad:
             Padded array. Length len(x) + pad_length.
     '''
@@ -33,7 +34,7 @@ def zero_pad(x, pad_length, where='after'):
     return x_pad
 
 
-def frame(x, frame_length, hop_length, center=False):
+def frame(x, frame_length=512, hop_length=256, window='hann', center=False):
     '''
     Slices an array into overlapping frames along first axis.
 
@@ -44,6 +45,15 @@ def frame(x, frame_length, hop_length, center=False):
             Frame length in samples.
         hop_length:
             Frame shift in samples.
+        window:
+            Window type. Can be a string, an array or a function.
+            - If a string, it is passed to scipy.signal.get_window together
+            with frame_length. Note that this creates a periodic (asymmetric)
+            window, which is recommended in spectral analysis.
+            - If an array, it should be one-dimensional with length
+            frame_length.
+            - If a function, it needs to take frame_length as an argument and
+            return an array of length frame_length.
         center:
             If True, the first frame is centered at the first sample by
             zero-padding at the beginning of x, such that the frame of index i
@@ -65,7 +75,34 @@ def frame(x, frame_length, hop_length, center=False):
     for i in range(n_frames):
         j = i*hop_length
         frames[i] = x[j:j+frame_length]
-    return frames
+    if callable(window):
+        window = window(frame_length)
+    elif isinstance(window, str):
+        window = scipy.signal.get_window(window, frame_length)
+    window_shape = np.ones(frames.ndim, int)
+    window_shape[1] = -1
+    window = window.reshape(window_shape)
+    return frames*window
+
+
+def wola(X, frame_length=512, hop_length=256, window='hann', trim=None):
+    '''
+    Weighted overlap-add (WOLA) method.
+    '''
+    if callable(window):
+        window = window(frame_length)
+    elif isinstance(window, str):
+        window = scipy.signal.get_window(window, frame_length)
+    n_frames, n_filters = X.shape
+    n_samples = frame_length + (n_frames-1)*hop_length
+    factor = hop_length/window.sum()
+    x = np.zeros((n_samples, n_filters))
+    for i in range(n_frames):
+        j = i*hop_length
+        x[j:j+frame_length, :] += np.outer(window, X[i, :])*factor
+    if trim is not None:
+        x = x[:trim]
+    return x
 
 
 def standardize(x, axis=0):
@@ -189,6 +226,10 @@ def fft_freqs(fs=16e3, n_fft=512, onesided=True):
             Number of FFT points.
         onesided:
             If True, only the positive frequencies are returned.
+
+    Returns:
+        freqs:
+            FFT frequencies.
     '''
     freqs = np.arange(n_fft)*fs/n_fft
     mask = freqs > fs/2

@@ -44,7 +44,48 @@ def diffuse_noise(brirs, n_samples):
     return noise
 
 
-def make(target, brir, brirs, snr, padding=0):
+def split_brir(brir, direct_time=10e-3, max_itd=1e-3, fs=16e3):
+    '''
+    Splits a BRIR into a direct or early reflections component and a reverb or
+    late reflections component.
+
+    Parameters:
+        brir:
+            Input BRIR.
+        direct_time:
+            Reflection boundary defining the limit between early and late
+            reflections.
+        max_itd:
+            Maximum interaural time difference. Used to compare the locations
+            of the peak in each channel and correct if necessary.
+        fs:
+            Sampling frequency.
+
+    Returns:
+        brir_early:
+            Early reflections part of input BRIR. Same length as brir.
+        brir_late:
+            Late reflections part of input BRIR. Same length as brir.
+    '''
+    peak_i = np.argmax(np.abs(brir), axis=0)
+    peak_val = np.max(np.abs(brir), axis=0)
+    max_delay = round(max_itd*fs)
+    if peak_val[0] > peak_val[1]:
+        segment = np.abs(brir[peak_i[0]:peak_i[0]+max_delay, 1])
+        peak_i[1] = peak_i[0] + np.argmax(segment)
+    else:
+        segment = np.abs(brir[peak_i[1]:peak_i[1]+max_delay, 0])
+        peak_i[0] = peak_i[1] + np.argmax(segment)
+    win_early = np.zeros(brir.shape)
+    win_early[:peak_i[0] + round(direct_time*fs), 0] = 1
+    win_early[:peak_i[1] + round(direct_time*fs), 1] = 1
+    win_late = 1 - win_early
+    brir_early = win_early*brir
+    brir_late = win_late*brir
+    return brir_early, brir_late
+
+
+def make(target, brir, brirs, snr, padding=0, direct_time=10e-3):
     '''
     Make a binaural mixture consisting of a target signal and diffuse noise
     at a given SNR.
@@ -63,20 +104,33 @@ def make(target, brir, brirs, snr, padding=0):
         padding:
             Number of zeros to add before and after the target signal before
             mixing with noise, in samples (not seconds).
+        direct_time:
+            Reflection boundary defining the limit between early and late
+            reflections.
 
     Returns:
         mix:
             Reverberant Binaural mixture.
         target:
-            Reverberant target signal.
+            Reverberant target signal, consisting of both direct sound and late
+            reflections. We have target_reverb = target_early + target_late.
+        target_early:
+            Direct contribution of the target signal. Useful for IRM
+            calculation.
+        target_late:
+            Late contribution of the target signal. Useful for IRM calculation.
         noise:
             Diffuse noise signal.
     '''
     target_reverb = spatialize(target, brir)
     target_reverb = zero_pad(target_reverb, padding, 'both')
-    n_samples = len(target_reverb) + padding*2
+    n_samples = len(target_reverb) + round(padding*2)
     noise = diffuse_noise(brirs, n_samples)
     energy_noise = np.sum(noise[padding:n_samples-padding]**2)
     energy_signal = np.sum(target_reverb**2)
     noise *= 10**(-snr/10)*(energy_signal/energy_noise)**0.5
-    return target_reverb+noise, target_reverb, noise
+    mix = target_reverb+noise
+    brir_direct, brir_late = split_brir(brir, direct_time)
+    target_early = spatialize(target, brir_direct)
+    target_late = spatialize(target, brir_late)
+    return mix, target_reverb, target_early, target_late, noise
