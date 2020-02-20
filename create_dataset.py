@@ -1,6 +1,4 @@
 import os
-import soundfile as sf
-from resampy import resample
 import random
 import h5py
 import numpy as np
@@ -24,9 +22,7 @@ brir_dirpath = 'data/brirs/SURREY/Room_A/16kHz'
 brirs = []
 for filename in os.listdir(brir_dirpath):
     filepath = os.path.join(brir_dirpath, filename)
-    brir, brir_fs = sf.read(filepath)
-    assert brir_fs == fs
-    brirs.append(brir)
+    brirs.append(brever.load(filepath))
 
 # load and resample sentences
 print('Loading and resampling targets...')
@@ -36,14 +32,11 @@ for root, dirs, files in os.walk(sentences_dirpath):
     for filename in files:
         if filename.endswith('.wav'):
             filepath = os.path.join(root, filename)
-            sentence, fs_old = sf.read(filepath)
-            sentence = resample(sentence, fs_old, fs)
-            sentences.append(sentence)
+            sentences.append(brever.load(filepath))
 
 # talker fixed at 0 degrees for now
 brir_filepath = 'data/brirs/SURREY/Room_A/16kHz/CortexBRIR_0_32s_0deg_16k.wav'
-brir, brir_fs = sf.read(brir_filepath)
-assert brir_fs == fs
+brir = brever.load(brir_filepath)
 
 # mixture parameters
 snrs = range(-5, 16)
