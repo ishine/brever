@@ -168,6 +168,41 @@ def ic(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
     return CCF.max(axis=1)
 
 
+def itd_ic(x, filtered=False, filt_kwargs=None, framed=False,
+           frame_kwargs=None):
+    '''
+    Interaural level difference and interaural coherence. Calculating these
+    together speeds up dataset generation because they both come from the
+    cross-correlation function.
+
+    Parameters:
+        x:
+            Input signal.
+        filtered:
+            If True, the input signals are assumed to be already filtered. They
+            should then have size n_samples*n_filters*2.
+        filt_kwargs
+            Keyword arguments passed to filters.filt if filtered is
+            False.
+        framed:
+            If True, the input signals are assumed to be already framed. They
+            should then have size n_frames*frame_length*n_filters*2.
+        frame_kwargs:
+            Keyword arguments passed to utils.frame if framed is False.
+
+    Returns:
+        itd-ic:
+            Interaural time difference and interaural coherence stacked
+            together. Size n_frames*(n_filters*2).
+    '''
+    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+    CCF, lags = ccf(x[:, :, :, 1], x[:, :, :, 0], max_lag=16,
+                    negative_lags=True, method='fft', axis=1, normalize=True)
+    ITD = lags[CCF.argmax(axis=1)]
+    IC = CCF.max(axis=1)
+    return np.hstack([ITD, IC])
+
+
 def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
                  frame_kwargs=None):
     if framed and not filtered:

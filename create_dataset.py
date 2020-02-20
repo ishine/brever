@@ -39,12 +39,12 @@ brir_filepath = 'data/brirs/SURREY/Room_A/16kHz/CortexBRIR_0_32s_0deg_16k.wav'
 brir = brever.load(brir_filepath)
 
 # mixture parameters
+n_mixtures = 100
 snrs = range(-5, 16)
-n_mixtures = 1
 padding = round(0*fs)
 
 # features to calculate
-feature_list = ['ild', 'itd', 'ic']
+feature_list = ['ild', 'itd_ic']
 
 # filterbank to use, either 'gammatone' or 'mel'
 filter_type = 'gammatone'
@@ -53,11 +53,21 @@ filter_type = 'gammatone'
 features = []
 labels = []
 times_spent = np.zeros(len(feature_list))
+total_time_spent = 0
+start_time = time.time()
 for i in range(n_mixtures):
-    print('Processing mixture %i/%i...' % (i+1, n_mixtures))
+
+    # estimate time remaining and show progress
+    if i == 0:
+        print('Processing mixture %i/%i...' % (i+1, n_mixtures))
+    else:
+        etr = (n_mixtures-i)*total_time_spent/i
+        print(('Processing mixture %i/%i... ETR: %i min %i s'
+               % (i+1, n_mixtures, etr//60, etr % 60)))
+
+    # make mixture
     sentence = random.choice(sentences)
     snr = random.choice(snrs)
-    # make mixture
     mix, _, target, _, _ = brever.mixture.make(sentence, brir, brirs, snr,
                                                padding)
     # extract features
@@ -76,6 +86,9 @@ for i in range(n_mixtures):
     target = brever.utils.frame(target)
     IRM = brever.labels.irm(target, mix, filtered=True, framed=True)
     labels.append(IRM)
+
+    # update time spent
+    total_time_spent = time.time() - start_time
 
 # print time spent
 for feature_name, time_spent in zip(feature_list, times_spent):

@@ -249,8 +249,8 @@ def reverse_filt(x_filt, filter_type, n_filters=64, f_min=50, f_max=8000,
         raise ValueError('x_filt should be at most 3-dimensional')
     if x_filt.shape[1] != n_filters:
         raise ValueError(('the specified number of filters (%i) does not '
-                          'match the second dimension of x_filt (%i)' %
-                          (x_filt.shape[1], n_filters)))
+                          'match the second dimension of x_filt (%i)'
+                          % (x_filt.shape[1], n_filters)))
     if filter_type == 'mel':
         b, a, _ = mel_filterbank(n_filters, f_min, f_max, fs, order)
     elif filter_type == 'gammatone':
