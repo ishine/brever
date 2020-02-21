@@ -1,22 +1,28 @@
 import h5py
 import matplotlib.pyplot as plt
-
+import numpy as np
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 dataset_path = 'data/datasets/temp.h5'
 
-n_frames = 200
 
 with h5py.File(dataset_path, 'r') as f:
-    features = f['features'][:n_frames]
-    labels = f['labels'][:n_frames]
+    features = f['features'][:]
+    labels = f['labels'][:]
 
-fig = plt.figure()
-ax = fig.add_subplot(2, 1, 1)
-pos = ax.imshow(features.T, aspect='auto', origin='lower', vmin=-2, vmax=2)
-fig.colorbar(pos, ax=ax)
-ax = fig.add_subplot(2, 1, 2)
-pos = ax.imshow(labels.T, aspect='auto', origin='lower')
-fig.colorbar(pos, ax=ax)
+fig, axes = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 1]},
+                         sharex=True)
+for i, name in enumerate(['features', 'labels']):
+    x = locals()[name].T
+    pos = axes[i].imshow(x, aspect='auto', origin='lower')
+    divider = make_axes_locatable(axes[i])
+    cax = divider.append_axes("right", size="1%", pad=0.1)
+    fig.colorbar(pos, cax=cax)
+    axes[i].set_title(name)
+
+cmin, cmax = np.quantile(features, [0.05, 0.95])
+axes[0].get_images()[0].set_clim(cmin, cmax)
+axes[1].get_images()[0].set_clim(0, 1)
 
 plt.tight_layout()
 plt.show()
