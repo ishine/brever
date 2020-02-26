@@ -1,14 +1,23 @@
+import sys
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from pprint import pprint
 
-dataset_path = 'data/datasets/temp.h5'
+
+dataset_path = sys.argv[1]
 
 
 with h5py.File(dataset_path, 'r') as f:
     features = f['features'][:]
     labels = f['labels'][:]
+    metadata = dict(f.attrs.items())
+
+for key, value in metadata.items():
+    if isinstance(value, np.ndarray):
+        metadata[key] = value.tolist()
+pprint(metadata)
 
 fig, axes = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 1]},
                          sharex=True)
