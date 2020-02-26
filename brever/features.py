@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.fftpack
 
 from .utils import standardize, frame
 from .filters import filt
@@ -201,6 +202,77 @@ def itd_ic(x, filtered=False, filt_kwargs=None, framed=False,
     ITD = lags[CCF.argmax(axis=1)]
     IC = CCF.max(axis=1)
     return np.hstack([ITD, IC])
+
+
+def mfcc(x,  n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
+         filt_kwargs=None, framed=False, frame_kwargs=None):
+    '''
+    Mel-frequency cepstral coefficients. DC term is not returned.
+
+    Parameters:
+        x:
+            Input signal.
+        n_mfcc:
+            Number of MFCCs to return, DC term not included.
+        dct_type:
+            Discrete cosine transform type.
+        norm:
+            If dct_type is 2 or 3, setting norm='ortho' uses an ortho-normal
+            DCT basis.
+        filtered:
+            If True, the input signals are assumed to be already filtered. They
+            should then have size n_samples*n_filters*2.
+        filt_kwargs
+            Keyword arguments passed to filters.filt if filtered is
+            False.
+        framed:
+            If True, the input signals are assumed to be already framed. They
+            should then have size n_frames*frame_length*n_filters*2.
+        frame_kwargs:
+            Keyword arguments passed to utils.frame if framed is False.
+
+    Returns:
+        mfcc:
+            Mel-frequency cepstral coefficients. Size n_frames*n_mfcc.
+    '''
+    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+    x = x.mean(axis=-1)  # average channels
+    energy = x**2  # get energy
+    energy = energy.mean(axis=1)  # average each frame
+    log_energy = np.log(energy)
+    mfcc = scipy.fftpack.dct(log_energy, axis=1, type=dct_type, norm=norm)
+    return mfcc[:, 1:n_mfcc+1]
+
+
+def pdf(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
+    '''
+    Probability density function estimate.
+
+    Parameters:
+        x:
+            Input signal.
+        filtered:
+            If True, the input signals are assumed to be already filtered. They
+            should then have size n_samples*n_filters*2.
+        filt_kwargs
+            Keyword arguments passed to filters.filt if filtered is
+            False.
+        framed:
+            If True, the input signals are assumed to be already framed. They
+            should then have size n_frames*frame_length*n_filters*2.
+        frame_kwargs:
+            Keyword arguments passed to utils.frame if framed is False.
+
+    Returns:
+        pdf:
+            Probability density function estimate. Size n_frames*n_filters.
+    '''
+    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+    x = x.mean(axis=-1)  # average channels
+    energy = x**2  # get energy
+    energy = energy.mean(axis=1)  # average each frame
+    pdf = energy/energy.sum(axis=1, keepdims=True)
+    return pdf
 
 
 def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
