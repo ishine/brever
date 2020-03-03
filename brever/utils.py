@@ -127,6 +127,43 @@ def standardize(x, axis=0):
     return x_standard
 
 
+def pca(X, n_components=None, pve=None):
+    '''
+    Principal component analysis.
+
+    Parameters:
+        X:
+            Input data. Size n_samples*n_features.
+        n_components:
+            Number of principal components to return. By default all components
+            are returned.
+        pve:
+            Percentage of variance explained. Can be provided instead of
+            n_components such that the returned components account for at least
+            pve of variance explained.
+
+    Returns:
+        components:
+            Principal components. Size n_features*n_components.
+        variance_explained:
+            Variance explained by each component. Length n_components.
+        means:
+            Per-feature empirical mean. Length n_features.
+    '''
+    if n_components is not None and pve is not None:
+        raise ValueError('can\'t specify both n_components and pve')
+    means = X.mean(axis=0)
+    X_center = X-means
+    components, variance_explained, _ = np.linalg.svd(X_center.T@X_center)
+    variance_explained /= len(X)-1
+    if n_components is not None:
+        components = components[:, :n_components]
+        variance_explained = variance_explained[:, :n_components]
+    elif pve is not None:
+        n_components = np.argmax()
+    return components, variance_explained, means
+
+
 def freq_to_erb(f):
     '''
     Conversion from frequency in hertz to ERB-rate.
