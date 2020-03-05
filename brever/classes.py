@@ -114,7 +114,7 @@ class FeatureExtractor(BaseClass):
         self.indices = []
         i_start = 0
         for feature_set in output:
-            i_end = i_start + len(feature_set)
+            i_end = i_start + feature_set.shape[1]
             self.indices.append((i_start, i_end))
             i_start = i_end
         return np.hstack(output)
