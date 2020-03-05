@@ -72,7 +72,7 @@ def diffuse_noise(brirs, n_samples, color='white'):
     return diffuse(x, brirs)
 
 
-def split_brir(brir, reflection_boundary=10e-3, max_itd=1e-3, fs=16e3):
+def split_brir(brir, reflection_boundary=50e-3, max_itd=1e-3, fs=16e3):
     '''
     Splits a BRIR into a direct or early reflections component and a reverb or
     late reflections component.
@@ -113,7 +113,7 @@ def split_brir(brir, reflection_boundary=10e-3, max_itd=1e-3, fs=16e3):
     return brir_early, brir_late
 
 
-def split_and_spatialize(x, brir, reflection_boundary=10e-3, max_itd=1e3,
+def split_and_spatialize(x, brir, reflection_boundary=50e-3, max_itd=1e3,
                          fs=16e3):
     brir_direct, brir_late = split_brir(brir, reflection_boundary, max_itd, fs)
     x_early = spatialize(x, brir_direct)
@@ -145,7 +145,7 @@ def diffuse_and_directional_noise(sources_colors, sources_brirs, diffuse_color,
 
 def make_mixture(target, brir_target, brirs_diffuse, brirs_directional, snr,
                  snrs_directional_to_diffuse, color_diffuse,
-                 colors_directional, padding=0, reflection_boundary=10e-3,
+                 colors_directional, padding=0, reflection_boundary=50e-3,
                  max_itd=1e-3, fs=16e3):
     '''
     Make a binaural mixture consisting of a target signal, some diffuse noise
