@@ -113,13 +113,6 @@ def split_brir(brir, reflection_boundary=50e-3, fs=16e3, max_itd=1e-3):
     return brir_early, brir_late
 
 
-def split_and_spatialize(x, brir, reflection_boundary=50e-3, fs=16e3):
-    brir_direct, brir_late = split_brir(brir, reflection_boundary, fs)
-    x_early = spatialize(x, brir_direct)
-    x_late = spatialize(x, brir_late)
-    return x_early, x_late
-
-
 def adjust_snr(signal, noise, snr, slice_=None):
     if slice_ is None:
         slice_ = np.s_[:]
@@ -193,19 +186,23 @@ def make_mixture(target, brir_target, brirs_diffuse, brirs_directional, snr,
             components. Serves as the noise signal in the IRM calculation.
     '''
     padding = round(padding*fs)
-    target_reverb = spatialize(target, brir_target)
-    target_reverb = zero_pad(target_reverb, padding, 'both')
-    n_samples = len(target_reverb)
+    brir_direct, brir_late = split_brir(brir_target, reflection_boundary, fs)
+    target_full = spatialize(target, brir_target)
+    target_early = spatialize(target, brir_direct)
+    target_late = spatialize(target, brir_direct)
+    target_full = zero_pad(target_full, padding, 'both')
+    target_early = zero_pad(target_early, padding, 'both')
+    target_late = zero_pad(target_late, padding, 'both')
+    n_samples = len(target_full)
     noise = diffuse_and_directional_noise(colors_directional,
-                                          brirs_directional, color_diffuse,
+                                          brirs_directional,
+                                          color_diffuse,
                                           brirs_diffuse,
                                           snrs_directional_to_diffuse,
                                           n_samples)
-    noise = adjust_snr(target_reverb, noise, snr,
+    noise = adjust_snr(target_full, noise, snr,
                        slice(padding, n_samples-padding))
-    target_early, target_late = split_and_spatialize(target, brir_target,
-                                                     reflection_boundary, fs)
-    mixture = target_reverb + noise
+    mixture = target_full + noise
     foreground = target_early
     background = target_late + noise
     return mixture, foreground, background
