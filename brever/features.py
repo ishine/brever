@@ -204,7 +204,7 @@ def itd_ic(x, filtered=False, filt_kwargs=None, framed=False,
     return np.hstack([ITD, IC])
 
 
-def mfcc(x,  n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
+def mfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
          filt_kwargs=None, framed=False, frame_kwargs=None):
     '''
     Mel-frequency cepstral coefficients. DC term is not returned.

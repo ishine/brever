@@ -154,7 +154,7 @@ def pca(X, n_components=None, fve=None):
         raise ValueError('either n_components or fve must be specified')
     elif n_components is not None and fve is not None:
         raise ValueError('can\'t specify both n_components and fve')
-    elif fve is not None and not 0 <= fve <=1:
+    elif fve is not None and not 0 <= fve <= 1:
         raise ValueError('when specified, fve must be between 0 and 1')
     means = X.mean(axis=0)
     X_center = X-means

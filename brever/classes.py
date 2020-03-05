@@ -52,10 +52,10 @@ class BaseClass:
                                                     len(value))
             elif isinstance(value, np.ndarray):
                 attrs[key] = 'numpy array with shape %s' % str(value.shape)
-        output = (self.__class__.__module__ + '.' + self.__class__.__name__ +
-                  ' instance:\n    ' +
-                  '\n    '.join(': '.join((str(key), str(value)))
-                                for key, value in attrs.items()))
+        output = (self.__class__.__module__ + '.' + self.__class__.__name__
+                  + ' instance:\n    '
+                  + '\n    '.join(': '.join((str(key), str(value)))
+                                  for key, value in attrs.items()))
         return output
 
 
@@ -110,7 +110,7 @@ class FeatureExtractor(BaseClass):
         output = []
         for feature in self.features:
             feature_func = getattr(features_module, feature)
-            output.append(feature_func(x, filtered=True,  framed=True))
+            output.append(feature_func(x, filtered=True, framed=True))
         self.indices = []
         i_start = 0
         for feature_set in output:

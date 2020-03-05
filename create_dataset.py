@@ -61,14 +61,14 @@ labelExtractor = LabelExtractor(
 # mixture maker
 randomMixtureMaker = RandomMixtureMaker(
     rooms=['surrey_room_a'],
-    angles_target=[0],
+    angles_target=range(-90, 95, 5),
     angles_directional=range(-90, 95, 5),
-    snrs=range(-5, 6),
-    snrs_directional_to_diffuse=[10],
+    snrs=range(0, 16),
+    snrs_directional_to_diffuse=range(-5, 6),
     colors_directional=['brown', 'pink', 'white', 'blue', 'violet'],
-    colors_diffuse=['brown', 'pink', 'white', 'blue', 'violet'],
+    colors_diffuse=['white'],
     n_directional_sources=range(4),
-    padding=0,
+    padding=0.5,
     reflection_boundary=50e-3,
     fs=fs,
 )

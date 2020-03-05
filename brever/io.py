@@ -2,8 +2,6 @@ import os
 import re
 import soundfile as sf
 import random
-import h5py
-import numpy as np
 from resampy import resample
 
 from . import config
