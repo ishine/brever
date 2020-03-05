@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.signal
 
-from .utils import zero_pad
+from .utils import zero_pad, fft_freqs
 
 
 def spatialize(x, brir):
@@ -23,9 +23,37 @@ def spatialize(x, brir):
     return np.vstack([x_left, x_right]).T
 
 
-def diffuse_noise(brirs, n_samples):
+def diffuse(x, brirs):
+    output = np.zeros((len(x), 2))
+    for brir in brirs:
+        output += spatialize(x, brir)
+    return output
+
+
+def colored_noise(color, n_samples):
+    colors = {
+        'brown': 2,
+        'pink': 1,
+        'white': 0,
+        'blue': -1,
+        'violet': -2,
+    }
+    if color not in colors.keys():
+        raise ValueError('color must be either one of %s' % colors.keys())
+    alpha = colors[color]
+    scaling = fft_freqs(fs=1, n_fft=n_samples)
+    scaling[0] = scaling[1]
+    scaling **= -alpha/2
+    x = np.random.randn(n_samples)
+    X = np.fft.rfft(x)
+    X *= scaling
+    x = np.fft.irfft(X, n_samples).real
+    return x
+
+
+def diffuse_noise(brirs, n_samples, color='white'):
     '''
-    Create diffuse white Gaussian noise using a set of binaural room impulse
+    Create diffuse colored noise using a set of binaural room impulse
     responses.
 
     Parameters:
@@ -33,15 +61,15 @@ def diffuse_noise(brirs, n_samples):
             List of binaural room impulse responses.
         n_samples:
             Number of samples of noise to generate.
+        color:
+            Noise color.
 
     Returns:
         noise:
             Diffuse binaural noise.
     '''
-    noise = np.zeros((n_samples, 2))
-    for brir in brirs:
-        noise += spatialize(np.random.randn(n_samples), brir)
-    return noise
+    x = colored_noise(color, n_samples)
+    return diffuse(x, brirs)
 
 
 def split_brir(brir, reflection_boundary=10e-3, max_itd=1e-3, fs=16e3):
@@ -85,23 +113,67 @@ def split_brir(brir, reflection_boundary=10e-3, max_itd=1e-3, fs=16e3):
     return brir_early, brir_late
 
 
-def make(target, brir, brirs, snr, padding=0, reflection_boundary=10e-3,
-         max_itd=1e-3, fs=16e3):
+def split_and_spatialize(x, brir, reflection_boundary=10e-3, max_itd=1e3,
+                         fs=16e3):
+    brir_direct, brir_late = split_brir(brir, reflection_boundary, max_itd, fs)
+    x_early = spatialize(x, brir_direct)
+    x_late = spatialize(x, brir_late)
+    return x_early, x_late
+
+
+def adjust_snr(signal, noise, snr, slice_=None):
+    if slice_ is None:
+        slice_ = np.s_[:]
+    energy_signal = np.sum(signal[slice_]**2)
+    energy_noise = np.sum(noise[slice_]**2)
+    gain = 10**(-snr/10)*(energy_signal/energy_noise)**0.5
+    noise = noise*gain
+    return noise
+
+
+def diffuse_and_directional_noise(sources_colors, sources_brirs, diffuse_color,
+                                  diffuse_brirs, snrs, n_samples):
+    noise = diffuse_noise(diffuse_brirs, n_samples, diffuse_color)
+    sources = np.zeros((n_samples, 2))
+    for color, brir, snr in zip(sources_colors, sources_brirs, snrs):
+        source = colored_noise(color, n_samples)
+        source = spatialize(source, brir)
+        source = adjust_snr(noise, source, -snr)
+        sources += source
+    return noise + sources
+
+
+def make_mixture(target, brir_target, brirs_diffuse, brirs_directional, snr,
+                 snrs_directional_to_diffuse, color_diffuse,
+                 colors_directional, padding=0, reflection_boundary=10e-3,
+                 max_itd=1e-3, fs=16e3):
     '''
-    Make a binaural mixture consisting of a target signal and diffuse noise
-    at a given SNR.
+    Make a binaural mixture consisting of a target signal, some diffuse noise
+    and some directional noise sources
 
     Parameters:
         target:
             Talker monaural signal.
-        brir:
+        brir_target:
             Binaural room impulse response used to spatialize the target before
             mixing. This defines the position of the talker in the room.
-        brirs:
-            List of binaural room impulse responses used ot create diffuse
-            noise. brir should ideally figure in this list.
+        brirs_diffuse:
+            List of binaural room impulse responses used to create diffuse
+            noise.
+        brirs_directional:
+            List of binaural room impulse responses used to create the
+            directional noise sources.
         snr:
-            Signal-to-noise ratio.
+            Signal-to-noise ratio, where "signal" refers to the reverberant
+            target signal and "noise" refers to the diffuse noise plus the
+            directional noise.
+        snrs_directional_to_diffuse:
+            List of ignal-to-noise ratios, where "signal" refers to the
+            directional noise and "noise" refers to the diffuse noise.
+        color_diffuse:
+            Noise color for the diffuse noise.
+        colors_directional:
+            List of noise colors for the directional noise sources
         padding:
             Amount of zeros to add before and after the target signal before
             mixing with noise, in seconds.
@@ -115,29 +187,30 @@ def make(target, brir, brirs, snr, padding=0, reflection_boundary=10e-3,
             Sampling frequency.
 
     Returns:
-        mix:
-            Reverberant Binaural mixture.
-        target:
-            Reverberant target signal, consisting of both direct sound and late
-            reflections. We have target_reverb = target_early + target_late.
-        target_early:
-            Direct contribution of the target signal. Useful for IRM
-            calculation.
-        target_late:
-            Late contribution of the target signal. Useful for IRM calculation.
-        noise:
-            Diffuse noise signal.
+        mixture:
+            Reverberant binaural mixture.
+        foreground:
+            Target signal early reflections. Serves as the target signal in
+            the IRM calculation.
+        background:
+            Target signal late reflections plus diffuse and directional noise
+            components. Serves as the noise signal in the IRM calculation.
     '''
     padding = round(padding*fs)
-    target_reverb = spatialize(target, brir)
+    target_reverb = spatialize(target, brir_target)
     target_reverb = zero_pad(target_reverb, padding, 'both')
-    n_samples = len(target_reverb) + round(padding*2)
-    noise = diffuse_noise(brirs, n_samples)
-    energy_noise = np.sum(noise[padding:n_samples-padding]**2)
-    energy_signal = np.sum(target_reverb**2)
-    noise *= 10**(-snr/10)*(energy_signal/energy_noise)**0.5
-    mix = target_reverb+noise
-    brir_direct, brir_late = split_brir(brir, reflection_boundary, max_itd, fs)
-    target_early = spatialize(target, brir_direct)
-    target_late = spatialize(target, brir_late)
-    return mix, target_reverb, target_early, target_late, noise
+    n_samples = len(target_reverb)
+    noise = diffuse_and_directional_noise(colors_directional,
+                                          brirs_directional, color_diffuse,
+                                          brirs_diffuse,
+                                          snrs_directional_to_diffuse,
+                                          n_samples)
+    noise = adjust_snr(target_reverb, noise, snr,
+                       slice(padding, n_samples-padding))
+    target_early, target_late = split_and_spatialize(target, brir_target,
+                                                     reflection_boundary,
+                                                     max_itd, fs)
+    mixture = target_reverb + noise
+    foreground = target_early
+    background = target_late + noise
+    return mixture, foreground, background

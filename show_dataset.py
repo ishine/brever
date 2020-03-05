@@ -16,7 +16,7 @@ if len(sys.argv) > 1:
 else:
     basename = 'temp'
     dataset_path = 'data/datasets/%s.hdf5' % basename
-    pipes_path = 'data/datasets/%s_pipes.pkl' % basename
+    pipes_path = 'data/datasets/%s.pkl' % basename
 
 # load pipes
 with open(pipes_path, 'rb') as f:

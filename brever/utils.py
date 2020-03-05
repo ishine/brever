@@ -127,7 +127,7 @@ def standardize(x, axis=0):
     return x_standard
 
 
-def pca(X, n_components=None, pve=None):
+def pca(X, n_components=None, fve=None):
     '''
     Principal component analysis.
 
@@ -137,31 +137,37 @@ def pca(X, n_components=None, pve=None):
         n_components:
             Number of principal components to return. By default all components
             are returned.
-        pve:
-            Percentage of variance explained. Can be provided instead of
+        fve:
+            Fraction of variance explained. Can be provided instead of
             n_components such that the returned components account for at least
-            pve of variance explained.
+            fve of variance explained.
 
     Returns:
         components:
             Principal components. Size n_features*n_components.
-        variance_explained:
+        ve:
             Variance explained by each component. Length n_components.
         means:
             Per-feature empirical mean. Length n_features.
     '''
-    if n_components is not None and pve is not None:
-        raise ValueError('can\'t specify both n_components and pve')
+    if n_components is None and fve is None:
+        raise ValueError('either n_components or fve must be specified')
+    elif n_components is not None and fve is not None:
+        raise ValueError('can\'t specify both n_components and fve')
+    elif fve is not None and not 0 <= fve <=1:
+        raise ValueError('when specified, fve must be between 0 and 1')
     means = X.mean(axis=0)
     X_center = X-means
-    components, variance_explained, _ = np.linalg.svd(X_center.T@X_center)
-    variance_explained /= len(X)-1
-    if n_components is not None:
-        components = components[:, :n_components]
-        variance_explained = variance_explained[:, :n_components]
-    elif pve is not None:
-        n_components = np.argmax()
-    return components, variance_explained, means
+    components, ve, _ = np.linalg.svd(X_center.T@X_center)
+    ve /= len(X)-1
+    if fve is not None:
+        if fve == 1:
+            n_components = components.shape[1]
+        else:
+            n_components = np.argmax(np.cumsum(ve)/np.sum(ve) >= fve) + 1
+    components = components[:, :n_components]
+    ve = ve[:, :n_components]
+    return components, ve, means
 
 
 def freq_to_erb(f):

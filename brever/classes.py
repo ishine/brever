@@ -4,10 +4,10 @@ import random
 
 from .utils import pca, frame
 from .filters import mel_filterbank, gammatone_filterbank
-from . import features as features_module
-from .labels import irm
-from .mixture import make as make_mixture
+from .mixture import make_mixture
 from .io import load_random_target, load_brir, load_brirs
+from . import features as features_module
+from . import labels as labels_module
 
 
 class Standardizer:
@@ -40,7 +40,7 @@ class PCA:
         return (X - self.means) @ self.components
 
 
-class PipeBaseClass:
+class BaseClass:
     def __init__(self):
         pass
 
@@ -52,13 +52,14 @@ class PipeBaseClass:
                                                     len(value))
             elif isinstance(value, np.ndarray):
                 attrs[key] = 'numpy array with shape %s' % str(value.shape)
-        output = (self.__class__.__name__ + ':\n    ' +
+        output = (self.__class__.__module__ + '.' + self.__class__.__name__ +
+                  ' instance:\n    ' +
                   '\n    '.join(': '.join((str(key), str(value)))
                                 for key, value in attrs.items()))
         return output
 
 
-class Filterbank(PipeBaseClass):
+class Filterbank(BaseClass):
     def __init__(self, kind, n_filters, f_min, f_max, fs, order):
         self.kind = kind
         self.n_filters = n_filters
@@ -87,7 +88,7 @@ class Filterbank(PipeBaseClass):
         return x_filt.squeeze()
 
 
-class Framer(PipeBaseClass):
+class Framer(BaseClass):
     def __init__(self, frame_length, hop_length, window, center):
         self.frame_length = frame_length
         self.hop_length = hop_length
@@ -100,7 +101,7 @@ class Framer(PipeBaseClass):
                      center=self.center)
 
 
-class FeatureExtractor(PipeBaseClass):
+class FeatureExtractor(BaseClass):
     def __init__(self, features):
         self.features = features
         self.indices = None
@@ -119,55 +120,85 @@ class FeatureExtractor(PipeBaseClass):
         return np.hstack(output)
 
 
-class LabelExtractor(PipeBaseClass):
-    def __init__(self):
-        pass
+class LabelExtractor(BaseClass):
+    def __init__(self, label):
+        self.label = label
 
     def run(self, target, noise):
-        return irm(target, noise, filtered=True, framed=True)
+        label_func = getattr(labels_module, self.label)
+        return label_func(target, noise, filtered=True, framed=True)
 
 
-class RandomMixtureMaker(PipeBaseClass):
-    def __init__(self, rooms, angles, snrs, padding,
+class RandomMixtureMaker(BaseClass):
+    def __init__(self, rooms, angles_target, angles_directional, snrs,
+                 snrs_directional_to_diffuse, colors_directional,
+                 colors_diffuse, n_directional_sources, padding,
                  reflection_boundary, max_itd, fs):
         self.rooms = rooms
-        self.angles = angles
+        self.angles_target = angles_target
+        self.angles_directional = angles_directional
         self.snrs = snrs
+        self.snrs_directional_to_diffuse = snrs_directional_to_diffuse
+        self.colors_directional = colors_directional
+        self.colors_diffuse = colors_diffuse
+        self.n_directional_sources = n_directional_sources
         self.padding = padding
         self.reflection_boundary = reflection_boundary
         self.max_itd = max_itd
         self.fs = fs
 
     def make(self):
-        angle = random.choice(self.angles)
+        angle = random.choice(self.angles_target)
         room = random.choice(self.rooms)
         snr = random.choice(self.snrs)
+        color_diffuse = random.choice(self.colors_diffuse)
+        n_directional_sources = random.choice(self.n_directional_sources)
+        snrs_dir_to_diff = random.choices(self.snrs_directional_to_diffuse,
+                                          k=n_directional_sources)
+        colors_directional = random.choices(self.colors_directional,
+                                            k=n_directional_sources)
+        angles_directional = random.choices(self.angles_directional,
+                                            k=n_directional_sources)
         target, filename = load_random_target()
-        brir, fs = load_brir(room, angle)
+        brir_target, fs = load_brir(room, angle)
         if fs != self.fs:
-            raise ValueError(('the brir samplerate does not match the ',
-                              'RandomMixtureMaker instance samplerate '
-                              'attribute'))
-        brirs, fs = load_brirs(room)
+            raise ValueError(('the brir samplerate obtained from load_brir '
+                              '(%s, %i) does not match the RandomMixtureMaker '
+                              'instance samplerate attribute (%i vs %i)'
+                              % (room, angle, fs, self.fs)))
+        brirs_diffuse, fs = load_brirs(room)
         if fs != self.fs:
-            raise ValueError(('the brirs samplerate does not match the ',
-                              'RandomMixtureMaker instance samplerate '
-                              'attribute'))
-        components = make_mixture(target, brir, brirs, snr,
+            raise ValueError(('the brir samplerate obtained from load_brirs '
+                              '(%s) does not match the RandomMixtureMaker '
+                              'instance samplerate attribute (%i vs %i)'
+                              % (room, fs, self.fs)))
+        brirs_directional, fs = load_brirs(room, angles_directional)
+        if fs is not None and fs != self.fs:
+            raise ValueError(('the brir samplerate obtained from load_brir '
+                              '(%s, %s) does not match the RandomMixtureMaker '
+                              'instance samplerate attribute (%i vs %i)'
+                              % (room, angles_directional, fs, self.fs)))
+        components = make_mixture(target=target,
+                                  brir_target=brir_target,
+                                  brirs_diffuse=brirs_diffuse,
+                                  brirs_directional=brirs_directional,
+                                  snr=snr,
+                                  snrs_directional_to_diffuse=snrs_dir_to_diff,
+                                  color_diffuse=color_diffuse,
+                                  colors_directional=colors_directional,
                                   padding=self.padding,
                                   reflection_boundary=self.reflection_boundary,
-                                  max_itd=self.max_itd, fs=self.fs)
-        mix, target_reverb, target_early, target_late, noise = components
-        return Mixture(components, angle, room, snr, filename)
-
-
-class Mixture(PipeBaseClass):
-    def __init__(self, components, angle, room, snr, filename):
-        mix, target_reverb, target_early, target_late, noise = components
-        self.mix = mix
-        self.foreground = target_early
-        self.background = target_late + noise
-        self.angle = angle
-        self.room = room
-        self.snr = snr
-        self.filename = filename
+                                  max_itd=self.max_itd,
+                                  fs=self.fs)
+        metadata = {
+            'room': room,
+            'filename': filename,
+            'angle': angle,
+            'snr': snr,
+            'color_diffuse': color_diffuse,
+            'n_directional_sources': n_directional_sources,
+            'angles_directional': angles_directional,
+            'snrs_dir_to_diff': snrs_dir_to_diff,
+            'colors_directional': colors_directional,
+        }
+        return components, metadata

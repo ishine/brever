@@ -2,6 +2,7 @@ import sys
 import pickle
 import random
 import h5py
+import json
 import numpy as np
 import time
 
@@ -14,8 +15,9 @@ try:
     output_basename = sys.argv[1]
 except IndexError:
     output_basename = 'temp'
-main_output_path = 'data/datasets/%s.hdf5' % output_basename
-pipes_output_path = 'data/datasets/%s_pipes.pkl' % output_basename
+datasets_output_path = 'data/datasets/%s.hdf5' % output_basename
+pipes_output_path = 'data/datasets/%s.pkl' % output_basename
+metadatas_output_path = 'data/datasets/%s.json' % output_basename
 
 # set random state for reproducibility
 random.seed(42)
@@ -52,13 +54,20 @@ featureExtractor = FeatureExtractor(
 )
 
 # label extractor
-labelExtractor = LabelExtractor()
+labelExtractor = LabelExtractor(
+    label='irm'
+)
 
 # mixture maker
 randomMixtureMaker = RandomMixtureMaker(
     rooms=['surrey_room_a'],
-    angles=[0],
-    snrs=range(-5, 16),
+    angles_target=[0],
+    angles_directional=range(-90, 95, 5),
+    snrs=range(-5, 6),
+    snrs_directional_to_diffuse=[10],
+    colors_directional=['brown', 'pink', 'white', 'blue', 'violet'],
+    colors_diffuse=['brown', 'pink', 'white', 'blue', 'violet'],
+    n_directional_sources=range(4),
     padding=0,
     reflection_boundary=10e-3,
     max_itd=1e-3,
@@ -66,17 +75,16 @@ randomMixtureMaker = RandomMixtureMaker(
 )
 
 # number of mixtures
-n_mixtures = 2
+n_mixtures = 10
 
 # main loop
 features = []
 labels = []
 mixtures = []
-metadata = {
-    'snrs': [],
-    'filenames': [],
-    'indices': [],
-}
+foregrounds = []
+backgrounds = []
+metadatas = []
+indices = []
 i_start = 0
 total_time = 0
 start_time = time.time()
@@ -90,31 +98,33 @@ for i in range(n_mixtures):
         print(('Processing mixture %i/%i... ETR: %i min %i s'
                % (i+1, n_mixtures, etr//60, etr % 60)))
 
-    # make mixture
-    mixtureObject = randomMixtureMaker.make()
-    mixtures.append(mixtureObject.mix)
+    # make mixture and save
+    components, metadata = randomMixtureMaker.make()
+    mixture, foreground, background = components
+    mixtures.append(mixture.flatten())
+    foregrounds.append(foreground.flatten())
+    backgrounds.append(background.flatten())
+    metadatas.append(metadata)
 
     # apply filterbank
-    mix = filterbank.filt(mixtureObject.mix)
-    foreground = filterbank.filt(mixtureObject.foreground)
-    background = filterbank.filt(mixtureObject.background)
+    mixture = filterbank.filt(mixture)
+    foreground = filterbank.filt(foreground)
+    background = filterbank.filt(background)
 
     # frame
-    mix = framer.frame(mix)
+    mixture = framer.frame(mixture)
     foreground = framer.frame(foreground)
     background = framer.frame(background)
 
     # extract features
-    features.append(featureExtractor.run(mix))
+    features.append(featureExtractor.run(mixture))
 
     # extract labels
     labels.append(labelExtractor.run(foreground, background))
 
-    # save metadata
-    metadata['snrs'].append(mixtureObject.snr)
-    metadata['filenames'].append(mixtureObject.filename)
-    i_end = i_start + len(mix)
-    metadata['indices'].append((i_start, i_end))
+    # save indices
+    i_end = i_start + len(mixture)
+    indices.append((i_start, i_end))
     i_start = i_end
 
     # update time spent
@@ -124,13 +134,21 @@ for i in range(n_mixtures):
 features = np.vstack(features)
 labels = np.vstack(labels)
 
-# save features, labels, mixtures and mixture metadata
-with h5py.File(main_output_path, 'w') as f:
+# save datasets
+with h5py.File(datasets_output_path, 'w') as f:
     f.create_dataset('features', data=features)
     f.create_dataset('labels', data=labels)
     f.create_dataset('mixtures', data=mixtures,
-                     dtype=h5py.vlen_dtype(mixtures[0].dtype))
-    f.attrs.update(metadata)
+                     dtype=h5py.vlen_dtype(float))
+    f.create_dataset('foregrounds', data=foregrounds,
+                     dtype=h5py.vlen_dtype(float))
+    f.create_dataset('backgrounds', data=backgrounds,
+                     dtype=h5py.vlen_dtype(float))
+    f.attrs['indices'] = indices
+
+# save mixtures metadata
+with open(metadatas_output_path, 'w') as f:
+    json.dump(metadatas, f)
 
 # save pipes
 pipes = {
