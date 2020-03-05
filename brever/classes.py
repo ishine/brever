@@ -133,7 +133,7 @@ class RandomMixtureMaker(BaseClass):
     def __init__(self, rooms, angles_target, angles_directional, snrs,
                  snrs_directional_to_diffuse, colors_directional,
                  colors_diffuse, n_directional_sources, padding,
-                 reflection_boundary, max_itd, fs):
+                 reflection_boundary, fs):
         self.rooms = rooms
         self.angles_target = angles_target
         self.angles_directional = angles_directional
@@ -144,7 +144,6 @@ class RandomMixtureMaker(BaseClass):
         self.n_directional_sources = n_directional_sources
         self.padding = padding
         self.reflection_boundary = reflection_boundary
-        self.max_itd = max_itd
         self.fs = fs
 
     def make(self):
@@ -188,7 +187,6 @@ class RandomMixtureMaker(BaseClass):
                                   colors_directional=colors_directional,
                                   padding=self.padding,
                                   reflection_boundary=self.reflection_boundary,
-                                  max_itd=self.max_itd,
                                   fs=self.fs)
         metadata = {
             'room': room,

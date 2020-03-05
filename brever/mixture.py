@@ -72,7 +72,7 @@ def diffuse_noise(brirs, n_samples, color='white'):
     return diffuse(x, brirs)
 
 
-def split_brir(brir, reflection_boundary=50e-3, max_itd=1e-3, fs=16e3):
+def split_brir(brir, reflection_boundary=50e-3, fs=16e3, max_itd=1e-3):
     '''
     Splits a BRIR into a direct or early reflections component and a reverb or
     late reflections component.
@@ -83,11 +83,11 @@ def split_brir(brir, reflection_boundary=50e-3, max_itd=1e-3, fs=16e3):
         reflection_boundary:
             Reflection boundary defining the limit between early and late
             reflections.
+        fs:
+            Sampling frequency.
         max_itd:
             Maximum interaural time difference. Used to compare the locations
             of the peak in each channel and correct if necessary.
-        fs:
-            Sampling frequency.
 
     Returns:
         brir_early:
@@ -113,9 +113,8 @@ def split_brir(brir, reflection_boundary=50e-3, max_itd=1e-3, fs=16e3):
     return brir_early, brir_late
 
 
-def split_and_spatialize(x, brir, reflection_boundary=50e-3, max_itd=1e3,
-                         fs=16e3):
-    brir_direct, brir_late = split_brir(brir, reflection_boundary, max_itd, fs)
+def split_and_spatialize(x, brir, reflection_boundary=50e-3, fs=16e3):
+    brir_direct, brir_late = split_brir(brir, reflection_boundary, fs)
     x_early = spatialize(x, brir_direct)
     x_late = spatialize(x, brir_late)
     return x_early, x_late
@@ -146,7 +145,7 @@ def diffuse_and_directional_noise(sources_colors, sources_brirs, diffuse_color,
 def make_mixture(target, brir_target, brirs_diffuse, brirs_directional, snr,
                  snrs_directional_to_diffuse, color_diffuse,
                  colors_directional, padding=0, reflection_boundary=50e-3,
-                 max_itd=1e-3, fs=16e3):
+                 fs=16e3):
     '''
     Make a binaural mixture consisting of a target signal, some diffuse noise
     and some directional noise sources
@@ -180,9 +179,6 @@ def make_mixture(target, brir_target, brirs_diffuse, brirs_directional, snr,
         reflection_boundary:
             Reflection boundary defining the limit between early and late
             reflections.
-        max_itd:
-            Maximum interaural time difference. Used to compare the locations
-            of the peak in each channel and correct if necessary.
         fs:
             Sampling frequency.
 
@@ -208,8 +204,7 @@ def make_mixture(target, brir_target, brirs_diffuse, brirs_directional, snr,
     noise = adjust_snr(target_reverb, noise, snr,
                        slice(padding, n_samples-padding))
     target_early, target_late = split_and_spatialize(target, brir_target,
-                                                     reflection_boundary,
-                                                     max_itd, fs)
+                                                     reflection_boundary, fs)
     mixture = target_reverb + noise
     foreground = target_early
     background = target_late + noise

@@ -70,7 +70,6 @@ randomMixtureMaker = RandomMixtureMaker(
     n_directional_sources=range(4),
     padding=0,
     reflection_boundary=50e-3,
-    max_itd=1e-3,
     fs=fs,
 )
 
