@@ -88,6 +88,30 @@ def frame(x, frame_length=512, hop_length=256, window='hann', center=False):
 def wola(X, frame_length=512, hop_length=256, window='hann', trim=None):
     '''
     Weighted overlap-add (WOLA) method.
+
+    Parameters:
+        X:
+            Input framed signal. Shape n_frames*n_filters.
+        frame_length:
+            Frame length in samples.
+        hop_length:
+            Frame shift in samples.
+        window:
+            Window type. Can be a string, an array or a function.
+            - If a string, it is passed to scipy.signal.get_window together
+            with frame_length. Note that this creates a periodic (asymmetric)
+            window, which is recommended in spectral analysis.
+            - If an array, it should be one-dimensional with length
+            frame_length.
+            - If a function, it needs to take frame_length as an argument and
+            return an array of length frame_length.
+        trim:
+            If an integer, the output is trimmed such that its length is equal
+            to trim.
+
+    Returns:
+        x:
+            Reconstructed signal
     '''
     if callable(window):
         window = window(frame_length)

@@ -277,6 +277,23 @@ def pdf(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
 
 def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
                  frame_kwargs=None):
+    '''
+    Checks input before feature calculation and transforms it if necesarry.
+
+    Parameters:
+        x:
+            Input signal.
+        filtered:
+            Wether the input signal is already filtered or not.
+        filt_kwargs:
+            If filtered is False, the input signal is filtered using
+            filt_kwargs as keyword arguments.
+        framed:
+            Wether the input signal is already framed or not.
+        frame_kwargs:
+            If framed is False, the input signal is framed using
+            frame_kwargs as keyword arguments.
+    '''
     if framed and not filtered:
         raise ValueError('framed cannot be True if filtered is False, since '
                          'framing must be done after filtering')

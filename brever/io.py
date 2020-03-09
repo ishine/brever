@@ -8,6 +8,22 @@ from . import config
 
 
 def load_random_target(fs=16e3):
+    '''
+    Load a random target signal. Currently a random sentence from the EMIME
+    databases is loaded. See config.py to set the path to the EMIME database
+    in your filesystem.
+
+    Parameters:
+        fs:
+            Sampling rating to resample the signal to. If it matches the
+            original sampling rate, the signal is returned as is.
+
+    Returns:
+        x:
+            Audio signal.
+        filepath:
+            Path to the loaded file.
+    '''
     dirpath = config.EMIME_PATH
     all_filepaths = []
     for root, dirs, files in os.walk(dirpath):
@@ -21,6 +37,29 @@ def load_random_target(fs=16e3):
 
 
 def load_brir(room_alias, angle):
+    '''
+    Load a BRIR given a room alias and a BRIR angle. Currently a BRIR from the
+    SURREY database is loaded. See config.py to set the path to the SURREY
+    database in your filesystem.
+
+    Parameters:
+        room_alias:
+            Room alias. Can be either:
+            - 'surrey_anechoic'
+            - 'surrey_room_a'
+            - 'surrey_room_b'
+            - 'surrey_room_c'
+            - 'surrey_room_d'
+        angle:
+            Angle from which the BRIR was recorded with. For SURREY, the
+            possible angles range from -90 to 90 with a step of 5.
+
+    Returns:
+        brir:
+            BRIR.
+        fs:
+            BRIR sampling frequency.
+    '''
     m = re.match('^surrey_(.*)$', room_alias)
     if m is not None:
         database_dir = config.SURREY_PATH
@@ -49,6 +88,29 @@ def load_brir(room_alias, angle):
 
 
 def load_brirs(room_alias, angles=None):
+    '''
+    Load a BRIRs given a room alias and a list of angles. Currently a BRIR from
+    the SURREY database is loaded. See config.py to set the path to the SURREY
+    database in your filesystem.
+
+    Parameters:
+        room_alias:
+            Room alias. Can be either:
+            - 'surrey_anechoic'
+            - 'surrey_room_a'
+            - 'surrey_room_b'
+            - 'surrey_room_c'
+            - 'surrey_room_d'
+        angles:
+            List of angles from which the BRIR were recorded with. For SURREY,
+            the possible angles range from -90 to 90 with a step of 5.
+
+    Returns:
+        brirs:
+            List of BRIRs. Same length as angles.
+        fs:
+            Common sampling frequency of the BRIRs.
+    '''
     brirs = []
     fss = []
     if angles is None:

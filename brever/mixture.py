@@ -16,7 +16,7 @@ def spatialize(x, brir):
 
     Returns:
         x_binaural:
-            Binaural audio signal.
+            Binaural audio signal. Shape len(x)*2.
     '''
     x_left = scipy.signal.oaconvolve(x, brir[:, 0], mode='same')
     x_right = scipy.signal.oaconvolve(x, brir[:, 1], mode='same')
@@ -24,13 +24,41 @@ def spatialize(x, brir):
 
 
 def diffuse(x, brirs):
-    output = np.zeros((len(x), 2))
+    '''
+    Makes an input signal diffuse by convolving it with multiple BRIRs
+
+    Parameters:
+        x:
+            Input signal.
+        brirs:
+            List of BRIRs to convolve the input signal with.
+
+    Returns:
+        y:
+            Sum of convolutions of x with each BRIR in brirs. Shape
+            length(x)*2.
+    '''
+    y = np.zeros((len(x), 2))
     for brir in brirs:
-        output += spatialize(x, brir)
-    return output
+        y += spatialize(x, brir)
+    return y
 
 
 def colored_noise(color, n_samples):
+    '''
+    Generate 1/f**alpha colored noise.
+
+    Parameters:
+        color:
+            Color of the noise. Can be 'brown', 'pink', 'white', 'blue' or
+            'violet'.
+        n_samples:
+            Number of samples to generate.
+
+    Returns:
+        x:
+            Colored noise. Length n_samples.
+    '''
     colors = {
         'brown': 2,
         'pink': 1,
@@ -66,7 +94,7 @@ def diffuse_noise(brirs, n_samples, color='white'):
 
     Returns:
         noise:
-            Diffuse binaural noise.
+            Diffuse binaural noise. Shape n_samples*2.
     '''
     x = colored_noise(color, n_samples)
     return diffuse(x, brirs)
@@ -114,19 +142,68 @@ def split_brir(brir, reflection_boundary=50e-3, fs=16e3, max_itd=1e-3):
 
 
 def adjust_snr(signal, noise, snr, slice_=None):
+    '''
+    Scales a noise signal given a target signal and a desired SNR.
+
+    Parameters:
+        signal:
+            Target signal.
+        noise:
+            Noise signal.
+        snr:
+            Desired SNR.
+        slice_:
+            Slice of the input signal from which the SNR should be calculated.
+            If left as None, the energy of the entire signals are calculated.
+
+    Returns:
+        noise_scaled:
+            Scaled noise. The SNR between the target signal and the new scaled
+            noise equals snr.
+    '''
     if slice_ is None:
         slice_ = np.s_[:]
     energy_signal = np.sum(signal[slice_]**2)
     energy_noise = np.sum(noise[slice_]**2)
     gain = 10**(-snr/10)*(energy_signal/energy_noise)**0.5
-    noise = noise*gain
-    return noise
+    noise_scaled = noise*gain
+    return noise_scaled
 
 
 def diffuse_and_directional_noise(sources_colors, sources_brirs, diffuse_color,
                                   diffuse_brirs, snrs, n_samples):
+    '''
+    Creates a mixture consisting of a set of directional noise sources in
+    diffuse noise at given SNRs.
+
+    Parameters:
+        sources_colors:
+            List of colors of each directional noise sources. Its length
+            defines the number of directional noise sources.
+        sources_brirs:
+            List of BRIRs to convolve each colored noise with. Must have same
+            length as sources_colors.
+        diffuse_color:
+            Color for the diffuse noise.
+        diffuse_brirs:
+            List of BRIRs to use to create the diffuse noise. Ideally the BRIRs
+            in sources_brirs should figure in diffuse_brirs for realism
+            purposes.
+        snrs:
+            List of SNR values for each directional noise source. Should have
+            same length as sources_colors and sources_brirs
+        n_samples:
+            Number of samples to generate.
+
+    Returns:
+        mixture:
+            Output mixture. Shape n_samples*2.
+    '''
     noise = diffuse_noise(diffuse_brirs, n_samples, diffuse_color)
     sources = np.zeros((n_samples, 2))
+    if not len(sources_colors) == len(sources_brirs) == len(snrs):
+        raise ValueError(('sources_colors, sources_brirs and snrs must have '
+                          'same length'))
     for color, brir, snr in zip(sources_colors, sources_brirs, snrs):
         source = colored_noise(color, n_samples)
         source = spatialize(source, brir)
