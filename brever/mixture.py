@@ -23,9 +23,9 @@ def spatialize(x, brir):
     return np.vstack([x_left, x_right]).T
 
 
-def diffuse(x, brirs):
+def spatialize_multi(x, brirs):
     '''
-    Makes an input signal diffuse by convolving it with multiple BRIRs
+    Sum of convolutions of input signal with multiple BRIRs
 
     Parameters:
         x:
@@ -77,27 +77,6 @@ def colored_noise(color, n_samples):
     X *= scaling
     x = np.fft.irfft(X, n_samples).real
     return x
-
-
-def diffuse_noise(brirs, n_samples, color='white'):
-    '''
-    Create diffuse colored noise using a set of binaural room impulse
-    responses.
-
-    Parameters:
-        brirs:
-            List of binaural room impulse responses.
-        n_samples:
-            Number of samples of noise to generate.
-        color:
-            Noise color.
-
-    Returns:
-        noise:
-            Diffuse binaural noise. Shape n_samples*2.
-    '''
-    x = colored_noise(color, n_samples)
-    return diffuse(x, brirs)
 
 
 def split_brir(brir, reflection_boundary=50e-3, fs=16e3, max_itd=1e-3):
@@ -170,59 +149,55 @@ def adjust_snr(signal, noise, snr, slice_=None):
     return noise_scaled
 
 
-def diffuse_and_directional_noise(sources_colors, sources_brirs, diffuse_color,
-                                  diffuse_brirs, snrs, n_samples):
+def diffuse_and_directional_noise(xs_sources, brirs_sources, x_diffuse,
+                                  brirs_diffuse, snrs):
     '''
     Creates a mixture consisting of a set of directional noise sources in
     diffuse noise at given SNRs.
 
     Parameters:
-        sources_colors:
-            List of colors of each directional noise sources. Its length
-            defines the number of directional noise sources.
-        sources_brirs:
-            List of BRIRs to convolve each colored noise with. Must have same
-            length as sources_colors.
-        diffuse_color:
-            Color for the diffuse noise.
-        diffuse_brirs:
+        x_sources:
+            List of clean directional noise signals to convolve with
+            brirs_sources.
+        brirs_sources:
+            List of BRIRs to convolve each directional noise signal with.
+            Must have same length as x_sources.
+        x_diffuse:
+            Clean noise signal to make diffuse using brirs_diffuse.
+        brirs_diffuse:
             List of BRIRs to use to create the diffuse noise. Ideally the BRIRs
             in sources_brirs should figure in diffuse_brirs for realism
             purposes.
         snrs:
             List of SNR values for each directional noise source. Should have
-            same length as sources_colors and sources_brirs
-        n_samples:
-            Number of samples to generate.
+            same length as x_sources and brirs_sources
 
     Returns:
         mixture:
             Output mixture. Shape n_samples*2.
     '''
-    noise = diffuse_noise(diffuse_brirs, n_samples, diffuse_color)
-    sources = np.zeros((n_samples, 2))
-    if not len(sources_colors) == len(sources_brirs) == len(snrs):
-        raise ValueError(('sources_colors, sources_brirs and snrs must have '
-                          'same length'))
-    for color, brir, snr in zip(sources_colors, sources_brirs, snrs):
-        source = colored_noise(color, n_samples)
-        source = spatialize(source, brir)
-        source = adjust_snr(noise, source, -snr)
-        sources += source
-    return noise + sources
+    diffuse_noise = spatialize_multi(x_diffuse, brirs_diffuse)
+    directional_sources = np.zeros((len(xs_sources[0]), 2))
+    if not len(xs_sources) == len(brirs_sources) == len(snrs):
+        raise ValueError(('xs_sources, brirs_sources and snrs must have same '
+                          'length'))
+    for x, brir, snr in zip(xs_sources, brirs_sources, snrs):
+        source = spatialize(x, brir)
+        source = adjust_snr(diffuse_noise, source, -snr)
+        directional_sources += source
+    return diffuse_noise + directional_sources
 
 
-def make_mixture(target, brir_target, brirs_diffuse, brirs_directional, snr,
-                 snrs_directional_to_diffuse, color_diffuse,
-                 colors_directional, padding=0, reflection_boundary=50e-3,
-                 fs=16e3):
+def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
+                 snrs_directional_to_diffuse, x_diffuse, xs_directional,
+                 padding=0, reflection_boundary=50e-3, fs=16e3):
     '''
     Make a binaural mixture consisting of a target signal, some diffuse noise
     and some directional noise sources
 
     Parameters:
-        target:
-            Talker monaural signal.
+        x_target:
+            Clean talker monaural signal.
         brir_target:
             Binaural room impulse response used to spatialize the target before
             mixing. This defines the position of the talker in the room.
@@ -239,10 +214,11 @@ def make_mixture(target, brir_target, brirs_diffuse, brirs_directional, snr,
         snrs_directional_to_diffuse:
             List of ignal-to-noise ratios, where "signal" refers to the
             directional noise and "noise" refers to the diffuse noise.
-        color_diffuse:
-            Noise color for the diffuse noise.
-        colors_directional:
-            List of noise colors for the directional noise sources
+        x_diffuse:
+            Clean noise signal to make diffuse using brirs_diffuse.
+        xs_directional:
+            List of clean directional noise signals to convolve with
+            brirs_directional.
         padding:
             Amount of zeros to add before and after the target signal before
             mixing with noise, in seconds.
@@ -264,21 +240,19 @@ def make_mixture(target, brir_target, brirs_diffuse, brirs_directional, snr,
     '''
     padding = round(padding*fs)
     brir_direct, brir_late = split_brir(brir_target, reflection_boundary, fs)
-    target_full = spatialize(target, brir_target)
-    target_early = spatialize(target, brir_direct)
-    target_late = spatialize(target, brir_direct)
+    target_full = spatialize(x_target, brir_target)
+    target_early = spatialize(x_target, brir_direct)
+    target_late = spatialize(x_target, brir_direct)
     target_full = zero_pad(target_full, padding, 'both')
     target_early = zero_pad(target_early, padding, 'both')
     target_late = zero_pad(target_late, padding, 'both')
-    n_samples = len(target_full)
-    noise = diffuse_and_directional_noise(colors_directional,
+    noise = diffuse_and_directional_noise(xs_directional,
                                           brirs_directional,
-                                          color_diffuse,
+                                          x_diffuse,
                                           brirs_diffuse,
-                                          snrs_directional_to_diffuse,
-                                          n_samples)
+                                          snrs_directional_to_diffuse)
     noise = adjust_snr(target_full, noise, snr,
-                       slice(padding, n_samples-padding))
+                       slice(padding, len(target_full)-padding))
     mixture = target_full + noise
     foreground = target_early
     background = target_late + noise

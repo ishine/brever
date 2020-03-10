@@ -1,11 +1,12 @@
 import numpy as np
 import scipy.signal
 import random
+import re
 
 from .utils import pca, frame
 from .filters import mel_filterbank, gammatone_filterbank
-from .mixture import make_mixture
-from .io import load_random_target, load_brir, load_brirs
+from .mixture import make_mixture, colored_noise
+from .io import load_random_target, load_brir, load_brirs, load_random_noise
 from . import features as features_module
 from . import labels as labels_module
 
@@ -131,72 +132,103 @@ class LabelExtractor(BaseClass):
 
 class RandomMixtureMaker(BaseClass):
     def __init__(self, rooms, angles_target, angles_directional, snrs,
-                 snrs_directional_to_diffuse, colors_directional,
-                 colors_diffuse, n_directional_sources, padding,
-                 reflection_boundary, fs):
+                 snrs_directional_to_diffuse, types_directional,
+                 types_diffuse, n_directional_sources, padding,
+                 reflection_boundary, fs, lims):
         self.rooms = rooms
         self.angles_target = angles_target
         self.angles_directional = angles_directional
         self.snrs = snrs
         self.snrs_directional_to_diffuse = snrs_directional_to_diffuse
-        self.colors_directional = colors_directional
-        self.colors_diffuse = colors_diffuse
+        self.types_directional = types_directional
+        self.types_diffuse = types_diffuse
         self.n_directional_sources = n_directional_sources
         self.padding = padding
         self.reflection_boundary = reflection_boundary
         self.fs = fs
+        self.lims = lims
 
     def make(self):
         angle = random.choice(self.angles_target)
         room = random.choice(self.rooms)
         snr = random.choice(self.snrs)
-        color_diffuse = random.choice(self.colors_diffuse)
-        n_directional_sources = random.choice(self.n_directional_sources)
+        type_diff = random.choice(self.types_diffuse)
+        n_dir_sources = random.choice(self.n_directional_sources)
         snrs_dir_to_diff = random.choices(self.snrs_directional_to_diffuse,
-                                          k=n_directional_sources)
-        colors_directional = random.choices(self.colors_directional,
-                                            k=n_directional_sources)
-        angles_directional = random.choices(self.angles_directional,
-                                            k=n_directional_sources)
-        target, filename = load_random_target()
-        brir_target, fs = load_brir(room, angle)
-        if fs != self.fs:
-            raise ValueError(('the brir samplerate obtained from load_brir '
-                              '(%s, %i) does not match the RandomMixtureMaker '
-                              'instance samplerate attribute (%i vs %i)'
-                              % (room, angle, fs, self.fs)))
-        brirs_diffuse, fs = load_brirs(room)
-        if fs != self.fs:
-            raise ValueError(('the brir samplerate obtained from load_brirs '
-                              '(%s) does not match the RandomMixtureMaker '
-                              'instance samplerate attribute (%i vs %i)'
-                              % (room, fs, self.fs)))
-        brirs_directional, fs = load_brirs(room, angles_directional)
-        if fs is not None and fs != self.fs:
-            raise ValueError(('the brir samplerate obtained from load_brir '
-                              '(%s, %s) does not match the RandomMixtureMaker '
-                              'instance samplerate attribute (%i vs %i)'
-                              % (room, angles_directional, fs, self.fs)))
-        components = make_mixture(target=target,
+                                          k=n_dir_sources)
+        types_dir = random.choices(self.types_directional,
+                                   k=n_dir_sources)
+        angles_dir = random.choices(self.angles_directional,
+                                    k=n_dir_sources)
+        x_target, file_target = load_random_target()
+        n_samples = len(x_target) + 2*round(self.padding*self.fs)
+        x_diff, file_diff, i_diff = self._load_noises(type_diff, n_samples)
+        xs_dir, files_dir, is_dir = self._load_noises(types_dir, n_samples)
+        brir_target = self._load_brirs(room, angle)
+        brirs_diff = self._load_brirs(room)
+        brirs_dir = self._load_brirs(room, angles_dir)
+        components = make_mixture(x_target=x_target,
                                   brir_target=brir_target,
-                                  brirs_diffuse=brirs_diffuse,
-                                  brirs_directional=brirs_directional,
+                                  brirs_diffuse=brirs_diff,
+                                  brirs_directional=brirs_dir,
                                   snr=snr,
                                   snrs_directional_to_diffuse=snrs_dir_to_diff,
-                                  color_diffuse=color_diffuse,
-                                  colors_directional=colors_directional,
+                                  x_diffuse=x_diff,
+                                  xs_directional=xs_dir,
                                   padding=self.padding,
                                   reflection_boundary=self.reflection_boundary,
                                   fs=self.fs)
         metadata = {
             'room': room,
-            'filename': filename,
-            'angle': angle,
+            'target_filename': file_target,
+            'target_angle': angle,
             'snr': snr,
-            'color_diffuse': color_diffuse,
-            'n_directional_sources': n_directional_sources,
-            'angles_directional': angles_directional,
+            'n_directional_sources': n_dir_sources,
+            'directional_noises_filenames': files_dir,
+            'directional_sources_angles': angles_dir,
             'snrs_dir_to_diff': snrs_dir_to_diff,
-            'colors_directional': colors_directional,
+            'diffuse_noise_filename': file_diff,
+            'directional_sources_indices': is_dir,
+            'difuse_noise_indices': i_diff,
         }
         return components, metadata
+
+    def _load_brirs(self, room, angles=None):
+        if angles is None or isinstance(angles, list):
+            brirs, fs = load_brirs(room, angles)
+            if fs is not None and fs != self.fs:
+                raise ValueError(('the brir samplerate obtained from '
+                                  'load_brirs(%s, %s) does not match the '
+                                  'RandomMixtureMaker instance samplerate '
+                                  'attribute (%i vs %i)'
+                                  % (room, angles, fs, self.fs)))
+            return brirs
+        else:
+            brir, fs = load_brir(room, angles)
+            if fs is not None and fs != self.fs:
+                raise ValueError(('the brir samplerate obtained from '
+                                  'load_brir(%s, %s) does not match the '
+                                  'RandomMixtureMaker instance samplerate '
+                                  'attribute (%i vs %i)'
+                                  % (room, angles, fs, self.fs)))
+            return brir
+
+    def _load_noises(self, types, n_samples):
+        if isinstance(types, list):
+            zipped = [self._load_noises(type_, n_samples) for type_ in types]
+            xs, filepaths, indicess = zip(*zipped)
+            return xs, filepaths, indicess
+        else:
+            type_ = types
+            if type_.startswith('noise_'):
+                color = re.match('^noise_(.*)$', type_).group(1)
+                x = colored_noise(color, n_samples)
+                filepath = None
+                indices = None
+            elif type_.startswith('dcase_'):
+                x, filepath, indices = load_random_noise(type_, n_samples,
+                                                         self.lims, self.fs)
+            else:
+                raise ValueError(('type_ must start with noise_ or '
+                                  'dcase_, got %s' % type_))
+            return x, filepath, indices

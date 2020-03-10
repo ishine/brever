@@ -65,12 +65,23 @@ randomMixtureMaker = RandomMixtureMaker(
     angles_directional=range(-90, 95, 5),
     snrs=range(0, 16),
     snrs_directional_to_diffuse=range(-5, 6),
-    colors_directional=['brown', 'pink', 'white', 'blue', 'violet'],
-    colors_diffuse=['pink'],
+    types_directional=[
+        'dcase_airport',
+        'dcase_bus',
+        'dcase_metro',
+        'dcase_park',
+        'dcase_public_square',
+        'dcase_shopping_mall',
+        'dcase_street_pedestrian',
+        'dcase_street_traffic',
+        'dcase_tram',
+    ],
+    types_diffuse=['noise_pink'],
     n_directional_sources=range(4),
     padding=0.5,
     reflection_boundary=50e-3,
     fs=fs,
+    lims=(0.0, 0.5),
 )
 
 # number of mixtures
