@@ -158,12 +158,13 @@ def diffuse_and_directional_noise(xs_sources, brirs_sources, x_diffuse,
     Parameters:
         x_sources:
             List of clean directional noise signals to convolve with
-            brirs_sources.
+            brirs_sources. Must all have same length.
         brirs_sources:
             List of BRIRs to convolve each directional noise signal with.
             Must have same length as x_sources.
         x_diffuse:
-            Clean noise signal to make diffuse using brirs_diffuse.
+            Clean noise signal to make diffuse using brirs_diffuse. Must have
+            same length as the elements of x_sources.
         brirs_diffuse:
             List of BRIRs to use to create the diffuse noise. Ideally the BRIRs
             in sources_brirs should figure in diffuse_brirs for realism
@@ -176,11 +177,11 @@ def diffuse_and_directional_noise(xs_sources, brirs_sources, x_diffuse,
         mixture:
             Output mixture. Shape n_samples*2.
     '''
-    diffuse_noise = spatialize_multi(x_diffuse, brirs_diffuse)
-    directional_sources = np.zeros((len(xs_sources[0]), 2))
     if not len(xs_sources) == len(brirs_sources) == len(snrs):
         raise ValueError(('xs_sources, brirs_sources and snrs must have same '
                           'length'))
+    diffuse_noise = spatialize_multi(x_diffuse, brirs_diffuse)
+    directional_sources = np.zeros((len(diffuse_noise), 2))
     for x, brir, snr in zip(xs_sources, brirs_sources, snrs):
         source = spatialize(x, brir)
         source = adjust_snr(diffuse_noise, source, -snr)
