@@ -240,10 +240,10 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
             components. Serves as the noise signal in the IRM calculation.
     '''
     padding = round(padding*fs)
-    brir_direct, brir_late = split_brir(brir_target, reflection_boundary, fs)
+    brir_early, brir_late = split_brir(brir_target, reflection_boundary, fs)
     target_full = spatialize(x_target, brir_target)
-    target_early = spatialize(x_target, brir_direct)
-    target_late = spatialize(x_target, brir_direct)
+    target_early = spatialize(x_target, brir_early)
+    target_late = spatialize(x_target, brir_late)
     target_full = zero_pad(target_full, padding, 'both')
     target_early = zero_pad(target_early, padding, 'both')
     target_late = zero_pad(target_late, padding, 'both')
