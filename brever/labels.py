@@ -61,6 +61,10 @@ def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
         frame_kwargs:
             If framed is False, the input signal is framed using
             frame_kwargs as keyword arguments.
+
+    Returns:
+        x:
+            Transformed input.
     '''
     if filt_kwargs is None:
         filt_kwargs = {}

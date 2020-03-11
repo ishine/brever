@@ -134,7 +134,8 @@ class RandomMixtureMaker(BaseClass):
     def __init__(self, rooms, angles_target, angles_directional, snrs,
                  snrs_directional_to_diffuse, types_directional,
                  types_diffuse, n_directional_sources, padding,
-                 reflection_boundary, fs, lims):
+                 reflection_boundary, fs, noise_file_lims, target_file_lims,
+                 rms_jitter_dB):
         self.rooms = rooms
         self.angles_target = angles_target
         self.angles_directional = angles_directional
@@ -146,7 +147,9 @@ class RandomMixtureMaker(BaseClass):
         self.padding = padding
         self.reflection_boundary = reflection_boundary
         self.fs = fs
-        self.lims = lims
+        self.noise_file_lims = noise_file_lims
+        self.target_file_lims = target_file_lims
+        self.rms_jitter_dB = rms_jitter_dB
 
     def make(self):
         angle = random.choice(self.angles_target)
@@ -160,7 +163,9 @@ class RandomMixtureMaker(BaseClass):
                                    k=n_dir_sources)
         angles_dir = random.choices(self.angles_directional,
                                     k=n_dir_sources)
-        x_target, file_target = load_random_target()
+        rms_dB = random.choice(self.rms_jitter_dB)
+        x_target, file_target = load_random_target(self.target_file_lims,
+                                                   self.fs)
         n_samples = len(x_target) + 2*round(self.padding*self.fs)
         x_diff, file_diff, i_diff = self._load_noises(type_diff, n_samples)
         xs_dir, files_dir, is_dir = self._load_noises(types_dir, n_samples)
@@ -175,6 +180,7 @@ class RandomMixtureMaker(BaseClass):
                                   snrs_directional_to_diffuse=snrs_dir_to_diff,
                                   x_diffuse=x_diff,
                                   xs_directional=xs_dir,
+                                  rms_dB=rms_dB,
                                   padding=self.padding,
                                   reflection_boundary=self.reflection_boundary,
                                   fs=self.fs)
@@ -190,6 +196,7 @@ class RandomMixtureMaker(BaseClass):
             'diffuse_noise_filename': file_diff,
             'directional_sources_indices': is_dir,
             'difuse_noise_indices': i_diff,
+            'rms_dB': rms_dB,
         }
         return components, metadata
 
@@ -215,6 +222,8 @@ class RandomMixtureMaker(BaseClass):
 
     def _load_noises(self, types, n_samples):
         if isinstance(types, list):
+            if not types:
+                return [], [], []
             zipped = [self._load_noises(type_, n_samples) for type_ in types]
             xs, filepaths, indicess = zip(*zipped)
             return xs, filepaths, indicess
@@ -227,7 +236,8 @@ class RandomMixtureMaker(BaseClass):
                 indices = None
             elif type_.startswith('dcase_'):
                 x, filepath, indices = load_random_noise(type_, n_samples,
-                                                         self.lims, self.fs)
+                                                         self.noise_file_lims,
+                                                         self.fs)
             else:
                 raise ValueError(('type_ must start with noise_ or '
                                   'dcase_, got %s' % type_))

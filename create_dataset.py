@@ -14,7 +14,7 @@ from brever.classes import (Filterbank, Framer, FeatureExtractor,
 try:
     output_basename = sys.argv[1]
 except IndexError:
-    output_basename = 'temp'
+    output_basename = 'training'
 datasets_output_path = 'data/datasets/%s.hdf5' % output_basename
 pipes_output_path = 'data/datasets/%s.pkl' % output_basename
 metadatas_output_path = 'data/datasets/%s.json' % output_basename
@@ -81,11 +81,13 @@ randomMixtureMaker = RandomMixtureMaker(
     padding=0.5,
     reflection_boundary=50e-3,
     fs=fs,
-    lims=(0.0, 0.5),
+    noise_file_lims=(0.0, 0.5),
+    target_file_lims=(0.0, 0.5),
+    rms_jitter_dB=range(-30, -10),
 )
 
 # number of mixtures
-n_mixtures = 10
+n_mixtures = 200
 
 # main loop
 features = []

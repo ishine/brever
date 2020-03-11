@@ -7,13 +7,18 @@ from resampy import resample
 from . import config
 
 
-def load_random_target(fs=16e3):
+def load_random_target(lims=None, fs=16e3):
     '''
-    Load a random target signal. Currently a random sentence from the EMIME
-    databases is loaded. See config.py to set the path to the EMIME database
+    Load a random target signal. Currently a random sentence from the TIMIT
+    database is loaded. See config.py to set the path to the TIMIT database
     in your filesystem.
 
     Parameters:
+        lims:
+            Lower and upper fraction of files of the total list of files from
+            which to randomly chose a target from. E.g. setting lims to
+            (0, 0.5) means the first half of the files will be sampled. Can be
+            left as None to chose from all the files.
         fs:
             Sampling rating to resample the signal to. If it matches the
             original sampling rate, the signal is returned as is.
@@ -24,12 +29,23 @@ def load_random_target(fs=16e3):
         filepath:
             Path to the loaded file.
     '''
-    dirpath = config.EMIME_PATH
+    dirpath = config.TIMIT_PATH
     all_filepaths = []
     for root, dirs, files in os.walk(dirpath):
         for file in files:
-            if file.endswith('.wav'):
+            if (file.endswith(('.wav', '.WAV')) and 'SA1' not in file and 'SA2'
+                    not in file):
                 all_filepaths.append(os.path.join(root, file))
+    if not all_filepaths:
+        raise ValueError(('no target file found, check your paths in '
+                          'config.py'))
+    state = random.getstate()
+    random.seed(42)
+    random.shuffle(all_filepaths)
+    n_files = len(all_filepaths)
+    i_min, i_max = round(n_files*lims[0]), round(n_files*lims[1])
+    all_filepaths = all_filepaths[i_min:i_max]
+    random.setstate(state)
     filepath = random.choice(all_filepaths)
     x, fs_old = sf.read(filepath)
     if fs_old != fs:
@@ -167,7 +183,7 @@ def load_random_noise(type_, n_samples, lims=None, fs=16e3):
             - 'dcase_tram'
         n_samples:
             Number of samples to load.
-        lims
+        lims:
             Lower and upper fraction of files of the total list of files from
             which to randomly chose a sample from. E.g. setting lims to
             (0, 0.5) means the first half of the files will be sampled. Can be
@@ -192,7 +208,7 @@ def load_random_noise(type_, n_samples, lims=None, fs=16e3):
     prefix = m.group(1)
     for root, dirs, files in os.walk(dirpath):
         for file in files:
-            if file.endswith('.wav') and file.startswith(prefix):
+            if file.endswith(('.wav', '.WAV')) and file.startswith(prefix):
                 all_filepaths.append(os.path.join(root, file))
     if not all_filepaths:
         raise ValueError(('no noise file found, make sure the path to the '

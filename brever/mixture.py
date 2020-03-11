@@ -191,7 +191,7 @@ def diffuse_and_directional_noise(xs_sources, brirs_sources, x_diffuse,
 
 def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
                  snrs_directional_to_diffuse, x_diffuse, xs_directional,
-                 padding=0, reflection_boundary=50e-3, fs=16e3):
+                 rms_dB=0, padding=0, reflection_boundary=50e-3, fs=16e3):
     '''
     Make a binaural mixture consisting of a target signal, some diffuse noise
     and some directional noise sources
@@ -220,6 +220,8 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
         xs_directional:
             List of clean directional noise signals to convolve with
             brirs_directional.
+        rms_dB:
+            RMS of the total mixture in dB, with unit reference.
         padding:
             Amount of zeros to add before and after the target signal before
             mixing with noise, in seconds.
@@ -257,4 +259,9 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
     mixture = target_full + noise
     foreground = target_early
     background = target_late + noise
+    rms = np.mean(mixture**2)**0.5
+    gain = 10**(rms_dB/20)/rms
+    mixture *= gain
+    foreground *= gain
+    background *= gain
     return mixture, foreground, background
