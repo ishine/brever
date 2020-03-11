@@ -10,11 +10,27 @@ from brever.classes import (Filterbank, Framer, FeatureExtractor,
                             LabelExtractor, RandomMixtureMaker)
 
 
+# read dataset type; either 'training', 'validation' or 'testing'
+dataset_type = sys.argv[1]
+
+# define dataset type specific parameters
+if dataset_type == 'training':
+    n_mixtures = 700
+    noise_file_lims = (0.0, 0.7)
+    target_file_lims = (0.0, 0.7)
+elif dataset_type == 'validation':
+    n_mixtures = 150
+    noise_file_lims = (0.7, 0.85)
+    target_file_lims = (0.7, 0.85)
+elif dataset_type == 'testing':
+    n_mixtures = 150
+    noise_file_lims = (0.85, 1.00)
+    target_file_lims = (0.85, 1.00)
+else:
+    raise ValueError('unrecognized dataset type')
+
 # output paths
-try:
-    output_basename = sys.argv[1]
-except IndexError:
-    output_basename = 'training'
+output_basename = dataset_type
 datasets_output_path = 'data/datasets/%s.hdf5' % output_basename
 pipes_output_path = 'data/datasets/%s.pkl' % output_basename
 metadatas_output_path = 'data/datasets/%s.json' % output_basename
@@ -81,13 +97,10 @@ randomMixtureMaker = RandomMixtureMaker(
     padding=0.5,
     reflection_boundary=50e-3,
     fs=fs,
-    noise_file_lims=(0.0, 0.5),
-    target_file_lims=(0.0, 0.5),
+    noise_file_lims=noise_file_lims,
+    target_file_lims=target_file_lims,
     rms_jitter_dB=range(-30, -10),
 )
-
-# number of mixtures
-n_mixtures = 200
 
 # main loop
 features = []
