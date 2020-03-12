@@ -38,21 +38,30 @@ class EarlyStopping:
 
 
 class H5Dataset(torch.utils.data.Dataset):
-    def __init__(self, filepath):
+    def __init__(self, filepath, load=False, transform=None):
         self.filepath = filepath
         self.datasets = None
+        self.load = load
+        self.transform = transform
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
             self.n_samples = len(f['features'])
             self.n_features = f['features'].shape[1]
             self.n_labels = f['labels'].shape[1]
+            if self.load:
+                self.datasets = (f['features'][:], f['labels'][:])
 
     def __getitem__(self, index):
         if self.datasets is None:
             f = h5py.File(self.filepath, 'r')
-            self.datasets = (f['features'], f['labels'])
+            if self.load:
+                self.datasets = (f['features'][:], f['labels'][:])
+            else:
+                self.datasets = (f['features'], f['labels'])
         x, y = self.datasets[0][index], self.datasets[1][index]
         x, y = torch.from_numpy(x).float(), torch.from_numpy(y).float()
+        if self.transform:
+            x = self.transform(x)
         return x, y
 
     def __len__(self):
