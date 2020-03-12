@@ -37,6 +37,15 @@ class EarlyStopping:
         self.val_loss_min = val_loss
 
 
+class TensorStandardizer:
+    def __init__(self, mean=None, std=None):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, data):
+        return (data - self.mean)/self.std
+
+
 class H5Dataset(torch.utils.data.Dataset):
     def __init__(self, filepath, load=False, transform=None):
         self.filepath = filepath
