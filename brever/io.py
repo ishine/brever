@@ -4,16 +4,14 @@ import soundfile as sf
 import random
 from resampy import resample
 
-from . import config
 
-
-def load_random_target(lims=None, fs=16e3):
+def load_random_target(timit_dirpath, lims=None, fs=16e3):
     '''
-    Load a random target signal. Currently a random sentence from the TIMIT
-    database is loaded. See config.py to set the path to the TIMIT database
-    in your filesystem.
+    Load a random target signal from the TIMIT database.
 
     Parameters:
+        timit_dirpath:
+            Path to the TIMIT database in the filesystem.
         lims:
             Lower and upper fraction of files of the total list of files from
             which to randomly chose a target from. E.g. setting lims to
@@ -29,9 +27,8 @@ def load_random_target(lims=None, fs=16e3):
         filepath:
             Path to the loaded file.
     '''
-    dirpath = config.TIMIT_PATH
     all_filepaths = []
-    for root, dirs, files in os.walk(dirpath):
+    for root, dirs, files in os.walk(timit_dirpath):
         for file in files:
             if (file.endswith(('.wav', '.WAV')) and 'SA1' not in file and 'SA2'
                     not in file):
@@ -53,13 +50,13 @@ def load_random_target(lims=None, fs=16e3):
     return x, filepath
 
 
-def load_brir(room_alias, angle):
+def load_brir(surrey_dirpath, room_alias, angle):
     '''
-    Load a BRIR given a room alias and a BRIR angle. Currently a BRIR from the
-    SURREY database is loaded. See config.py to set the path to the SURREY
-    database in your filesystem.
+    Load a BRIR from the SURREY database given a room alias and a BRIR angle.
 
     Parameters:
+        surrey_dirpath:
+            Path to the SURREY database in the filesystem.
         room_alias:
             Room alias. Can be either:
             - 'surrey_anechoic'
@@ -80,7 +77,6 @@ def load_brir(room_alias, angle):
     m = re.match('^surrey_(.*)$', room_alias)
     if m is None:
         raise ValueError('could not find room %s in filesystem' % room_alias)
-    database_dir = config.SURREY_PATH
     room_name = m.group(1)
     if room_name == 'anechoic':
         room_folder = 'Anechoic'
@@ -91,7 +87,7 @@ def load_brir(room_alias, angle):
                               % room_alias))
         room_letter = m.group(1)
         room_folder = 'Room_%s' % room_letter.upper()
-    room_dir = os.path.join(database_dir, room_folder, '16kHz')
+    room_dir = os.path.join(surrey_dirpath, room_folder, '16kHz')
     r = re.compile('CortexBRIR_.*s_%ideg_16k.wav' % angle)
     filenames = list(filter(r.match, os.listdir(room_dir)))
     if len(filenames) > 1:
@@ -103,13 +99,14 @@ def load_brir(room_alias, angle):
     return sf.read(filepath)
 
 
-def load_brirs(room_alias, angles=None):
+def load_brirs(surrey_dirpath, room_alias, angles=None):
     '''
-    Load a BRIRs given a room alias and a list of angles. Currently a BRIR from
-    the SURREY database is loaded. See config.py to set the path to the SURREY
-    database in your filesystem.
+    Load multiple BRIRs from the SURREY database given a room alias and a list
+    of angles.
 
     Parameters:
+        surrey_dirpath:
+            Path to the SURREY database in the filesystem.
         room_alias:
             Room alias. Can be either:
             - 'surrey_anechoic'
@@ -134,7 +131,6 @@ def load_brirs(room_alias, angles=None):
         if m is None:
             raise ValueError(('could not find room %s in filesystem'
                               % room_alias))
-        database_dir = config.SURREY_PATH
         room_name = m.group(1)
         if room_name == 'anechoic':
             room_folder = 'Anechoic'
@@ -145,7 +141,7 @@ def load_brirs(room_alias, angles=None):
                                   % room_alias))
             room_letter = m.group(1)
             room_folder = 'Room_%s' % room_letter.upper()
-        room_dir = os.path.join(database_dir, room_folder, '16kHz')
+        room_dir = os.path.join(surrey_dirpath, room_folder, '16kHz')
         for filename in os.listdir(room_dir):
             brir, fs = sf.read(os.path.join(room_dir, filename))
             brirs.append(brir)
@@ -154,7 +150,7 @@ def load_brirs(room_alias, angles=None):
         return [], None
     else:
         for angle in angles:
-            brir, fs = load_brir(room_alias, angle)
+            brir, fs = load_brir(surrey_dirpath, room_alias, angle)
             brirs.append(brir)
             fss.append(fs)
     if any(fs != fss[0] for fs in fss):
@@ -162,14 +158,15 @@ def load_brirs(room_alias, angles=None):
     return brirs, fss[0]
 
 
-def load_random_noise(type_, n_samples, lims=None, fs=16e3):
+def load_random_noise(dcase_dirpath, type_, n_samples, lims=None, fs=16e3):
     '''
-    Load a random noise sample given a specific noise type. Currently a noise
-    from the DCASE Challenge 2019 Task 1 development set it loaded. See
-    config.py to set the path to the DCASE Challenge 2019 Task 1 development
-    set in your filesystem.
+    Load a random noise recording from the DCASE Challenge 2019 Task 1
+    development set.
 
     Parameters:
+        dcase_dirpath:
+            Path to the DCASE Challenge 2019 Task 1 development set in the
+            filesystem
         type_:
             Noise type. Can be either:
             - 'dcase_airport'
@@ -200,13 +197,12 @@ def load_random_noise(type_, n_samples, lims=None, fs=16e3):
             Starting and ending indices of the audio sample extracted from
             filepath.
     '''
-    dirpath = config.DCASE_PATH
     all_filepaths = []
     m = re.match('^dcase_(.*)$', type_)
     if m is None:
         raise ValueError('type_ should start with dcase_')
     prefix = m.group(1)
-    for root, dirs, files in os.walk(dirpath):
+    for root, dirs, files in os.walk(dcase_dirpath):
         for file in files:
             if file.endswith(('.wav', '.WAV')) and file.startswith(prefix):
                 all_filepaths.append(os.path.join(root, file))

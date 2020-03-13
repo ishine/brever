@@ -3,7 +3,7 @@ import scipy.signal
 import random
 import re
 
-from .utils import pca, frame
+from .utils import pca, frame, rms
 from .filters import mel_filterbank, gammatone_filterbank
 from .mixture import make_mixture, colored_noise
 from .io import load_random_target, load_brir, load_brirs, load_random_noise
@@ -41,7 +41,23 @@ class PCA:
         return (X - self.means) @ self.components
 
 
-class BaseClass:
+class UnitRMSScaler:
+    def __init__(self, active=True):
+        self.active = active
+        self.gain = None
+
+    def fit(self, signal):
+        rms_max = rms(signal).max()
+        self.gain = 1/rms_max
+
+    def scale(self, signal):
+        if self.active:
+            return self.gain*signal
+        else:
+            return signal
+
+
+class PipeBaseClass:
     def __init__(self):
         pass
 
@@ -60,7 +76,7 @@ class BaseClass:
         return output
 
 
-class Filterbank(BaseClass):
+class Filterbank(PipeBaseClass):
     def __init__(self, kind, n_filters, f_min, f_max, fs, order):
         self.kind = kind
         self.n_filters = n_filters
@@ -89,7 +105,7 @@ class Filterbank(BaseClass):
         return x_filt.squeeze()
 
 
-class Framer(BaseClass):
+class Framer(PipeBaseClass):
     def __init__(self, frame_length, hop_length, window, center):
         self.frame_length = frame_length
         self.hop_length = hop_length
@@ -102,7 +118,7 @@ class Framer(BaseClass):
                      center=self.center)
 
 
-class FeatureExtractor(BaseClass):
+class FeatureExtractor(PipeBaseClass):
     def __init__(self, features):
         self.features = features
         self.indices = None
@@ -121,7 +137,7 @@ class FeatureExtractor(BaseClass):
         return np.hstack(output)
 
 
-class LabelExtractor(BaseClass):
+class LabelExtractor(PipeBaseClass):
     def __init__(self, label):
         self.label = label
 
@@ -130,12 +146,12 @@ class LabelExtractor(BaseClass):
         return label_func(target, noise, filtered=True, framed=True)
 
 
-class RandomMixtureMaker(BaseClass):
+class RandomMixtureMaker(PipeBaseClass):
     def __init__(self, rooms, angles_target, angles_directional, snrs,
                  snrs_directional_to_diffuse, types_directional,
                  types_diffuse, n_directional_sources, padding,
                  reflection_boundary, fs, noise_file_lims, target_file_lims,
-                 rms_jitter_dB):
+                 rms_jitter_dB, surrey_dirpath, timit_dirpath, dcase_dirpath):
         self.rooms = rooms
         self.angles_target = angles_target
         self.angles_directional = angles_directional
@@ -150,6 +166,9 @@ class RandomMixtureMaker(BaseClass):
         self.noise_file_lims = noise_file_lims
         self.target_file_lims = target_file_lims
         self.rms_jitter_dB = rms_jitter_dB
+        self.surrey_dirpath = surrey_dirpath
+        self.timit_dirpath = timit_dirpath
+        self.dcase_dirpath = dcase_dirpath
 
     def make(self):
         angle = random.choice(self.angles_target)
@@ -164,7 +183,8 @@ class RandomMixtureMaker(BaseClass):
         angles_dir = random.choices(self.angles_directional,
                                     k=n_dir_sources)
         rms_dB = random.choice(self.rms_jitter_dB)
-        x_target, file_target = load_random_target(self.target_file_lims,
+        x_target, file_target = load_random_target(self.timit_dirpath,
+                                                   self.target_file_lims,
                                                    self.fs)
         n_samples = len(x_target) + 2*round(self.padding*self.fs)
         x_diff, file_diff, i_diff = self._load_noises(type_diff, n_samples)
@@ -194,15 +214,15 @@ class RandomMixtureMaker(BaseClass):
             'directional_sources_angles': angles_dir,
             'snrs_dir_to_diff': snrs_dir_to_diff,
             'diffuse_noise_filename': file_diff,
-            'directional_sources_indices': is_dir,
-            'difuse_noise_indices': i_diff,
+            'directional_sources_file_indices': is_dir,
+            'difuse_noise_file_indices': i_diff,
             'rms_dB': rms_dB,
         }
         return components, metadata
 
     def _load_brirs(self, room, angles=None):
         if angles is None or isinstance(angles, list):
-            brirs, fs = load_brirs(room, angles)
+            brirs, fs = load_brirs(self.surrey_dirpath, room, angles)
             if fs is not None and fs != self.fs:
                 raise ValueError(('the brir samplerate obtained from '
                                   'load_brirs(%s, %s) does not match the '
@@ -211,7 +231,7 @@ class RandomMixtureMaker(BaseClass):
                                   % (room, angles, fs, self.fs)))
             return brirs
         else:
-            brir, fs = load_brir(room, angles)
+            brir, fs = load_brir(self.surrey_dirpath, room, angles)
             if fs is not None and fs != self.fs:
                 raise ValueError(('the brir samplerate obtained from '
                                   'load_brir(%s, %s) does not match the '
@@ -235,7 +255,8 @@ class RandomMixtureMaker(BaseClass):
                 filepath = None
                 indices = None
             elif type_.startswith('dcase_'):
-                x, filepath, indices = load_random_noise(type_, n_samples,
+                x, filepath, indices = load_random_noise(self.dcase_dirpath,
+                                                         type_, n_samples,
                                                          self.noise_file_lims,
                                                          self.fs)
             else:

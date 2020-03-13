@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.signal
 
-from .utils import zero_pad, fft_freqs
+from .utils import zero_pad, fft_freqs, rms
 
 
 def spatialize(x, brir):
@@ -145,8 +145,30 @@ def adjust_snr(signal, noise, snr, slice_=None):
     energy_signal = np.sum(signal[slice_]**2)
     energy_noise = np.sum(noise[slice_]**2)
     gain = 10**(-snr/10)*(energy_signal/energy_noise)**0.5
-    noise_scaled = noise*gain
+    noise_scaled = gain*noise
     return noise_scaled
+
+
+def adjust_rms(signal, rms_dB):
+    '''
+    Scales a signal such that it presents a given RMS in dB.
+
+    Parameters:
+        signal:
+            Input signal.
+        rms_dB:
+            Desired RMS in dB.
+
+    Returns:
+        signal_scaled:
+            Scaled signal.
+        gain:
+            Gain used to scale the signal.
+    '''
+    rms_max = rms(signal).max()
+    gain = 10**(rms_dB/20)/rms_max
+    signal_scaled = gain*signal
+    return signal_scaled, gain
 
 
 def diffuse_and_directional_noise(xs_sources, brirs_sources, x_diffuse,
@@ -259,9 +281,7 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
     mixture = target_full + noise
     foreground = target_early
     background = target_late + noise
-    rms = np.mean(mixture**2)**0.5
-    gain = 10**(rms_dB/20)/rms
-    mixture *= gain
+    mixture, gain = adjust_rms(mixture, rms_dB)
     foreground *= gain
     background *= gain
     return mixture, foreground, background

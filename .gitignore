@@ -4,3 +4,4 @@ venv/
 data/
 sandbox.ipynb
 checkpoint.pt
+experiments/

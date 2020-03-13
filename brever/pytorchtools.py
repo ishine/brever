@@ -21,7 +21,7 @@ class EarlyStopping:
         elif score < self.best_score + self.delta:
             self.counter += 1
             print((f'EarlyStopping counter: {self.counter} out of '
-                   '{self.patience}'))
+                   f'{self.patience}'))
             if self.counter >= self.patience:
                 self.early_stop = True
         else:
@@ -32,7 +32,7 @@ class EarlyStopping:
     def save_checkpoint(self, val_loss, model):
         if self.verbose:
             print((f'Validation loss decreased ({self.val_loss_min:.6f} --> '
-                   '{val_loss:.6f}).  Saving model ...'))
+                   f'{val_loss:.6f}).  Saving model ...'))
         torch.save(model.state_dict(), 'checkpoint.pt')
         self.val_loss_min = val_loss
 
@@ -72,6 +72,25 @@ class H5Dataset(torch.utils.data.Dataset):
         if self.transform:
             x = self.transform(x)
         return x, y
+
+    def __len__(self):
+        return self.n_samples
+
+
+class DummyDataset(torch.utils.data.Dataset):
+    def __init__(self, x, y, transform=None):
+        self.x = x
+        self.y = y
+        self.n_samples = len(x)
+        self.n_features = x.shape[1]
+        self.n_labels = y.shape[1]
+        self.transform = transform
+
+    def __getitem__(self, index):
+        if self.transform:
+            return self.transform(self.x[index]), self.y[index]
+        else:
+            return self.x[index], self.y[index]
 
     def __len__(self):
         return self.n_samples

@@ -52,12 +52,12 @@ def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
         x:
             Input signal.
         filtered:
-            Wether the input signal is already filtered or not.
+            Whether the input signal is already filtered or not.
         filt_kwargs:
             If filtered is False, the input signal is filtered using
             filt_kwargs as keyword arguments.
         framed:
-            Wether the input signal is already framed or not.
+            Whether the input signal is already framed or not.
         frame_kwargs:
             If framed is False, the input signal is framed using
             frame_kwargs as keyword arguments.

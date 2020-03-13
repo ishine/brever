@@ -1,105 +1,119 @@
-import sys
+import argparse
 import pickle
 import random
 import h5py
 import json
 import numpy as np
 import time
+import os
 
 from brever.classes import (Filterbank, Framer, FeatureExtractor,
-                            LabelExtractor, RandomMixtureMaker)
+                            LabelExtractor, RandomMixtureMaker, UnitRMSScaler)
+from brever import config
 
 
-# read dataset type; either 'training', 'validation' or 'testing'
-dataset_type = sys.argv[1]
+parser = argparse.ArgumentParser(description='Create a dataset.')
+parser.add_argument('-i', '--input',
+                    help=('Input YAML file. If none is provided, default '
+                          'settings will be used.'))
+parser.add_argument('-o', '--output',
+                    help=('Custom output directory. If it does not exist, it '
+                          'is created. If none is provided, the outputs are '
+                          'created next to the input config file.'))
+args = parser.parse_args()
 
-# define dataset type specific parameters
-if dataset_type == 'training':
-    n_mixtures = 700
-    noise_file_lims = (0.0, 0.7)
-    target_file_lims = (0.0, 0.7)
-elif dataset_type == 'validation':
-    n_mixtures = 150
-    noise_file_lims = (0.7, 0.85)
-    target_file_lims = (0.7, 0.85)
-elif dataset_type == 'testing':
-    n_mixtures = 150
-    noise_file_lims = (0.85, 1.00)
-    target_file_lims = (0.85, 1.00)
-else:
-    raise ValueError('unrecognized dataset type')
+if not args.input and not args.output:
+    raise ValueError(('The output directory must be specified if no input '
+                      'YAML file is given. Use -h for help.'))
 
-# output paths
-output_basename = dataset_type
-datasets_output_path = 'data/datasets/%s.hdf5' % output_basename
-pipes_output_path = 'data/datasets/%s.pkl' % output_basename
-metadatas_output_path = 'data/datasets/%s.json' % output_basename
+if args.input:
+    config.update(args.input)
+    output_dir = os.path.dirname(args.input)
+
+if args.output:
+    if not os.path.exists(args.output):
+        os.makedirs(args.output)
+    elif not os.path.isdir(args.output):
+        raise ValueError(('The specified output path points to an already '
+                          'existing file.'))
+    output_dir = args.output
+
 
 # set random state for reproducibility
-random.seed(42)
+random.seed(0)
 
-# sampling frequency
-fs = 16000
+# mixture maker
+randomMixtureMaker = RandomMixtureMaker(
+    rooms=config.MIXTURES.RANDOM.ROOMS,
+    angles_target=range(
+        config.MIXTURES.RANDOM.TARGET.ANGLE.MIN,
+        config.MIXTURES.RANDOM.TARGET.ANGLE.MAX,
+        config.MIXTURES.RANDOM.TARGET.ANGLE.STEP,
+    ),
+    angles_directional=range(
+        config.MIXTURES.RANDOM.SOURCES.ANGLE.MIN,
+        config.MIXTURES.RANDOM.SOURCES.ANGLE.MAX,
+        config.MIXTURES.RANDOM.SOURCES.ANGLE.STEP,
+    ),
+    snrs=range(
+        config.MIXTURES.RANDOM.TARGET.SNR.MIN,
+        config.MIXTURES.RANDOM.TARGET.SNR.MAX,
+    ),
+    snrs_directional_to_diffuse=range(
+        config.MIXTURES.RANDOM.SOURCES.SNR.MIN,
+        config.MIXTURES.RANDOM.SOURCES.SNR.MAX,
+    ),
+    types_directional=config.MIXTURES.RANDOM.SOURCES.TYPES,
+    types_diffuse=config.MIXTURES.RANDOM.DIFFUSE.TYPES,
+    n_directional_sources=range(
+        config.MIXTURES.RANDOM.SOURCES.NUMBER.MIN,
+        config.MIXTURES.RANDOM.SOURCES.NUMBER.MAX,
+    ),
+    padding=config.MIXTURES.PADDING,
+    reflection_boundary=config.MIXTURES.REFLECTIONBOUNDARY,
+    fs=config.FS,
+    noise_file_lims=config.MIXTURES.FILELIMITS.NOISE,
+    target_file_lims=config.MIXTURES.FILELIMITS.TARGET,
+    rms_jitter_dB=range(
+        config.MIXTURES.RANDOM.RMSDB.MIN,
+        config.MIXTURES.RANDOM.RMSDB.MAX,
+    ),
+    surrey_dirpath=config.PATH.SURREY,
+    timit_dirpath=config.PATH.TIMIT,
+    dcase_dirpath=config.PATH.DCASE,
+)
+
+# scaler
+scaler = UnitRMSScaler(
+    active=config.MIXTURES.SCALERMS,
+)
 
 # filterbank
 filterbank = Filterbank(
-    kind='mel',
-    n_filters=64,
-    f_min=50,
-    f_max=8000,
-    fs=fs,
-    order=4,
+    kind=config.FILTERBANK.KIND,
+    n_filters=config.FILTERBANK.NFILTERS,
+    f_min=config.FILTERBANK.FMIN,
+    f_max=config.FILTERBANK.FMAX,
+    fs=config.FILTERBANK.FS,
+    order=config.FILTERBANK.ORDER,
 )
 
 # framer
 framer = Framer(
-    frame_length=512,
-    hop_length=256,
-    window='hann',
-    center=False,
+    frame_length=config.FRAMER.FRAMELENGTH,
+    hop_length=config.FRAMER.HOPLENGTH,
+    window=config.FRAMER.WINDOW,
+    center=config.FRAMER.CENTER,
 )
 
 # feature extractor
 featureExtractor = FeatureExtractor(
-    features=[
-        'ild',
-        'itd_ic',
-        'mfcc',
-        'pdf',
-    ]
+    features=config.FEATURES,
 )
 
 # label extractor
 labelExtractor = LabelExtractor(
-    label='irm'
-)
-
-# mixture maker
-randomMixtureMaker = RandomMixtureMaker(
-    rooms=['surrey_room_a'],
-    angles_target=range(-90, 95, 5),
-    angles_directional=range(-90, 95, 5),
-    snrs=range(0, 16),
-    snrs_directional_to_diffuse=range(-5, 6),
-    types_directional=[
-        'dcase_airport',
-        'dcase_bus',
-        'dcase_metro',
-        'dcase_park',
-        'dcase_public_square',
-        'dcase_shopping_mall',
-        'dcase_street_pedestrian',
-        'dcase_street_traffic',
-        'dcase_tram',
-    ],
-    types_diffuse=['noise_pink'],
-    n_directional_sources=range(4),
-    padding=0.5,
-    reflection_boundary=50e-3,
-    fs=fs,
-    noise_file_lims=noise_file_lims,
-    target_file_lims=target_file_lims,
-    rms_jitter_dB=range(-30, -10),
+    label=config.LABEL,
 )
 
 # main loop
@@ -109,27 +123,33 @@ mixtures = []
 foregrounds = []
 backgrounds = []
 metadatas = []
-indices = []
 i_start = 0
 total_time = 0
 start_time = time.time()
-for i in range(n_mixtures):
+for i in range(config.MIXTURES.NUMBER):
 
     # estimate time remaining and show progress
     if i == 0:
-        print('Processing mixture %i/%i...' % (i+1, n_mixtures))
+        print('Processing mixture %i/%i...' % (i+1, config.MIXTURES.NUMBER))
     else:
-        etr = (n_mixtures-i)*total_time/i
+        etr = (config.MIXTURES.NUMBER-i)*total_time/i
         print(('Processing mixture %i/%i... ETR: %i min %i s'
-               % (i+1, n_mixtures, etr//60, etr % 60)))
+               % (i+1, config.MIXTURES.NUMBER, etr//60, etr % 60)))
 
     # make mixture and save
     components, metadata = randomMixtureMaker.make()
     mixture, foreground, background = components
-    mixtures.append(mixture.flatten())
-    foregrounds.append(foreground.flatten())
-    backgrounds.append(background.flatten())
-    metadatas.append(metadata)
+    if config.MIXTURES.SAVE:
+        mixtures.append(mixture.flatten())
+        foregrounds.append(foreground.flatten())
+        backgrounds.append(background.flatten())
+
+    # scale signal
+    scaler.fit(mixture)
+    mixture = scaler.scale(mixture)
+    foreground = scaler.scale(foreground)
+    background = scaler.scale(background)
+    scaler.__init__(scaler.active)
 
     # apply filterbank
     mixture = filterbank.filt(mixture)
@@ -149,8 +169,9 @@ for i in range(n_mixtures):
 
     # save indices
     i_end = i_start + len(mixture)
-    indices.append((i_start, i_end))
     i_start = i_end
+    metadata['dataset_indices'] = (i_start, i_end)
+    metadatas.append(metadata)
 
     # update time spent
     total_time = time.time() - start_time
@@ -160,28 +181,32 @@ features = np.vstack(features)
 labels = np.vstack(labels)
 
 # save datasets
+datasets_output_path = os.path.join(output_dir, 'datasets.hdf5')
 with h5py.File(datasets_output_path, 'w') as f:
     f.create_dataset('features', data=features)
     f.create_dataset('labels', data=labels)
-    f.create_dataset('mixtures', data=mixtures,
-                     dtype=h5py.vlen_dtype(float))
-    f.create_dataset('foregrounds', data=foregrounds,
-                     dtype=h5py.vlen_dtype(float))
-    f.create_dataset('backgrounds', data=backgrounds,
-                     dtype=h5py.vlen_dtype(float))
-    f.attrs['indices'] = indices
+    if config.MIXTURES.SAVE:
+        f.create_dataset('mixtures', data=mixtures,
+                         dtype=h5py.vlen_dtype(float))
+        f.create_dataset('foregrounds', data=foregrounds,
+                         dtype=h5py.vlen_dtype(float))
+        f.create_dataset('backgrounds', data=backgrounds,
+                         dtype=h5py.vlen_dtype(float))
 
 # save mixtures metadata
+metadatas_output_path = os.path.join(output_dir, 'metadatas.json')
 with open(metadatas_output_path, 'w') as f:
     json.dump(metadatas, f)
 
 # save pipes
-pipes = {
-    'filterbank': filterbank,
-    'framer': framer,
-    'featureExtractor': featureExtractor,
-    'labelExtractor': labelExtractor,
-    'randomMixtureMaker': randomMixtureMaker,
-}
+pipes_output_path = os.path.join(output_dir, 'pipes.pkl')
 with open(pipes_output_path, 'wb') as f:
+    pipes = {
+        'scaler': scaler,
+        'randomMixtureMaker': randomMixtureMaker,
+        'filterbank': filterbank,
+        'framer': framer,
+        'featureExtractor': featureExtractor,
+        'labelExtractor': labelExtractor,
+    }
     pickle.dump(pipes, f)

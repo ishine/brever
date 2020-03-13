@@ -3,6 +3,21 @@ import math
 import scipy.signal
 
 
+def rms(x):
+    '''
+    Root mean square of input signal per channel.
+
+    Parameters:
+        x:
+            Input signal. Shape n_samples*n_channels.
+
+    Returns:
+        rms:
+            Root mean square. Length n_channels.
+    '''
+    return np.mean(x**2, axis=0)**0.5
+
+
 def zero_pad(x, pad_length, where='after'):
     '''
     Zero-padding along first axis at the end or the beginning an array.
