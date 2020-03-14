@@ -96,7 +96,7 @@ def gammatone_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, order=4):
         fc:
             Center frequencies.
     '''
-    return filt(x, 'mel', n_filters, f_min, f_max, fs, order)
+    return filt(x, 'gammatone', n_filters, f_min, f_max, fs, order)
 
 
 def mel_iir(f_low, f_high, fs=16e3, order=4):
@@ -192,7 +192,7 @@ def mel_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, order=4):
     return filt(x, 'mel', n_filters, f_min, f_max, fs, order)
 
 
-def filt(x, filter_type='gammatone', n_filters=64, f_min=50, f_max=8000,
+def filt(x, filter_type='mel', n_filters=64, f_min=50, f_max=8000,
          fs=16e3, order=4):
     '''
     Filter a signal through a bank of IIR filters or the selected type.
