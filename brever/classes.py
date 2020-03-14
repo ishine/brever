@@ -41,7 +41,28 @@ class PCA:
         return (X - self.means) @ self.components
 
 
-class UnitRMSScaler:
+class PipeBaseClass:
+    def __init__(self):
+        pass
+
+    def __str__(self):
+        attrs = {}
+        for key, value in self.__dict__.items():
+            if isinstance(value, list):
+                attrs[key] = ('\n        '
+                              + '\n        '.join(str(item) for item in value))
+            elif isinstance(value, np.ndarray):
+                attrs[key] = 'numpy array with shape %s' % str(value.shape)
+            else:
+                attrs[key] = value
+        output = (f'{self.__class__.__module__}.{self.__class__.__name__} '
+                  'instance:\n    '
+                  + '\n    '.join(': '.join((str(key), str(value)))
+                                  for key, value in attrs.items()))
+        return output
+
+
+class UnitRMSScaler(PipeBaseClass):
     def __init__(self, active=True):
         self.active = active
         self.gain = None
@@ -55,25 +76,6 @@ class UnitRMSScaler:
             return self.gain*signal
         else:
             return signal
-
-
-class PipeBaseClass:
-    def __init__(self):
-        pass
-
-    def __str__(self):
-        attrs = self.__dict__
-        for key, value in attrs.items():
-            if isinstance(value, (list, dict, tuple)) and len(value) > 10:
-                attrs[key] = '%s with length %i' % (type(value).__name__,
-                                                    len(value))
-            elif isinstance(value, np.ndarray):
-                attrs[key] = 'numpy array with shape %s' % str(value.shape)
-        output = (self.__class__.__module__ + '.' + self.__class__.__name__
-                  + ' instance:\n    '
-                  + '\n    '.join(': '.join((str(key), str(value)))
-                                  for key, value in attrs.items()))
-        return output
 
 
 class Filterbank(PipeBaseClass):
