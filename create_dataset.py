@@ -47,27 +47,27 @@ randomMixtureMaker = RandomMixtureMaker(
     rooms=config.MIXTURES.RANDOM.ROOMS,
     angles_target=range(
         config.MIXTURES.RANDOM.TARGET.ANGLE.MIN,
-        config.MIXTURES.RANDOM.TARGET.ANGLE.MAX,
+        config.MIXTURES.RANDOM.TARGET.ANGLE.MAX + 1,
         config.MIXTURES.RANDOM.TARGET.ANGLE.STEP,
     ),
     angles_directional=range(
         config.MIXTURES.RANDOM.SOURCES.ANGLE.MIN,
-        config.MIXTURES.RANDOM.SOURCES.ANGLE.MAX,
+        config.MIXTURES.RANDOM.SOURCES.ANGLE.MAX + 1,
         config.MIXTURES.RANDOM.SOURCES.ANGLE.STEP,
     ),
     snrs=range(
         config.MIXTURES.RANDOM.TARGET.SNR.MIN,
-        config.MIXTURES.RANDOM.TARGET.SNR.MAX,
+        config.MIXTURES.RANDOM.TARGET.SNR.MAX + 1,
     ),
     snrs_directional_to_diffuse=range(
         config.MIXTURES.RANDOM.SOURCES.SNR.MIN,
-        config.MIXTURES.RANDOM.SOURCES.SNR.MAX,
+        config.MIXTURES.RANDOM.SOURCES.SNR.MAX + 1,
     ),
     types_directional=config.MIXTURES.RANDOM.SOURCES.TYPES,
     types_diffuse=config.MIXTURES.RANDOM.DIFFUSE.TYPES,
     n_directional_sources=range(
         config.MIXTURES.RANDOM.SOURCES.NUMBER.MIN,
-        config.MIXTURES.RANDOM.SOURCES.NUMBER.MAX,
+        config.MIXTURES.RANDOM.SOURCES.NUMBER.MAX + 1,
     ),
     padding=config.MIXTURES.PADDING,
     reflection_boundary=config.MIXTURES.REFLECTIONBOUNDARY,
@@ -76,7 +76,7 @@ randomMixtureMaker = RandomMixtureMaker(
     target_file_lims=config.MIXTURES.FILELIMITS.TARGET,
     rms_jitter_dB=range(
         config.MIXTURES.RANDOM.RMSDB.MIN,
-        config.MIXTURES.RANDOM.RMSDB.MAX,
+        config.MIXTURES.RANDOM.RMSDB.MAX + 1,
     ),
     surrey_dirpath=config.PATH.SURREY,
     timit_dirpath=config.PATH.TIMIT,
