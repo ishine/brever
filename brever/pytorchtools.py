@@ -1,10 +1,13 @@
 import numpy as np
 import torch
 import h5py
+import os
+import logging
 
 
 class EarlyStopping:
-    def __init__(self, patience=7, verbose=False, delta=0):
+    def __init__(self, patience=7, verbose=True, delta=0,
+                 checkpoint_dir=''):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -12,6 +15,7 @@ class EarlyStopping:
         self.early_stop = False
         self.val_loss_min = np.inf
         self.delta = delta
+        self.checkpoint_path = os.path.join(checkpoint_dir, 'checkpoint.pt')
 
     def __call__(self, val_loss, model):
         score = -val_loss
@@ -20,8 +24,9 @@ class EarlyStopping:
             self.save_checkpoint(val_loss, model)
         elif score < self.best_score + self.delta:
             self.counter += 1
-            print((f'EarlyStopping counter: {self.counter} out of '
-                   f'{self.patience}'))
+            if self.verbose:
+                logging.info((f'EarlyStopping counter: {self.counter} out of '
+                              f'{self.patience}'))
             if self.counter >= self.patience:
                 self.early_stop = True
         else:
@@ -31,9 +36,10 @@ class EarlyStopping:
 
     def save_checkpoint(self, val_loss, model):
         if self.verbose:
-            print((f'Validation loss decreased ({self.val_loss_min:.6f} --> '
-                   f'{val_loss:.6f}).  Saving model ...'))
-        torch.save(model.state_dict(), 'checkpoint.pt')
+            logging.info((f'Validation loss decreased from '
+                          f'{self.val_loss_min:.6f} to {val_loss:.6f}. '
+                          f'Saving model...'))
+        torch.save(model.state_dict(), self.checkpoint_path)
         self.val_loss_min = val_loss
 
 
@@ -47,15 +53,22 @@ class TensorStandardizer:
 
 
 class H5Dataset(torch.utils.data.Dataset):
-    def __init__(self, filepath, load=False, transform=None):
+    def __init__(self, filepath, load=False, transform=None, stack=0,
+                 decimation=1, indices=None):
         self.filepath = filepath
         self.datasets = None
         self.load = load
         self.transform = transform
+        self.stack = stack
+        self.decimation = decimation
+        self.indices = indices
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
-            self.n_samples = len(f['features'])
-            self.n_features = f['features'].shape[1]
+            self.n_samples = len(f['features'])//decimation
+            if indices is None:
+                self.n_features = f['features'].shape[1]*(stack+1)
+            else:
+                self.n_features = sum(j-i for i, j in indices)*(stack+1)
             self.n_labels = f['labels'].shape[1]
             if self.load:
                 self.datasets = (f['features'][:], f['labels'][:])
@@ -67,7 +80,38 @@ class H5Dataset(torch.utils.data.Dataset):
                 self.datasets = (f['features'][:], f['labels'][:])
             else:
                 self.datasets = (f['features'], f['labels'])
-        x, y = self.datasets[0][index], self.datasets[1][index]
+        if isinstance(index, slice):
+            start, stop, step = index.start, index.stop, index.step
+            if start is not None:
+                start *= self.decimation
+            if stop is not None:
+                stop *= self.decimation
+            if step is None:
+                step = self.decimation
+            else:
+                step *= self.decimation
+            index = slice(start, stop, step)
+        elif isinstance(index, int):
+            index *= self.decimation
+        else:
+            raise ValueError((f'{type(self).__name__} does not support '
+                              f'{type(index).__name__} indexing'))
+        if self.indices is None:
+            x = self.datasets[0][index]
+        else:
+            x = np.hstack([self.datasets[0][index, i:j]
+                           for i, j in self.indices])
+        y = self.datasets[1][index]
+        for k in range(self.stack):
+            if self.indices is None:
+                roll = np.roll(self.datasets[0][index],
+                               k+1, axis=0)
+                x = np.hstack((x, roll))
+            else:
+                roll = np.roll(np.hstack([self.datasets[0][index, i:j]
+                                          for i, j in self.indices]),
+                               k+1, axis=0)
+                x = np.hstack((x, roll))
         x, y = torch.from_numpy(x).float(), torch.from_numpy(y).float()
         if self.transform:
             x = self.transform(x)
@@ -94,3 +138,28 @@ class DummyDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.n_samples
+
+
+class Feedforward(torch.nn.Module):
+    def __init__(self, input_size, hidden_config, output_size, dropout):
+        super(Feedforward, self).__init__()
+        self.operations = torch.nn.ModuleList()
+        for item in hidden_config:
+            if isinstance(item, int):
+                self.operations.append(torch.nn.Linear(input_size, item))
+                input_size = item
+            elif item == 'ReLU':
+                self.operations.append(torch.nn.ReLU())
+            elif item == 'BN':
+                self.operations.append(torch.nn.BatchNorm1d(input_size))
+            elif item == 'DO':
+                self.operations.append(torch.nn.Dropout(dropout))
+            else:
+                raise ValueError(f'Unrecognized hidden operation, got {item}')
+        self.operations.append(torch.nn.Linear(input_size, output_size))
+        self.operations.append(torch.nn.Sigmoid())
+
+    def forward(self, x):
+        for operation in self.operations:
+            x = operation(x)
+        return x
