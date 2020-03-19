@@ -141,10 +141,10 @@ def defaults():
     config.MODEL.TRAIN.OPTIMIZER = 'Adam'
     config.MODEL.TRAIN.LEARNINGRATE = 1e-4
     config.MODEL.TRAIN.WEIGHTDECAY = 0
-    config.MODEL.TRAIN.EARLYSTOP.PATIENCE = 7
+    config.MODEL.TRAIN.EARLYSTOP.PATIENCE = 10
     config.MODEL.TRAIN.EARLYSTOP.VERBOSE = True
     config.MODEL.TRAIN.EARLYSTOP.DELTA = 0
-    config.MODEL.TRAIN.EPOCHS = 100
+    config.MODEL.TRAIN.EPOCHS = 1000
     config.MODEL.ARCHITECTURE = [
         256,
         'BN',
