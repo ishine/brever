@@ -75,6 +75,14 @@ def get_feature_indices(train_path, features):
     return feature_indices
 
 
+def get_file_indices(train_path):
+    metadatas_path = os.path.join(train_path, 'mixture_info.json')
+    with open(metadatas_path, 'r') as f:
+        metadatas = json.load(metadatas_path)
+        indices = [item['dataset_indices'] for item in metadatas]
+    return indices
+
+
 def get_mean_and_std(dataloader, load):
     if load:
         mean = dataloader.dataset[:][0].mean(0)
@@ -185,7 +193,11 @@ def main(input_config, force):
     check_overlapping_files(config.POST.PATH.TRAIN, config.POST.PATH.VAL)
 
     # get features indices from feature extractor instance
-    indices = get_feature_indices(config.POST.PATH.TRAIN, config.POST.FEATURES)
+    feature_indices = get_feature_indices(config.POST.PATH.TRAIN,
+                                          config.POST.FEATURES)
+
+    # get files indices from mixture info file
+    file_indices = get_file_indices(config.POST.PATH.TRAIN)
 
     # seed for reproducibility
     torch.manual_seed(0)
@@ -200,14 +212,16 @@ def main(input_config, force):
         load=config.POST.LOAD,
         stack=config.POST.STACK,
         decimation=config.POST.DECIMATION,
-        indices=indices,
+        feature_indices=feature_indices,
+        file_indices=file_indices,
     )
     val_dataset = H5Dataset(
         filepath=val_dataset_path,
         load=config.POST.LOAD,
         stack=config.POST.STACK,
         decimation=config.POST.DECIMATION,
-        indices=indices,
+        feature_indices=feature_indices,
+        file_indices=file_indices,
     )
     logging.info(f'Number of features: {train_dataset.n_features}')
 
