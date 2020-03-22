@@ -78,7 +78,7 @@ def get_feature_indices(train_path, features):
 def get_file_indices(train_path):
     metadatas_path = os.path.join(train_path, 'mixture_info.json')
     with open(metadatas_path, 'r') as f:
-        metadatas = json.load(metadatas_path)
+        metadatas = json.load(f)
         indices = [item['dataset_indices'] for item in metadatas]
     return indices
 
@@ -230,12 +230,14 @@ def main(input_config, force):
         batch_size=config.MODEL.TRAIN.BATCHSIZE,
         shuffle=config.MODEL.TRAIN.SHUFFLE,
         num_workers=config.MODEL.TRAIN.NWORKERS,
+        drop_last=True,
     )
     val_dataloader = torch.utils.data.DataLoader(
         dataset=val_dataset,
         batch_size=config.MODEL.TRAIN.BATCHSIZE,
         shuffle=config.MODEL.TRAIN.SHUFFLE,
         num_workers=config.MODEL.TRAIN.NWORKERS,
+        drop_last=True,
     )
 
     # set normalization transform

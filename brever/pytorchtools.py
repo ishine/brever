@@ -54,21 +54,23 @@ class TensorStandardizer:
 
 class H5Dataset(torch.utils.data.Dataset):
     def __init__(self, filepath, load=False, transform=None, stack=0,
-                 decimation=1, indices=None):
+                 decimation=1, feature_indices=None, file_indices=None):
         self.filepath = filepath
         self.datasets = None
         self.load = load
         self.transform = transform
         self.stack = stack
         self.decimation = decimation
-        self.indices = indices
+        self.feature_indices = feature_indices
+        self.file_indices = file_indices
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
             self.n_samples = len(f['features'])//decimation
-            if indices is None:
-                self.n_features = f['features'].shape[1]*(stack+1)
+            if feature_indices is None:
+                self.n_features = f['features'].shape[1]
             else:
-                self.n_features = sum(j-i for i, j in indices)*(stack+1)
+                self.n_features = sum(j-i for i, j in feature_indices)
+            self.n_features *= (stack+1)
             self.n_labels = f['labels'].shape[1]
             if self.load:
                 self.datasets = (f['features'][:], f['labels'][:])
@@ -80,38 +82,54 @@ class H5Dataset(torch.utils.data.Dataset):
                 self.datasets = (f['features'][:], f['labels'][:])
             else:
                 self.datasets = (f['features'], f['labels'])
-        if isinstance(index, slice):
-            start, stop, step = index.start, index.stop, index.step
-            if start is not None:
-                start *= self.decimation
-            if stop is not None:
-                stop *= self.decimation
-            if step is None:
-                step = self.decimation
-            else:
-                step *= self.decimation
-            index = slice(start, stop, step)
-        elif isinstance(index, int):
+        # decimate
+        if isinstance(index, int):
             index *= self.decimation
+            if self.feature_indices is None:
+                x = self.datasets[0][index]
+            else:
+                x = np.hstack([self.datasets[0][index, i:j]
+                               for i, j in self.feature_indices])
+            for k in range(self.stack):
+                lag = k+1
+                index_lagged = index-lag
+                for i_file, _ in self.file_indices:
+                    if i_file <= index and not i_file <= index-lag:
+                        index_lagged = i_file
+                        break
+                if self.feature_indices is None:
+                    lagged = self.datasets[0][index_lagged]
+                else:
+                    lagged = np.hstack([self.datasets[0][index_lagged, i:j]
+                                        for i, j in self.feature_indices])
+                x = np.hstack((x, lagged))
+        elif isinstance(index, slice):
+            if index != slice(None, None, None):
+                raise ValueError((f'{type(self).__name__} only supports slice '
+                                  f'indexing using slice(None, None, None), '
+                                  f'got {index}'))
+            index = slice(None, None, self.decimation)
+            if self.feature_indices is None:
+                x = self.datasets[0][index]
+            else:
+                x = np.hstack([self.datasets[0][index, i:j]
+                               for i, j in self.feature_indices])
+            for k in range(self.stack):
+                lag = k+1
+                if self.feature_indices is None:
+                    lagged = self.datasets[0][:]
+                else:
+                    lagged = np.hstack([self.datasets[0][:, i:j]
+                                        for i, j in self.feature_indices])
+                lagged = np.roll(lagged, lag, axis=0)
+                for i_file, _ in self.file_indices:
+                    lagged[i_file:i_file+lag] = lagged[i_file+lag]
+                lagged = lagged[index]
+                x = np.hstack((x, lagged))
         else:
             raise ValueError((f'{type(self).__name__} does not support '
                               f'{type(index).__name__} indexing'))
-        if self.indices is None:
-            x = self.datasets[0][index]
-        else:
-            x = np.hstack([self.datasets[0][index, i:j]
-                           for i, j in self.indices])
         y = self.datasets[1][index]
-        for k in range(self.stack):
-            if self.indices is None:
-                roll = np.roll(self.datasets[0][index],
-                               k+1, axis=0)
-                x = np.hstack((x, roll))
-            else:
-                roll = np.roll(np.hstack([self.datasets[0][index, i:j]
-                                          for i, j in self.indices]),
-                               k+1, axis=0)
-                x = np.hstack((x, roll))
         x, y = torch.from_numpy(x).float(), torch.from_numpy(y).float()
         if self.transform:
             x = self.transform(x)
