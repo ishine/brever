@@ -12,13 +12,18 @@ class Struct:
             elif isinstance(getattr(self, key), Struct):
                 if not isinstance(value, dict):
                     raise TypeError((f'value with key {key} must have type '
-                                     f'dict'))
+                                     f'dict, got {type(value).__name__}'))
                 getattr(self, key).update(value)
             else:
-                if type(getattr(self, key)) != type(value):
+                if isinstance(getattr(self, key), set) and isinstance(value,
+                                                                      list):
+                    setattr(self, key, set(value))
+                elif type(getattr(self, key)) != type(value):
                     raise TypeError((f'value with key {key} must have type '
-                                     f'{type(getattr(self, key)).__name__}'))
-                setattr(self, key, value)
+                                     f'{type(getattr(self, key)).__name__}, '
+                                     f'got {type(value).__name__}'))
+                else:
+                    setattr(self, key, value)
 
     def todict(self):
         data = {}
@@ -65,12 +70,12 @@ def defaults():
     config.PRE.MIXTURES.SAVE = False
     config.PRE.MIXTURES.FILELIMITS.TARGET = [0.0, 1.0]
     config.PRE.MIXTURES.FILELIMITS.NOISE = [0.0, 1.0]
-    config.PRE.MIXTURES.RANDOM.ROOMS = [
+    config.PRE.MIXTURES.RANDOM.ROOMS = {
         'surrey_room_a',
         'surrey_room_b',
         'surrey_room_c',
         'surrey_room_d',
-    ]
+    }
     config.PRE.MIXTURES.RANDOM.RMSDB.MIN = -20
     config.PRE.MIXTURES.RANDOM.RMSDB.MAX = 0
     config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MIN = -90
@@ -85,7 +90,7 @@ def defaults():
     config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.STEP = 5
     config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN = -5
     config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MAX = 5
-    config.PRE.MIXTURES.RANDOM.SOURCES.TYPES = [
+    config.PRE.MIXTURES.RANDOM.SOURCES.TYPES = {
         'dcase_airport',
         'dcase_bus',
         'dcase_metro',
@@ -95,10 +100,10 @@ def defaults():
         'dcase_street_pedestrian',
         'dcase_street_traffic',
         'dcase_tram',
-    ]
-    config.PRE.MIXTURES.RANDOM.DIFFUSE.TYPES = [
+    }
+    config.PRE.MIXTURES.RANDOM.DIFFUSE.TYPES = {
         'noise_pink'
-    ]
+    }
     config.PRE.SCALERMS = True
     config.PRE.FILTERBANK.KIND = 'mel'
     config.PRE.FILTERBANK.NFILTERS = 64
@@ -109,12 +114,12 @@ def defaults():
     config.PRE.FRAMER.HOPLENGTH = 256
     config.PRE.FRAMER.WINDOW = 'hann'
     config.PRE.FRAMER.CENTER = False
-    config.PRE.FEATURES = [
+    config.PRE.FEATURES = {
         'ild',
         'itd_ic',
         'mfcc',
         'pdf',
-    ]
+    }
     config.PRE.LABEL = 'irm'
     config.PRE.PLOT.ON = True
     config.PRE.PLOT.NSAMPLES = 1000
@@ -122,12 +127,12 @@ def defaults():
     config.POST.PATH.TRAIN = 'data\\processed\\training'
     config.POST.PATH.VAL = 'data\\processed\\validation'
     config.POST.LOAD = False
-    config.POST.FEATURES = [
+    config.POST.FEATURES = {
         'ild',
         # 'itd_ic',
         'mfcc',
         # 'pdf',
-    ]
+    }
     config.POST.STACK = 4
     config.POST.GLOBALSTANDARDIZATION = True
     config.POST.DECIMATION = 2

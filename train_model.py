@@ -8,6 +8,7 @@ import pickle
 import hashlib
 
 import yaml
+import numpy as np
 import matplotlib.pyplot as plt
 import torch
 
@@ -38,11 +39,25 @@ def set_logger(output_dir):
 def get_unique_id(data):
     if not data:
         data = {}
+    data = sorted_dict(data)
     unique_str = ''.join([f'{hashlib.sha256(str(key).encode()).hexdigest()}'
                           f'{hashlib.sha256(str(val).encode()).hexdigest()}'
-                          for key, val in sorted(data.items())])
+                          for key, val in data.items()])
     unique_id = hashlib.sha256(unique_str.encode()).hexdigest()
     return unique_id
+
+
+def sorted_dict(data, config=defaults()):
+    output = {}
+    for key, value in sorted(data.items()):
+        if isinstance(value, dict):
+            output[key] = sorted_dict(value, config=getattr(config, key))
+        else:
+            if isinstance(getattr(config, key), set):
+                output[key] = sorted(value)
+            else:
+                output[key] = value
+    return output
 
 
 def check_overlapping_files(train_path, val_path):
@@ -176,16 +191,18 @@ def main(input_config, force):
     clear_logger()
     set_logger(output_dir)
 
-    # rename model
+    # get model id
     unique_id = get_unique_id(data)
     output_root = os.path.dirname(output_dir)
     new_output_dir = os.path.join(output_root, unique_id)
-    if not force and os.path.exists(new_output_dir):
-        logging.info(f'Model {unique_id} already exists.')
-        clear_logger()
-        return
 
     # display model info
+    logging.info(f'Processing {input_config}')
+    logging.info(f'Model ID: {unique_id}')
+    if not force and os.path.exists(new_output_dir):
+        logging.info(f'Model already exists.')
+        clear_logger()
+        return
     logging.info('\n' + pprint.pformat({'POST': config.POST.todict()}))
     logging.info('\n' + pprint.pformat({'MODEL': config.MODEL.todict()}))
 
@@ -319,6 +336,10 @@ def main(input_config, force):
 
     # plot training and validation error
     plot_losses(train_losses, val_losses, output_dir)
+
+    # save errors
+    np.save(os.path.join(output_dir, 'train_losses.npy'), train_losses)
+    np.save(os.path.join(output_dir, 'val_losses.npy'), val_losses)
 
     # close log file handler and rename model
     clear_logger()
