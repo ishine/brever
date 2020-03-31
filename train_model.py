@@ -180,29 +180,46 @@ def plot_losses(train_losses, val_losses, output_dir):
     fig.savefig(plot_output_path)
 
 
-def main(input_config, force):
+def main(input_config, force, norename):
     with open(input_config, 'r') as f:
         data = yaml.safe_load(f)
     config = defaults()
     config.update(data)
     output_dir = os.path.dirname(input_config)
 
-    # redirect logger
-    clear_logger()
-    set_logger(output_dir)
-
     # get model id
     unique_id = get_unique_id(data)
     output_root = os.path.dirname(output_dir)
     new_output_dir = os.path.join(output_root, unique_id)
 
-    # display model info
+    # check if model is already trained using hash id
     logging.info(f'Processing {input_config}')
     logging.info(f'Model ID: {unique_id}')
-    if not force and os.path.exists(new_output_dir):
-        logging.info(f'Model already exists.')
-        clear_logger()
-        return
+    if os.path.exists(new_output_dir):
+        if new_output_dir != output_dir:
+            logging.info(f'Another model with the same ID already exists.')
+            return
+        elif not force:
+            logging.info(f'Model is already labeled.')
+            return
+
+    # check if model is already trained using directory contents
+    train_losses_path = os.path.join(output_dir, 'train_losses.npy')
+    val_losses_path = os.path.join(output_dir, 'val_losses.npy')
+    if os.path.exists(train_losses_path) and os.path.exists(val_losses_path):
+        if not force:
+            logging.info(f'Model is already trained')
+            if norename:
+                return
+            logging.info(f'Model is unlabeled. Labeling it.')
+            os.rename(output_dir, new_output_dir)
+            return
+
+    # set logger
+    clear_logger()
+    set_logger(output_dir)
+
+    # print model info
     logging.info('\n' + pprint.pformat({'POST': config.POST.todict()}))
     logging.info('\n' + pprint.pformat({'MODEL': config.MODEL.todict()}))
 
@@ -270,6 +287,7 @@ def main(input_config, force):
         hidden_config=config.MODEL.ARCHITECTURE,
         output_size=train_dataset.n_labels,
         dropout=config.MODEL.TRAIN.DROPOUT,
+        momentum=config.MODEL.TRAIN.BNMOMENTUM,
     )
     if config.MODEL.TRAIN.CUDA:
         model = model.cuda()
@@ -338,12 +356,13 @@ def main(input_config, force):
     plot_losses(train_losses, val_losses, output_dir)
 
     # save errors
-    np.save(os.path.join(output_dir, 'train_losses.npy'), train_losses)
-    np.save(os.path.join(output_dir, 'val_losses.npy'), val_losses)
+    np.save(train_losses_path, train_losses)
+    np.save(val_losses_path, val_losses)
 
     # close log file handler and rename model
     clear_logger()
-    os.rename(output_dir, new_output_dir)
+    if not norename:
+        os.rename(output_dir, new_output_dir)
 
 
 if __name__ == '__main__':
@@ -355,6 +374,9 @@ if __name__ == '__main__':
                         action='store_true')
     parser.add_argument('-f', '--force',
                         help=('Train already trained.'),
+                        action='store_true')
+    parser.add_argument('-nr', '--norename',
+                        help=('Keep model directory name.'),
                         action='store_true')
     args = parser.parse_args()
 
@@ -371,7 +393,10 @@ if __name__ == '__main__':
             if len(files) > 1:
                 raise ValueError(f'More than one YAML file in {root}.')
             for file in files:
-                main(os.path.join(root, file), args.force)
+                try:
+                    main(os.path.join(root, file), args.force, args.norename)
+                except Exception as e:
+                    print(e)
 
     else:
         main(args.input, args.force)

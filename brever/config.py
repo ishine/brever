@@ -142,6 +142,7 @@ def defaults():
     config.MODEL.TRAIN.SHUFFLE = True
     config.MODEL.TRAIN.NWORKERS = 4
     config.MODEL.TRAIN.DROPOUT = 0.2
+    config.MODEL.TRAIN.BNMOMENTUM = 0.1
     config.MODEL.TRAIN.CRITERION = 'MSELoss'
     config.MODEL.TRAIN.OPTIMIZER = 'Adam'
     config.MODEL.TRAIN.LEARNINGRATE = 1e-4

@@ -159,7 +159,8 @@ class DummyDataset(torch.utils.data.Dataset):
 
 
 class Feedforward(torch.nn.Module):
-    def __init__(self, input_size, hidden_config, output_size, dropout):
+    def __init__(self, input_size, hidden_config, output_size, dropout,
+                 momentum):
         super(Feedforward, self).__init__()
         self.operations = torch.nn.ModuleList()
         for item in hidden_config:
@@ -169,7 +170,8 @@ class Feedforward(torch.nn.Module):
             elif item == 'ReLU':
                 self.operations.append(torch.nn.ReLU())
             elif item == 'BN':
-                self.operations.append(torch.nn.BatchNorm1d(input_size))
+                self.operations.append(torch.nn.BatchNorm1d(input_size,
+                                                            momentum=momentum))
             elif item == 'DO':
                 self.operations.append(torch.nn.Dropout(dropout))
             else:
