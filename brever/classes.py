@@ -154,13 +154,13 @@ class RandomMixtureMaker(PipeBaseClass):
                  types_diffuse, n_directional_sources, padding,
                  reflection_boundary, fs, noise_file_lims, target_file_lims,
                  rms_jitter_dB, surrey_dirpath, timit_dirpath, dcase_dirpath):
-        self.rooms = rooms
+        self.rooms = list(rooms)
         self.angles_target = angles_target
         self.angles_directional = angles_directional
         self.snrs = snrs
         self.snrs_directional_to_diffuse = snrs_directional_to_diffuse
-        self.types_directional = types_directional
-        self.types_diffuse = types_diffuse
+        self.types_directional = list(types_directional)
+        self.types_diffuse = list(types_diffuse)
         self.n_directional_sources = n_directional_sources
         self.padding = padding
         self.reflection_boundary = reflection_boundary
