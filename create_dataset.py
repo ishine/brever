@@ -6,6 +6,7 @@ import pprint
 import json
 import pickle
 import random
+from glob import glob
 
 import yaml
 import numpy as np
@@ -291,4 +292,5 @@ if __name__ == '__main__':
                 main(os.path.join(root, file))
 
     else:
-        main(args.input)
+        for input_file in glob(args.input):
+            main(input_file)
