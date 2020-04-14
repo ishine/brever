@@ -260,5 +260,5 @@ def cochleagram(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, rectify=True,
         elif compression == 'cube':
             C = C**(1/3)
         elif compression == 'log':
-            C = np.log10(C + 1e-6)
+            C = np.log10(C + 1e-10)
     return C, fc
