@@ -104,11 +104,16 @@ class H5Dataset(torch.utils.data.Dataset):
                                         for i, j in self.feature_indices])
                 x = np.hstack((x, lagged))
         elif isinstance(index, slice):
-            if index != slice(None, None, None):
-                raise ValueError((f'{type(self).__name__} only supports slice '
-                                  f'indexing using slice(None, None, None), '
-                                  f'got {index}'))
-            index = slice(None, None, self.decimation)
+            start, stop, step = index.start, index.stop, index.step
+            if start is not None:
+                start *= self.decimation
+            if stop is not None:
+                stop *= self.decimation
+            if step is None:
+                step = self.decimation
+            else:
+                step *= self.decimation
+            index = slice(start, stop, step)
             if self.feature_indices is None:
                 x = self.datasets[0][index]
             else:
