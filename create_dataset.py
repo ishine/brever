@@ -173,9 +173,9 @@ def main(input_config):
 
         # save indices
         i_end = i_start + len(mixture)
-        i_start = i_end
         metadata['dataset_indices'] = (i_start, i_end)
         metadatas.append(metadata)
+        i_start = i_end
 
         # update time spent
         total_time = time.time() - start_time
