@@ -162,7 +162,7 @@ def standardize(x, axis=0):
     stds = x.std(axis=axis)
     means = np.expand_dims(means, axis=axis)
     stds = np.expand_dims(stds, axis=axis)
-    x_standard = (x - means)/stds
+    x_standard = (x - means)/(stds + 1e-10)
     return x_standard
 
 
