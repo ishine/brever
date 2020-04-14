@@ -18,8 +18,9 @@ def spatialize(x, brir):
         x_binaural:
             Binaural audio signal. Shape len(x)*2.
     '''
-    x_left = scipy.signal.oaconvolve(x, brir[:, 0], mode='same')
-    x_right = scipy.signal.oaconvolve(x, brir[:, 1], mode='same')
+    n = len(x)
+    x_left = scipy.signal.oaconvolve(x, brir[:, 0], mode='full')[:n]
+    x_right = scipy.signal.oaconvolve(x, brir[:, 1], mode='full')[:n]
     return np.vstack([x_left, x_right]).T
 
 
@@ -202,11 +203,19 @@ def diffuse_and_directional_noise(xs_sources, brirs_sources, x_diffuse,
     if not len(xs_sources) == len(brirs_sources) == len(snrs):
         raise ValueError(('xs_sources, brirs_sources and snrs must have same '
                           'length'))
-    diffuse_noise = spatialize_multi(x_diffuse, brirs_diffuse)
-    directional_sources = np.zeros((len(diffuse_noise), 2))
+    if x_diffuse is None:
+        if not xs_sources:
+            return None
+        n_samples = len(xs_sources[0])
+        diffuse_noise = np.zeros((n_samples, 1))
+    else:
+        diffuse_noise = spatialize_multi(x_diffuse, brirs_diffuse)
+        n_samples = len(diffuse_noise)
+    directional_sources = np.zeros((n_samples, 2))
     for x, brir, snr in zip(xs_sources, brirs_sources, snrs):
         source = spatialize(x, brir)
-        source = adjust_snr(diffuse_noise, source, -snr)
+        if x_diffuse is not None:
+            source = adjust_snr(diffuse_noise, source, -snr)
         directional_sources += source
     return diffuse_noise + directional_sources
 
@@ -276,8 +285,11 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
                                           x_diffuse,
                                           brirs_diffuse,
                                           snrs_directional_to_diffuse)
-    noise = adjust_snr(target_full, noise, snr,
-                       slice(padding, len(target_full)-padding))
+    if noise is None:
+        noise = 0
+    else:
+        noise = adjust_snr(target_full, noise, snr,
+                           slice(padding, len(target_full)-padding))
     mixture = target_full + noise
     foreground = target_early
     background = target_late + noise

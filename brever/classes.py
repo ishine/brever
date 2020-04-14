@@ -106,6 +106,13 @@ class Filterbank(PipeBaseClass):
                                                    axis=0)
         return x_filt.squeeze()
 
+    def rfilt(self, x_filt):
+        x = np.zeros((len(x_filt), x_filt.shape[2]))
+        for i in range(self.n_filters):
+            x += scipy.signal.lfilter(self.b[i], self.a[i], x_filt[::-1, i, :],
+                                      axis=0)
+        return x[::-1].squeeze()
+
 
 class Framer(PipeBaseClass):
     def __init__(self, frame_length, hop_length, window, center):
@@ -122,7 +129,7 @@ class Framer(PipeBaseClass):
 
 class FeatureExtractor(PipeBaseClass):
     def __init__(self, features):
-        self.features = features
+        self.features = list(features)
         self.indices = None
 
     def run(self, x):
@@ -176,10 +183,16 @@ class RandomMixtureMaker(PipeBaseClass):
         angle = random.choice(self.angles_target)
         room = random.choice(self.rooms)
         snr = random.choice(self.snrs)
-        type_diff = random.choice(self.types_diffuse)
+        if self.types_diffuse:
+            type_diff = random.choice(self.types_diffuse)
+        else:
+            type_diff = None
         n_dir_sources = random.choice(self.n_directional_sources)
-        snrs_dir_to_diff = random.choices(self.snrs_directional_to_diffuse,
-                                          k=n_dir_sources)
+        if self.types_diffuse:
+            snrs_dir_to_diff = random.choices(self.snrs_directional_to_diffuse,
+                                              k=n_dir_sources)
+        else:
+            snrs_dir_to_diff = [None]*n_dir_sources
         types_dir = random.choices(self.types_directional,
                                    k=n_dir_sources)
         angles_dir = random.choices(self.angles_directional,
@@ -251,7 +264,9 @@ class RandomMixtureMaker(PipeBaseClass):
             return xs, filepaths, indicess
         else:
             type_ = types
-            if type_.startswith('noise_'):
+            if type_ is None:
+                x, filepath, indices = None, None, None
+            elif type_.startswith('noise_'):
                 color = re.match('^noise_(.*)$', type_).group(1)
                 x = colored_noise(color, n_samples)
                 filepath = None
