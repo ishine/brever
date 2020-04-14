@@ -107,7 +107,7 @@ def ild(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
             Interaural level difference. Size n_frames*n_filters.
     '''
     x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-    energy = np.sum(x**2, axis=1)
+    energy = np.sum(x**2, axis=1) + 1e-10
     return 10*np.log10(energy[:, :, 1]/energy[:, :, 0])
 
 
@@ -239,7 +239,7 @@ def mfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
     x = x.mean(axis=-1)  # average channels
     energy = x**2  # get energy
     energy = energy.mean(axis=1)  # average each frame
-    log_energy = np.log(energy)
+    log_energy = np.log(energy + 1e-10)
     mfcc = scipy.fftpack.dct(log_energy, axis=1, type=dct_type, norm=norm)
     return mfcc[:, 1:n_mfcc+1]
 
@@ -271,7 +271,8 @@ def pdf(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
     x = x.mean(axis=-1)  # average channels
     energy = x**2  # get energy
     energy = energy.mean(axis=1)  # average each frame
-    pdf = energy/energy.sum(axis=1, keepdims=True)
+    total_energy = energy.sum(axis=1, keepdims=True)  # energy across bands
+    pdf = energy/(total_energy + 1e-10)
     return pdf
 
 
