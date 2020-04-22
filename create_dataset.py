@@ -271,26 +271,13 @@ def main(input_config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create a dataset.')
-    parser.add_argument('-i', '--input',
+    parser.add_argument('input',
                         help=('Input YAML file.'))
-    parser.add_argument('--all',
-                        help=('Create all available datasets'),
-                        action='store_true')
     args = parser.parse_args()
 
     logging.basicConfig(
         level=logging.INFO,
     )
 
-    if args.all:
-        datasets_path = 'data\\processed'
-        for root, folders, files in os.walk(datasets_path):
-            files = [file for file in files if file.endswith('.yaml')]
-            if len(files) > 1:
-                raise ValueError(f'More than one YAML file in {root}.')
-            for file in files:
-                main(os.path.join(root, file))
-
-    else:
-        for input_file in glob(args.input):
-            main(input_file)
+    for input_file in glob(args.input):
+        main(input_file)

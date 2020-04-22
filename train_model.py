@@ -259,7 +259,7 @@ def main(model_dir, force):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train a model.')
-    parser.add_argument('-i', '--input',
+    parser.add_argument('input',
                         help=('Input model directory.'))
     parser.add_argument('-f', '--force',
                         help=('Train even if already trained.'),
