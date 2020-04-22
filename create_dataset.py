@@ -1,7 +1,7 @@
 import os
+import argparse
 import logging
 import time
-import argparse
 import pprint
 import json
 import pickle
@@ -15,8 +15,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import h5py
 
 from brever.config import defaults
-from brever.classes import Standardizer
-from brever.classes import (Filterbank, Framer, FeatureExtractor,
+from brever.classes import (Standardizer, Filterbank, Framer, FeatureExtractor,
                             LabelExtractor, RandomMixtureMaker, UnitRMSScaler)
 
 
@@ -42,7 +41,8 @@ def main(input_config):
     logging.info('\n' + pprint.pformat({'PRE': config.PRE.todict()}))
 
     # seed for reproducibility
-    random.seed(0)
+    if config.PRE.SEED:
+        random.seed(0)
 
     # mixture maker
     randomMixtureMaker = RandomMixtureMaker(

@@ -57,10 +57,12 @@ def defaults():
     config.POST = Struct()
     config.POST.PATH = Struct()
     config.MODEL = Struct()
-    config.MODEL.TRAIN = Struct()
-    config.MODEL.TRAIN.EARLYSTOP = Struct()
+    config.MODEL.DROPOUT = Struct()
+    config.MODEL.BATCHNORM = Struct()
+    config.MODEL.EARLYSTOP = Struct()
 
     config.PRE.FS = 16000
+    config.PRE.SEED = True
     config.PRE.MIXTURES.PATH.DCASE = 'data\\external\\DCASE'
     config.PRE.MIXTURES.PATH.SURREY = 'data\\external\\SURREY'
     config.PRE.MIXTURES.PATH.TIMIT = 'data\\external\\TIMIT\\TRAIN'
@@ -137,25 +139,22 @@ def defaults():
     config.POST.GLOBALSTANDARDIZATION = True
     config.POST.DECIMATION = 2
 
-    config.MODEL.TRAIN.CUDA = True
-    config.MODEL.TRAIN.BATCHSIZE = 32
-    config.MODEL.TRAIN.SHUFFLE = True
-    config.MODEL.TRAIN.NWORKERS = 4
-    config.MODEL.TRAIN.DROPOUT = 0.2
-    config.MODEL.TRAIN.BNMOMENTUM = 0.1
-    config.MODEL.TRAIN.CRITERION = 'MSELoss'
-    config.MODEL.TRAIN.OPTIMIZER = 'Adam'
-    config.MODEL.TRAIN.LEARNINGRATE = 1e-4
-    config.MODEL.TRAIN.WEIGHTDECAY = 0
-    config.MODEL.TRAIN.EARLYSTOP.PATIENCE = 10
-    config.MODEL.TRAIN.EARLYSTOP.VERBOSE = True
-    config.MODEL.TRAIN.EARLYSTOP.DELTA = 0
-    config.MODEL.TRAIN.EPOCHS = 1000
-    config.MODEL.ARCHITECTURE = [
-        256,
-        'BN',
-        'ReLU',
-        'DO',
-    ]
+    config.MODEL.CUDA = True
+    config.MODEL.BATCHSIZE = 32
+    config.MODEL.SHUFFLE = True
+    config.MODEL.NWORKERS = 4
+    config.MODEL.DROPOUT.ON = False
+    config.MODEL.DROPOUT.RATE = 0.2
+    config.MODEL.BATCHNORM.ON = False
+    config.MODEL.BATCHNORM.MOMENTUM = 0.1
+    config.MODEL.CRITERION = 'MSELoss'
+    config.MODEL.OPTIMIZER = 'Adam'
+    config.MODEL.LEARNINGRATE = 1e-4
+    config.MODEL.WEIGHTDECAY = 0
+    config.MODEL.EARLYSTOP.PATIENCE = 10
+    config.MODEL.EARLYSTOP.VERBOSE = True
+    config.MODEL.EARLYSTOP.DELTA = 0
+    config.MODEL.EPOCHS = 1000
+    config.MODEL.NLAYERS = 1
 
     return config
