@@ -49,7 +49,7 @@ To create a dataset, first create a new directory under `data/processed/`. Then 
 Then execute `create_dataset.py` from the command line with the YAML file as input argument:
 
 ```
-python create_dataset.py -i data/processed/dataset_name/config.yaml
+python create_dataset.py data/processed/dataset_name/config.yaml
 ```
 
 The following files are then created next to the input YAML file:
@@ -85,7 +85,7 @@ brever
 Then simply run:
 
 ```
-python create_dataset.py -i data/processed/dataset_name/config.yaml
+python create_dataset.py data/processed/dataset_name/config.yaml
 ```
 
 Your working tree will then look like this:
