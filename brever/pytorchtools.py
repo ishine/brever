@@ -5,6 +5,45 @@ import os
 import logging
 
 
+def get_mean_and_std(dataloader, load):
+    if load:
+        mean = dataloader.dataset[:][0].mean(0)
+        std = dataloader.dataset[:][0].std(0)
+    else:
+        mean = 0
+        for data, _ in dataloader:
+            mean += data.mean(0)
+        mean /= len(dataloader)
+        var = 0
+        for data, _ in dataloader:
+            var += ((data - mean)**2).mean(0)
+        var /= len(dataloader)
+        std = var**0.5
+    return mean, std
+
+
+def evaluate(model, criterion, dataloader, load, cuda):
+    model.eval()
+    with torch.no_grad():
+        if load:
+            data, target = dataloader.dataset[:]
+            if cuda:
+                data, target = data.cuda(), target.cuda()
+            output = model(data)
+            loss = criterion(output, target)
+            total_loss = loss.item()
+        else:
+            total_loss = 0
+            for data, target in dataloader:
+                if cuda:
+                    data, target = data.cuda(), target.cuda()
+                output = model(data)
+                loss = criterion(output, target)
+                total_loss += loss.item()
+            total_loss /= len(dataloader)
+    return total_loss
+
+
 class EarlyStopping:
     def __init__(self, patience=7, verbose=True, delta=0,
                  checkpoint_dir=''):
@@ -164,23 +203,19 @@ class DummyDataset(torch.utils.data.Dataset):
 
 
 class Feedforward(torch.nn.Module):
-    def __init__(self, input_size, hidden_config, output_size, dropout,
-                 momentum):
+    def __init__(self, input_size, output_size, n_layers, dropout_toggle,
+                 dropout_rate, batchnorm_toggle, batchnorm_momentum):
         super(Feedforward, self).__init__()
         self.operations = torch.nn.ModuleList()
-        for item in hidden_config:
-            if isinstance(item, int):
-                self.operations.append(torch.nn.Linear(input_size, item))
-                input_size = item
-            elif item == 'ReLU':
-                self.operations.append(torch.nn.ReLU())
-            elif item == 'BN':
-                self.operations.append(torch.nn.BatchNorm1d(input_size,
-                                                            momentum=momentum))
-            elif item == 'DO':
-                self.operations.append(torch.nn.Dropout(dropout))
-            else:
-                raise ValueError(f'Unrecognized hidden operation, got {item}')
+        for i in range(n_layers):
+            self.operations.append(torch.nn.Linear(input_size, input_size))
+            if batchnorm_toggle:
+                self.operations.append(
+                    torch.nn.BatchNorm1d(input_size,
+                                         momentum=batchnorm_momentum))
+            self.operations.append(torch.nn.ReLU())
+            if dropout_toggle:
+                self.operations.append(torch.nn.Dropout(dropout_rate))
         self.operations.append(torch.nn.Linear(input_size, output_size))
         self.operations.append(torch.nn.Sigmoid())
 

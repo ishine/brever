@@ -1,11 +1,10 @@
 import os
+import argparse
 import logging
 import time
-import argparse
 import pprint
 import json
-import pickle
-import hashlib
+from glob import glob
 
 import yaml
 import numpy as np
@@ -14,7 +13,8 @@ import torch
 
 from brever.config import defaults
 from brever.pytorchtools import (EarlyStopping, TensorStandardizer, H5Dataset,
-                                 Feedforward)
+                                 Feedforward, get_mean_and_std, evaluate)
+from brever.modelmanagement import get_feature_indices, get_file_indices
 
 
 def clear_logger():
@@ -36,30 +36,6 @@ def set_logger(output_dir):
     logger.addHandler(streamhandler)
 
 
-def get_unique_id(data):
-    if not data:
-        data = {}
-    data = sorted_dict(data)
-    unique_str = ''.join([f'{hashlib.sha256(str(key).encode()).hexdigest()}'
-                          f'{hashlib.sha256(str(val).encode()).hexdigest()}'
-                          for key, val in data.items()])
-    unique_id = hashlib.sha256(unique_str.encode()).hexdigest()
-    return unique_id
-
-
-def sorted_dict(data, config=defaults()):
-    output = {}
-    for key, value in sorted(data.items()):
-        if isinstance(value, dict):
-            output[key] = sorted_dict(value, config=getattr(config, key))
-        else:
-            if isinstance(getattr(config, key), set):
-                output[key] = sorted(value)
-            else:
-                output[key] = value
-    return output
-
-
 def check_overlapping_files(train_path, val_path):
     train_info_path = os.path.join(train_path, 'mixture_info.json')
     val_info_path = os.path.join(val_path, 'mixture_info.json')
@@ -79,42 +55,6 @@ def check_overlapping_files(train_path, val_path):
     assert not set(train_noises) & set(val_noises)
 
 
-def get_feature_indices(train_path, features):
-    pipes_path = os.path.join(train_path, 'pipes.pkl')
-    with open(pipes_path, 'rb') as f:
-        featureExtractor = pickle.load(f)['featureExtractor']
-    names = featureExtractor.features
-    indices = featureExtractor.indices
-    indices_dict = {name: lims for name, lims in zip(names, indices)}
-    feature_indices = [indices_dict[feature] for feature in features]
-    return feature_indices
-
-
-def get_file_indices(train_path):
-    metadatas_path = os.path.join(train_path, 'mixture_info.json')
-    with open(metadatas_path, 'r') as f:
-        metadatas = json.load(f)
-        indices = [item['dataset_indices'] for item in metadatas]
-    return indices
-
-
-def get_mean_and_std(dataloader, load):
-    if load:
-        mean = dataloader.dataset[:][0].mean(0)
-        std = dataloader.dataset[:][0].std(0)
-    else:
-        mean = 0
-        for data, _ in dataloader:
-            mean += data.mean(0)
-        mean /= len(dataloader)
-        var = 0
-        for data, _ in dataloader:
-            var += ((data - mean)**2).mean(0)
-        var /= len(dataloader)
-        std = var**0.5
-    return mean, std
-
-
 def train(model, criterion, optimizer, train_dataloader, cuda):
     model.train()
     for data, target in train_dataloader:
@@ -125,44 +65,6 @@ def train(model, criterion, optimizer, train_dataloader, cuda):
         loss = criterion(output, target)
         loss.backward()
         optimizer.step()
-
-
-def eval(model, criterion, train_dataloader, val_dataloader, load, cuda):
-    model.eval()
-    with torch.no_grad():
-        if load:
-            data, target = train_dataloader.dataset[:]
-            if cuda:
-                data, target = data.cuda(), target.cuda()
-            output = model(data)
-            loss = criterion(output, target)
-            train_loss = loss.item()
-
-            data, target = val_dataloader.dataset[:]
-            if cuda:
-                data, target = data.cuda(), target.cuda()
-            output = model(data)
-            loss = criterion(output, target)
-            val_loss = loss.item()
-        else:
-            train_loss = 0
-            for data, target in train_dataloader:
-                if cuda:
-                    data, target = data.cuda(), target.cuda()
-                output = model(data)
-                loss = criterion(output, target)
-                train_loss += loss.item()
-            train_loss /= len(train_dataloader)
-
-            val_loss = 0
-            for data, target in val_dataloader:
-                if cuda:
-                    data, target = data.cuda(), target.cuda()
-                output = model(data)
-                loss = criterion(output, target)
-                val_loss += loss.item()
-            val_loss /= len(val_dataloader)
-    return train_loss, val_loss
 
 
 def plot_losses(train_losses, val_losses, output_dir):
@@ -180,51 +82,38 @@ def plot_losses(train_losses, val_losses, output_dir):
     fig.savefig(plot_output_path)
 
 
-def main(input_config, force, norename):
-    with open(input_config, 'r') as f:
+def main(model_dir, force):
+    logging.info(f'Processing {model_dir}')
+
+    config_file = os.path.join(model_dir, 'config.yaml')
+    with open(config_file, 'r') as f:
         data = yaml.safe_load(f)
     config = defaults()
     config.update(data)
-    output_dir = os.path.dirname(input_config)
-
-    # get model id
-    unique_id = get_unique_id(data)
-    output_root = os.path.dirname(output_dir)
-    new_output_dir = os.path.join(output_root, unique_id)
-
-    # check if model is already trained using hash id
-    logging.info(f'Processing {input_config}')
-    logging.info(f'Model ID: {unique_id}')
-    if os.path.exists(new_output_dir):
-        if new_output_dir != output_dir:
-            logging.info(f'Another model with the same ID already exists.')
-            return
-        elif not force:
-            logging.info(f'Model is already labeled.')
-            return
 
     # check if model is already trained using directory contents
-    train_losses_path = os.path.join(output_dir, 'train_losses.npy')
-    val_losses_path = os.path.join(output_dir, 'val_losses.npy')
+    train_losses_path = os.path.join(model_dir, 'train_losses.npy')
+    val_losses_path = os.path.join(model_dir, 'val_losses.npy')
     if os.path.exists(train_losses_path) and os.path.exists(val_losses_path):
         if not force:
-            logging.info(f'Model is already trained')
-            if norename:
-                return
-            logging.info(f'Model is unlabeled. Labeling it.')
-            os.rename(output_dir, new_output_dir)
+            logging.info(f'Model is already trained.')
             return
 
     # set logger
     clear_logger()
-    set_logger(output_dir)
+    set_logger(model_dir)
 
     # print model info
-    logging.info('\n' + pprint.pformat({'POST': config.POST.todict()}))
-    logging.info('\n' + pprint.pformat({'MODEL': config.MODEL.todict()}))
+    logging.info('\n' + pprint.pformat({
+        'POST': config.POST.todict(),
+        'MODEL': config.MODEL.todict(),
+    }))
 
     # check that there are no overlapping files between train and val sets
     check_overlapping_files(config.POST.PATH.TRAIN, config.POST.PATH.VAL)
+
+    # seed for reproducibility
+    torch.manual_seed(0)
 
     # get features indices from feature extractor instance
     feature_indices = get_feature_indices(config.POST.PATH.TRAIN,
@@ -232,9 +121,6 @@ def main(input_config, force, norename):
 
     # get files indices from mixture info file
     file_indices = get_file_indices(config.POST.PATH.TRAIN)
-
-    # seed for reproducibility
-    torch.manual_seed(0)
 
     # load datasets and dataloaders
     logging.info('Loading datasets...')
@@ -261,16 +147,16 @@ def main(input_config, force, norename):
 
     train_dataloader = torch.utils.data.DataLoader(
         dataset=train_dataset,
-        batch_size=config.MODEL.TRAIN.BATCHSIZE,
-        shuffle=config.MODEL.TRAIN.SHUFFLE,
-        num_workers=config.MODEL.TRAIN.NWORKERS,
+        batch_size=config.MODEL.BATCHSIZE,
+        shuffle=config.MODEL.SHUFFLE,
+        num_workers=config.MODEL.NWORKERS,
         drop_last=True,
     )
     val_dataloader = torch.utils.data.DataLoader(
         dataset=val_dataset,
-        batch_size=config.MODEL.TRAIN.BATCHSIZE,
-        shuffle=config.MODEL.TRAIN.SHUFFLE,
-        num_workers=config.MODEL.TRAIN.NWORKERS,
+        batch_size=config.MODEL.BATCHSIZE,
+        shuffle=config.MODEL.SHUFFLE,
+        num_workers=config.MODEL.NWORKERS,
         drop_last=True,
     )
 
@@ -284,28 +170,30 @@ def main(input_config, force, norename):
     # initialize network
     model = Feedforward(
         input_size=train_dataset.n_features,
-        hidden_config=config.MODEL.ARCHITECTURE,
         output_size=train_dataset.n_labels,
-        dropout=config.MODEL.TRAIN.DROPOUT,
-        momentum=config.MODEL.TRAIN.BNMOMENTUM,
+        n_layers=config.MODEL.NLAYERS,
+        dropout_toggle=config.MODEL.DROPOUT.ON,
+        dropout_rate=config.MODEL.DROPOUT.RATE,
+        batchnorm_toggle=config.MODEL.BATCHNORM.ON,
+        batchnorm_momentum=config.MODEL.BATCHNORM.MOMENTUM,
     )
-    if config.MODEL.TRAIN.CUDA:
+    if config.MODEL.CUDA:
         model = model.cuda()
 
     # initialize criterion and optimizer
-    criterion = getattr(torch.nn, config.MODEL.TRAIN.CRITERION)()
-    optimizer = getattr(torch.optim, config.MODEL.TRAIN.OPTIMIZER)(
+    criterion = getattr(torch.nn, config.MODEL.CRITERION)()
+    optimizer = getattr(torch.optim, config.MODEL.OPTIMIZER)(
         params=model.parameters(),
-        lr=config.MODEL.TRAIN.LEARNINGRATE,
-        weight_decay=config.MODEL.TRAIN.WEIGHTDECAY,
+        lr=config.MODEL.LEARNINGRATE,
+        weight_decay=config.MODEL.WEIGHTDECAY,
     )
 
     # initialize early stopping object
     early_stopping = EarlyStopping(
-        patience=config.MODEL.TRAIN.EARLYSTOP.PATIENCE,
-        verbose=config.MODEL.TRAIN.EARLYSTOP.VERBOSE,
-        delta=config.MODEL.TRAIN.EARLYSTOP.DELTA,
-        checkpoint_dir=output_dir,
+        patience=config.MODEL.EARLYSTOP.PATIENCE,
+        verbose=config.MODEL.EARLYSTOP.VERBOSE,
+        delta=config.MODEL.EARLYSTOP.DELTA,
+        checkpoint_dir=model_dir,
     )
 
     # main loop
@@ -313,24 +201,30 @@ def main(input_config, force, norename):
     train_losses = []
     val_losses = []
     start_time = time.time()
-    for epoch in range(config.MODEL.TRAIN.EPOCHS):
+    for epoch in range(config.MODEL.EPOCHS):
         # train
         train(
             model=model,
             criterion=criterion,
             optimizer=optimizer,
             train_dataloader=train_dataloader,
-            cuda=config.MODEL.TRAIN.CUDA,
+            cuda=config.MODEL.CUDA,
         )
 
         # validate
-        train_loss, val_loss = eval(
+        train_loss = evaluate(
             model=model,
             criterion=criterion,
-            train_dataloader=train_dataloader,
-            val_dataloader=val_dataloader,
+            dataloader=train_dataloader,
             load=config.POST.LOAD,
-            cuda=config.MODEL.TRAIN.CUDA,
+            cuda=config.MODEL.CUDA,
+        )
+        val_loss = evaluate(
+            model=model,
+            criterion=criterion,
+            dataloader=val_dataloader,
+            load=config.POST.LOAD,
+            cuda=config.MODEL.CUDA,
         )
 
         # log and store errors
@@ -353,7 +247,7 @@ def main(input_config, force, norename):
                  f'{int(total_time%3600/60)} m {int(total_time%60)} s')
 
     # plot training and validation error
-    plot_losses(train_losses, val_losses, output_dir)
+    plot_losses(train_losses, val_losses, model_dir)
 
     # save errors
     np.save(train_losses_path, train_losses)
@@ -361,22 +255,14 @@ def main(input_config, force, norename):
 
     # close log file handler and rename model
     clear_logger()
-    if not norename:
-        os.rename(output_dir, new_output_dir)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train a model.')
     parser.add_argument('-i', '--input',
-                        help=('Input YAML file.'))
-    parser.add_argument('--all',
-                        help=('Train all available models.'),
-                        action='store_true')
+                        help=('Input model directory.'))
     parser.add_argument('-f', '--force',
-                        help=('Train already trained.'),
-                        action='store_true')
-    parser.add_argument('-nr', '--norename',
-                        help=('Keep model directory name.'),
+                        help=('Train even if already trained.'),
                         action='store_true')
     args = parser.parse_args()
 
@@ -384,19 +270,5 @@ if __name__ == '__main__':
         level=logging.INFO,
     )
 
-    if args.all:
-        models_path = 'models'
-        for root, folders, files in os.walk(models_path):
-            if root == models_path:
-                continue
-            files = [file for file in files if file.endswith('.yaml')]
-            if len(files) > 1:
-                raise ValueError(f'More than one YAML file in {root}.')
-            for file in files:
-                try:
-                    main(os.path.join(root, file), args.force, args.norename)
-                except Exception as e:
-                    print(e)
-
-    else:
-        main(args.input, args.force)
+    for model_dir in glob(args.input):
+        main(model_dir, args.force)
