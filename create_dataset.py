@@ -19,18 +19,18 @@ from brever.classes import (Standardizer, Filterbank, Framer, FeatureExtractor,
                             LabelExtractor, RandomMixtureMaker, UnitRMSScaler)
 
 
-def main(input_config):
-    with open(input_config, 'r') as f:
+def main(dataset_dir):
+    config_file = os.path.join(dataset_dir, 'config.yaml')
+    with open(config_file, 'r') as f:
         data = yaml.safe_load(f)
     config = defaults()
     config.update(data)
-    output_dir = os.path.dirname(input_config)
 
     # redirect logger
     logger = logging.getLogger()
     for i in reversed(range(len(logger.handlers))):
         logger.removeHandler(logger.handlers[i])
-    logfile = os.path.join(output_dir, 'log.txt')
+    logfile = os.path.join(dataset_dir, 'log.txt')
     filehandler = logging.FileHandler(logfile, mode='w')
     streamhandler = logging.StreamHandler()
     formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
@@ -185,7 +185,7 @@ def main(input_config):
     labels = np.vstack(labels)
 
     # save datasets
-    datasets_output_path = os.path.join(output_dir, 'dataset.hdf5')
+    datasets_output_path = os.path.join(dataset_dir, 'dataset.hdf5')
     with h5py.File(datasets_output_path, 'w') as f:
         f.create_dataset('features', data=features)
         f.create_dataset('labels', data=labels)
@@ -198,12 +198,12 @@ def main(input_config):
                              dtype=h5py.vlen_dtype(float))
 
     # save mixtures metadata
-    metadatas_output_path = os.path.join(output_dir, 'mixture_info.json')
+    metadatas_output_path = os.path.join(dataset_dir, 'mixture_info.json')
     with open(metadatas_output_path, 'w') as f:
         json.dump(metadatas, f)
 
     # save pipes
-    pipes_output_path = os.path.join(output_dir, 'pipes.pkl')
+    pipes_output_path = os.path.join(dataset_dir, 'pipes.pkl')
     with open(pipes_output_path, 'wb') as f:
         pipes = {
             'scaler': scaler,
@@ -254,7 +254,7 @@ def main(input_config):
         axes[1].set_yticklabels([labelExtractor.label], minor=True)
         axes[1].tick_params(axis='y', which='minor', length=0)
 
-        peek_output_path = os.path.join(output_dir, filename)
+        peek_output_path = os.path.join(dataset_dir, filename)
         fig.tight_layout()
         fig.savefig(peek_output_path)
 
@@ -272,12 +272,12 @@ def main(input_config):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create a dataset.')
     parser.add_argument('input',
-                        help=('Input YAML file.'))
+                        help=('Input dataset directory.'))
     args = parser.parse_args()
 
     logging.basicConfig(
         level=logging.INFO,
     )
 
-    for input_file in glob(args.input):
-        main(input_file)
+    for dataset_dir in glob(args.input):
+        main(dataset_dir)
