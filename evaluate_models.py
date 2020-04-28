@@ -11,6 +11,7 @@ import h5py
 import matlab
 import matlab.engine
 import soundfile as sf
+import matplotlib.pyplot as plt
 
 from brever.config import defaults
 from brever.utils import wola
@@ -19,7 +20,7 @@ from brever.pytorchtools import (Feedforward, H5Dataset, TensorStandardizer,
 from brever.modelmanagement import get_feature_indices, get_file_indices
 
 
-def main(model_dir, force):
+def main(model_dir, force, save, nomse, nopesq):
     logging.info(f'Processing {model_dir}')
 
     # check if model is already evaluated
@@ -99,9 +100,6 @@ def main(model_dir, force):
         pipes = pickle.load(f)
     scaler = pipes['scaler']
     filterbank = pipes['filterbank']
-    # framer = pipes['framer']
-    # featureExtractor = pipes['featureExtractor']
-    # labelExtractor = pipes['labelExtractor']
 
     # main loop
     datasets_dir = 'data\\processed'
@@ -114,8 +112,9 @@ def main(model_dir, force):
     ]
     PESQ = np.zeros((len(snrs), len(room_aliases)))
     MSE = np.zeros((len(snrs), len(room_aliases)))
-    eng = matlab.engine.start_matlab()
-    eng.addpath('matlab\\loizou', nargout=0)
+    if not args.nopesq:
+        eng = matlab.engine.start_matlab()
+        eng.addpath('matlab\\loizou', nargout=0)
     for i, snr in enumerate(snrs):
         for j, room_alias in enumerate(room_aliases):
             dirname = f'testing_snr{snr}_room{room_alias[-1].upper()}'
@@ -145,17 +144,17 @@ def main(model_dir, force):
             )
             if config.POST.GLOBALSTANDARDIZATION:
                 test_dataset.transform = TensorStandardizer(mean, std)
-            logging.info(f'Calculating MSE...')
-            MSE[i, j] = evaluate(
-                model=model,
-                criterion=criterion,
-                dataloader=test_dataloader,
-                load=config.POST.LOAD,
-                cuda=config.MODEL.CUDA,
-            )
+            if not args.nomse:
+                logging.info(f'Calculating MSE...')
+                MSE[i, j] = evaluate(
+                    model=model,
+                    criterion=criterion,
+                    dataloader=test_dataloader,
+                    load=config.POST.LOAD,
+                    cuda=config.MODEL.CUDA,
+                )
 
             # calculate PESQ; first load mixtures
-            logging.info(f'Calculating PESQ:')
             dpesqs = []
             with h5py.File(test_dataset_path, 'r') as f:
                 n = len(f['mixtures'])
@@ -179,35 +178,51 @@ def main(model_dir, force):
 
                     # extract features
                     features, _ = test_dataset[i_start:i_end]
-                    import matplotlib.pyplot as plt
-                    plt.imshow(features.numpy().T, aspect='auto')
-                    plt.colorbar()
-                    plt.show()
-                    continue
                     if config.MODEL.CUDA:
                         features = features.cuda()
 
-                    # make IRM prediction
+                    # make RM prediction
                     model.eval()
                     with torch.no_grad():
-                        IRM = model(features)
+                        PRM = model(features)
                         if config.MODEL.CUDA:
-                            IRM = IRM.cpu()
-                        IRM = IRM.numpy()
+                            PRM = PRM.cpu()
+                        PRM = PRM.numpy()
 
-                    # apply IRM
-                    IRM = wola(IRM, trim=len(mixture_filt))[:, :, np.newaxis]
-                    mixture_enhanced = filterbank.rfilt(mixture_filt*IRM)
+                    # apply predicted RM
+                    PRM_ = wola(PRM, trim=len(mixture_filt))[:, :, np.newaxis]
+                    mixture_enhanced = filterbank.rfilt(mixture_filt*PRM_)
                     mixture_ref = filterbank.rfilt(mixture_filt)
                     foreground_ref = filterbank.rfilt(foreground_filt)
 
-                    # write audio
-                    gain = 1/max(mixture.max(), mixture_enhanced.max())
+                    # write audio and plot mask
+                    gain = 1/mixture.max()
                     output_dir = os.path.join(model_dir, 'audio', dirname)
                     if not os.path.exists(output_dir):
                         os.makedirs(output_dir)
-                    filepath = os.path.join(output_dir, f'mixture_{k}.wav')
-                    sf.write(filepath, mixture_enhanced*gain, config.PRE.FS)
+                    sf.write(os.path.join(output_dir,
+                                          f'mixture_enhanced_{k}.wav'),
+                             mixture_enhanced*gain, config.PRE.FS)
+                    if save:
+                        sf.write(os.path.join(output_dir,
+                                              f'mixture_{k}.wav'),
+                                 mixture*gain, config.PRE.FS)
+                        IRM = f['labels'][i_start:i_end]
+                        fig, axes = plt.subplots(2, 1, figsize=(12, 8))
+                        pos = axes[0].imshow(PRM.T, aspect='auto',
+                                             origin='lower', vmin=0, vmax=1)
+                        fig.colorbar(pos, ax=axes[0])
+                        axes[0].set_title('Predicted mask')
+                        pos = axes[1].imshow(IRM.T, aspect='auto',
+                                             origin='lower', vmin=0, vmax=1)
+                        fig.colorbar(pos, ax=axes[1])
+                        axes[1].set_title('True mask')
+                        fig.tight_layout()
+                        fig.savefig(os.path.join(output_dir, f'mask_{k}.png'))
+                        plt.close(fig)
+
+                    if args.nopesq:
+                        continue
 
                     # remove noise-only parts
                     npad = round(config.PRE.MIXTURES.PADDING*config.PRE.FS)
@@ -230,10 +245,13 @@ def main(model_dir, force):
                                           config.PRE.FS)
                     dpesqs.append(pesq_after - pesq_before)
 
-            PESQ[i, j] = np.mean(dpesqs)
+            if not args.nopesq:
+                PESQ[i, j] = np.mean(dpesqs)
 
-    np.save(os.path.join(model_dir, 'eval_PESQ.npy'), PESQ)
-    np.save(os.path.join(model_dir, 'eval_MSE.npy'), MSE)
+    if not args.nomse:
+        np.save(os.path.join(model_dir, 'eval_MSE.npy'), MSE)
+    if not args.nopesq:
+        np.save(os.path.join(model_dir, 'eval_PESQ.npy'), PESQ)
 
 
 if __name__ == '__main__':
@@ -243,6 +261,15 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--force',
                         help='Evaluate even if already evaluated.',
                         action='store_true')
+    parser.add_argument('--save',
+                        help='Save original mixtures and ratio masks.',
+                        action='store_true')
+    parser.add_argument('--nopesq',
+                        help='Skip PESQ calculation.',
+                        action='store_true')
+    parser.add_argument('--nomse',
+                        help='Skip MSE calculation.',
+                        action='store_true')
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -251,4 +278,4 @@ if __name__ == '__main__':
     )
 
     for model_dir in glob(args.input):
-        main(model_dir, args.force)
+        main(model_dir, args.force, args.save, args.nomse, args.nopesq)
