@@ -195,8 +195,8 @@ class RandomMixtureMaker(PipeBaseClass):
             snrs_dir_to_diff = [None]*n_dir_sources
         types_dir = random.choices(self.types_directional,
                                    k=n_dir_sources)
-        angles_dir = random.choices(self.angles_directional,
-                                    k=n_dir_sources)
+        angles_dir = random.sample(self.angles_directional,
+                                   k=n_dir_sources)
         rms_dB = random.choice(self.rms_jitter_dB)
         x_target, file_target = load_random_target(self.timit_dirpath,
                                                    self.target_file_lims,
