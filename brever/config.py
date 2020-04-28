@@ -131,7 +131,8 @@ def defaults():
     config.POST.LOAD = False
     config.POST.FEATURES = {
         'ild',
-        # 'itd_ic',
+        # 'itd',
+        # 'ic',
         'mfcc',
         # 'pdf',
     }
