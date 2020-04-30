@@ -131,11 +131,7 @@ def defaults():
     config.POST.PATH.TEST = 'data\\processed\\testing'  # no ending backslash
     config.POST.LOAD = False
     config.POST.FEATURES = {
-        'ild',
-        # 'itd',
-        # 'ic',
         'mfcc',
-        # 'pdf',
     }
     config.POST.STACK = 4
     config.POST.GLOBALSTANDARDIZATION = True
