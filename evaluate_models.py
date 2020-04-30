@@ -117,13 +117,12 @@ def main(model_dir, force, save, nomse, nopesq):
         eng.addpath('matlab\\loizou', nargout=0)
     for i, snr in enumerate(snrs):
         for j, room_alias in enumerate(room_aliases):
-            dirname = f'testing_snr{snr}_room{room_alias[-1].upper()}'
-            test_dataset_dir = os.path.join(datasets_dir, dirname)
+            suffix = f'snr{snr}_room{room_alias[-1].upper()}'
+            test_dataset_dir = f'{config.POST.PATH.TEST}_{suffix}'
             test_dataset_path = os.path.join(test_dataset_dir, 'dataset.hdf5')
             logging.info(f'Processing {test_dataset_dir}:')
 
-            # recalculate feature_indices and file_indices; features_indices
-            # should be the same so there is no need but not file_indices!
+            # recalculate feature_indices and file_indices
             feature_indices = get_feature_indices(test_dataset_dir,
                                                   config.POST.FEATURES)
             file_indices = get_file_indices(test_dataset_dir)
