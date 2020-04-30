@@ -116,11 +116,14 @@ def main(model_dir, force):
     torch.manual_seed(0)
 
     # get features indices from feature extractor instance
-    feature_indices = get_feature_indices(config.POST.PATH.TRAIN,
-                                          config.POST.FEATURES)
+    train_feature_indices = get_feature_indices(config.POST.PATH.TRAIN,
+                                                config.POST.FEATURES)
+    val_feature_indices = get_feature_indices(config.POST.PATH.VAL,
+                                              config.POST.FEATURES)
 
     # get files indices from mixture info file
-    file_indices = get_file_indices(config.POST.PATH.TRAIN)
+    train_file_indices = get_file_indices(config.POST.PATH.TRAIN)
+    val_file_indices = get_file_indices(config.POST.PATH.VAL)
 
     # load datasets and dataloaders
     logging.info('Loading datasets...')
@@ -132,16 +135,16 @@ def main(model_dir, force):
         load=config.POST.LOAD,
         stack=config.POST.STACK,
         decimation=config.POST.DECIMATION,
-        feature_indices=feature_indices,
-        file_indices=file_indices,
+        feature_indices=train_feature_indices,
+        file_indices=train_file_indices,
     )
     val_dataset = H5Dataset(
         filepath=val_dataset_path,
         load=config.POST.LOAD,
         stack=config.POST.STACK,
         decimation=config.POST.DECIMATION,
-        feature_indices=feature_indices,
-        file_indices=file_indices,
+        feature_indices=val_feature_indices,
+        file_indices=val_file_indices,
     )
     logging.info(f'Number of features: {train_dataset.n_features}')
 
