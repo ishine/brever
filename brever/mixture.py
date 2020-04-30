@@ -145,6 +145,10 @@ def adjust_snr(signal, noise, snr, slice_=None):
         slice_ = np.s_[:]
     energy_signal = np.sum(signal[slice_]**2)
     energy_noise = np.sum(noise[slice_]**2)
+    if energy_signal == 0:
+        raise ValueError('Can\'t scale noise signal if target signal is 0!')
+    if energy_noise == 0:
+        raise ValueError('Can\'t scale noise signal if it equals 0!')
     gain = 10**(-snr/10)*(energy_signal/energy_noise)**0.5
     noise_scaled = gain*noise
     return noise_scaled
@@ -173,10 +177,10 @@ def adjust_rms(signal, rms_dB):
 
 
 def diffuse_and_directional_noise(xs_sources, brirs_sources, x_diffuse,
-                                  brirs_diffuse, snrs):
+                                  brirs_diffuse, snr):
     '''
     Creates a mixture consisting of a set of directional noise sources in
-    diffuse noise at given SNRs.
+    diffuse noise at given SNR.
 
     Parameters:
         x_sources:
@@ -192,36 +196,38 @@ def diffuse_and_directional_noise(xs_sources, brirs_sources, x_diffuse,
             List of BRIRs to use to create the diffuse noise. Ideally the BRIRs
             in sources_brirs should figure in diffuse_brirs for realism
             purposes.
-        snrs:
-            List of SNR values for each directional noise source. Should have
-            same length as x_sources and brirs_sources
+        snr:
+            Directional components to diffuse noise signal-to-noise ratio. The
+            total energy of the directional noise sources is compared to the
+            diffuse noise. The directional sources all have the same level.
 
     Returns:
         mixture:
             Output mixture. Shape n_samples*2.
     '''
-    if not len(xs_sources) == len(brirs_sources) == len(snrs):
-        raise ValueError(('xs_sources, brirs_sources and snrs must have same '
+    if len(xs_sources) != len(brirs_sources):
+        raise ValueError(('xs_sources and brirs_sources must have same '
                           'length'))
-    if x_diffuse is None:
-        if not xs_sources:
-            return None
+    if xs_sources:
         n_samples = len(xs_sources[0])
+    elif x_diffuse is not None:
+        n_samples = len(x_diffuse)
+    else:
+        return None
+    directional_sources = np.zeros((n_samples, 2))
+    for x, brir in zip(xs_sources, brirs_sources):
+        directional_sources += spatialize(x, brir)
+    if x_diffuse is None:
         diffuse_noise = np.zeros((n_samples, 1))
     else:
         diffuse_noise = spatialize_multi(x_diffuse, brirs_diffuse)
-        n_samples = len(diffuse_noise)
-    directional_sources = np.zeros((n_samples, 2))
-    for x, brir, snr in zip(xs_sources, brirs_sources, snrs):
-        source = spatialize(x, brir)
-        if x_diffuse is not None:
-            source = adjust_snr(diffuse_noise, source, -snr)
-        directional_sources += source
+        if xs_sources:
+            diffuse_noise = adjust_snr(directional_sources, diffuse_noise, snr)
     return diffuse_noise + directional_sources
 
 
 def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
-                 snrs_directional_to_diffuse, x_diffuse, xs_directional,
+                 snr_directional_to_diffuse, x_diffuse, xs_directional,
                  rms_dB=0, padding=0, reflection_boundary=50e-3, fs=16e3):
     '''
     Make a binaural mixture consisting of a target signal, some diffuse noise
@@ -243,9 +249,10 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
             Signal-to-noise ratio, where "signal" refers to the reverberant
             target signal and "noise" refers to the diffuse noise plus the
             directional noise.
-        snrs_directional_to_diffuse:
-            List of ignal-to-noise ratios, where "signal" refers to the
-            directional noise and "noise" refers to the diffuse noise.
+        snr_directional_to_diffuse:
+            Directional components to diffuse noise signal-to-noise ratio. The
+            total energy of the directional noise sources is compared to the
+            diffuse noise. The directional sources all have the same level.
         x_diffuse:
             Clean noise signal to make diffuse using brirs_diffuse.
         xs_directional:
@@ -284,7 +291,7 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
                                           brirs_directional,
                                           x_diffuse,
                                           brirs_diffuse,
-                                          snrs_directional_to_diffuse)
+                                          snr_directional_to_diffuse)
     if noise is None:
         noise = 0
     else:

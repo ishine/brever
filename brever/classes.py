@@ -189,10 +189,9 @@ class RandomMixtureMaker(PipeBaseClass):
             type_diff = None
         n_dir_sources = random.choice(self.n_directional_sources)
         if self.types_diffuse:
-            snrs_dir_to_diff = random.choices(self.snrs_directional_to_diffuse,
-                                              k=n_dir_sources)
+            snr_dir_to_diff = random.choice(self.snrs_directional_to_diffuse)
         else:
-            snrs_dir_to_diff = [None]*n_dir_sources
+            snr_dir_to_diff = None
         types_dir = random.choices(self.types_directional,
                                    k=n_dir_sources)
         angles_dir = random.sample(self.angles_directional,
@@ -212,7 +211,7 @@ class RandomMixtureMaker(PipeBaseClass):
                                   brirs_diffuse=brirs_diff,
                                   brirs_directional=brirs_dir,
                                   snr=snr,
-                                  snrs_directional_to_diffuse=snrs_dir_to_diff,
+                                  snr_directional_to_diffuse=snr_dir_to_diff,
                                   x_diffuse=x_diff,
                                   xs_directional=xs_dir,
                                   rms_dB=rms_dB,
@@ -227,7 +226,7 @@ class RandomMixtureMaker(PipeBaseClass):
             'n_directional_sources': n_dir_sources,
             'directional_noises_filenames': files_dir,
             'directional_sources_angles': angles_dir,
-            'snrs_dir_to_diff': snrs_dir_to_diff,
+            'snr_dir_to_diff': snr_dir_to_diff,
             'diffuse_noise_filename': file_diff,
             'directional_sources_file_indices': is_dir,
             'difuse_noise_file_indices': i_diff,
