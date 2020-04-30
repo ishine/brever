@@ -90,8 +90,8 @@ def defaults():
     config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MIN = -90
     config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MAX = 90
     config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.STEP = 5
-    config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN = -5
-    config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MAX = 5
+    config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN = 0
+    config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MAX = 30
     config.PRE.MIXTURES.RANDOM.SOURCES.TYPES = {
         'dcase_airport',
         'dcase_bus',
@@ -128,6 +128,7 @@ def defaults():
 
     config.POST.PATH.TRAIN = 'data\\processed\\training'
     config.POST.PATH.VAL = 'data\\processed\\validation'
+    config.POST.PATH.TEST = 'data\\processed\\testing'  # no ending backslash
     config.POST.LOAD = False
     config.POST.FEATURES = {
         'ild',
@@ -152,7 +153,7 @@ def defaults():
     config.MODEL.OPTIMIZER = 'Adam'
     config.MODEL.LEARNINGRATE = 1e-4
     config.MODEL.WEIGHTDECAY = 0
-    config.MODEL.EARLYSTOP.PATIENCE = 10
+    config.MODEL.EARLYSTOP.PATIENCE = 20
     config.MODEL.EARLYSTOP.VERBOSE = True
     config.MODEL.EARLYSTOP.DELTA = 0
     config.MODEL.EPOCHS = 1000
