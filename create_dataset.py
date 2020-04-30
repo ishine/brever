@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import h5py
+import soundfile as sf
 
 from brever.config import defaults
 from brever.classes import (Standardizer, Filterbank, Framer, FeatureExtractor,
@@ -214,6 +215,17 @@ def main(dataset_dir):
             'labelExtractor': labelExtractor,
         }
         pickle.dump(pipes, f)
+
+    # save up to 10 random mixtures for verification
+    mixtures_dir = os.path.join(dataset_dir, 'examples')
+    if not os.path.exists(mixtures_dir):
+        os.mkdir(mixtures_dir)
+    n = len(mixtures)
+    for i in random.sample(range(n), min(10, n)):
+        mixture = mixtures[i]
+        gain = 1/mixture.max()
+        filepath = os.path.join(mixtures_dir, f'mixture_{i}.wav')
+        sf.write(filepath, gain*mixture.reshape(-1, 2), config.PRE.FS)
 
     # plot a small sample of the dataset
     def plot(x, y, filename):
