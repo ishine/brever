@@ -42,8 +42,8 @@ def main(dataset_dir):
     logging.info('\n' + pprint.pformat({'PRE': config.PRE.todict()}))
 
     # seed for reproducibility
-    if config.PRE.SEED:
-        random.seed(0)
+    if config.PRE.SEED.ON:
+        random.seed(config.PRE.SEED.VALUE)
 
     # mixture maker
     randomMixtureMaker = RandomMixtureMaker(
@@ -111,7 +111,7 @@ def main(dataset_dir):
 
     # feature extractor
     featureExtractor = FeatureExtractor(
-        features=config.PRE.FEATURES,
+        features=sorted(config.PRE.FEATURES),
     )
 
     # label extractor

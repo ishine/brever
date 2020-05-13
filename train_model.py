@@ -117,9 +117,9 @@ def main(model_dir, force):
 
     # get features indices from feature extractor instance
     train_feature_indices = get_feature_indices(config.POST.PATH.TRAIN,
-                                                config.POST.FEATURES)
+                                                sorted(config.POST.FEATURES))
     val_feature_indices = get_feature_indices(config.POST.PATH.VAL,
-                                              config.POST.FEATURES)
+                                              sorted(config.POST.FEATURES))
 
     # get files indices from mixture info file
     train_file_indices = get_file_indices(config.POST.PATH.TRAIN)
