@@ -38,6 +38,7 @@ class Struct:
 def defaults():
     config = Struct()
     config.PRE = Struct()
+    config.PRE.SEED = Struct()
     config.PRE.MIXTURES = Struct()
     config.PRE.MIXTURES.PATH = Struct()
     config.PRE.MIXTURES.FILELIMITS = Struct()
@@ -62,7 +63,8 @@ def defaults():
     config.MODEL.EARLYSTOP = Struct()
 
     config.PRE.FS = 16000
-    config.PRE.SEED = True
+    config.PRE.SEED.ON = True
+    config.PRE.SEED.VALUE = 0
     config.PRE.MIXTURES.PATH.DCASE = 'data\\external\\DCASE'
     config.PRE.MIXTURES.PATH.SURREY = 'data\\external\\SURREY'
     config.PRE.MIXTURES.PATH.TIMIT = 'data\\external\\TIMIT\\TRAIN'
@@ -121,6 +123,7 @@ def defaults():
         'itd_ic',
         'mfcc',
         'pdf',
+        'logpdf',
     }
     config.PRE.LABEL = 'irm'
     config.PRE.PLOT.ON = True
