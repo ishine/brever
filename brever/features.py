@@ -201,13 +201,14 @@ def itd_ic(x, filtered=False, filt_kwargs=None, framed=False,
                     negative_lags=True, method='fft', axis=1, normalize=True)
     ITD = lags[CCF.argmax(axis=1)]
     IC = CCF.max(axis=1)
-    return np.hstack([ITD, IC])
+    return np.hstack((ITD, IC))
 
 
 def mfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
          filt_kwargs=None, framed=False, frame_kwargs=None):
     '''
-    Mel-frequency cepstral coefficients. DC term is not returned.
+    Mel-frequency cepstral coefficients. DC term is not returned. Deltas and
+    double deltas are returned.
 
     Parameters:
         x:
@@ -233,7 +234,7 @@ def mfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
 
     Returns:
         mfcc:
-            Mel-frequency cepstral coefficients. Size n_frames*n_mfcc.
+            Mel-frequency cepstral coefficients. Size n_frames*(n_mfcc*3).
     '''
     x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
     x = x.mean(axis=-1)  # average channels
@@ -241,10 +242,14 @@ def mfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
     energy = energy.mean(axis=1)  # average each frame
     log_energy = np.log(energy + 1e-10)
     mfcc = scipy.fftpack.dct(log_energy, axis=1, type=dct_type, norm=norm)
-    return mfcc[:, 1:n_mfcc+1]
+    mfcc = mfcc[:, 1:n_mfcc+1]
+    dmfcc = np.diff(mfcc, axis=0, prepend=mfcc[0, None])
+    ddmfcc = np.diff(dmfcc, axis=0, prepend=dmfcc[0, None])
+    return np.hstack((mfcc, dmfcc, ddmfcc))
 
 
-def pdf(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
+def pdf(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None,
+        log=False):
     '''
     Probability density function estimate.
 
@@ -262,6 +267,8 @@ def pdf(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
             should then have size n_frames*frame_length*n_filters*2.
         frame_kwargs:
             Keyword arguments passed to utils.frame if framed is False.
+        log:
+            Whether to compress the probability using a log function.
 
     Returns:
         pdf:
@@ -273,7 +280,38 @@ def pdf(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
     energy = energy.mean(axis=1)  # average each frame
     total_energy = energy.sum(axis=1, keepdims=True)  # energy across bands
     pdf = energy/(total_energy + 1e-10)
+    if log:
+        pdf = np.log(pdf + 1e-10)
     return pdf
+
+
+def logpdf(x, filtered=False, filt_kwargs=None, framed=False,
+           frame_kwargs=None):
+    '''
+    Probability density function estimate, compressed with log function.
+
+    Parameters:
+        x:
+            Input signal.
+        filtered:
+            If True, the input signals are assumed to be already filtered. They
+            should then have size n_samples*n_filters*2.
+        filt_kwargs
+            Keyword arguments passed to filters.filt if filtered is
+            False.
+        framed:
+            If True, the input signals are assumed to be already framed. They
+            should then have size n_frames*frame_length*n_filters*2.
+        frame_kwargs:
+            Keyword arguments passed to utils.frame if framed is False.
+
+    Returns:
+        logpdf:
+            Compressed probability density function estimate. Size
+            n_frames*n_filters.
+    '''
+    return pdf(x, filtered=filtered, filt_kwargs=filt_kwargs, framed=framed,
+               frame_kwargs=frame_kwargs, log=True)
 
 
 def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
