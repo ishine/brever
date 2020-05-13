@@ -70,10 +70,11 @@ def get_feature_indices(train_path, features):
     names = featureExtractor.features
     indices = featureExtractor.indices
     indices_dict = {name: lims for name, lims in zip(names, indices)}
-    itd_ic_indices = indices_dict.pop('itd_ic')
-    itd_ic_mid = (itd_ic_indices[0] + itd_ic_indices[1])//2
-    indices_dict['itd'] = (itd_ic_indices[0], itd_ic_mid)
-    indices_dict['ic'] = (itd_ic_mid, itd_ic_indices[1])
+    if 'itd_ic' in indices_dict.keys():
+        start, end = indices_dict.pop('itd_ic')
+        step = (end - start)//2
+        indices_dict['itd'] = (start, start+step)
+        indices_dict['ic'] = (start+step, end)
     feature_indices = [indices_dict[feature] for feature in features]
     return feature_indices
 
@@ -84,3 +85,23 @@ def get_file_indices(train_path):
         metadatas = json.load(f)
         indices = [item['dataset_indices'] for item in metadatas]
     return indices
+
+
+def set_dict_field(input_dict, key_list, value):
+    dict_ = input_dict
+    for key in key_list:
+        if key not in dict_.keys():
+            dict_[key] = {}
+        if key == key_list[-1]:
+            dict_[key] = value
+        else:
+            dict_ = dict_[key]
+
+
+def get_dict_field(input_dict, key_list):
+    dict_ = input_dict
+    for key in key_list:
+        if key == key_list[-1]:
+            return dict_[key]
+        else:
+            dict_ = dict_[key]
