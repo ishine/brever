@@ -101,7 +101,6 @@ class H5Dataset(torch.utils.data.Dataset):
         self.stack = stack
         self.decimation = decimation
         self.feature_indices = feature_indices
-        self.file_indices = file_indices
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
             self.n_samples = len(f['features'])//decimation
@@ -113,6 +112,9 @@ class H5Dataset(torch.utils.data.Dataset):
             self.n_labels = f['labels'].shape[1]
             if self.load:
                 self.datasets = (f['features'][:], f['labels'][:])
+        if file_indices is None:
+            file_indices = [(0, self.n_samples)]
+        self.file_indices = file_indices
 
     def __getitem__(self, index):
         if self.datasets is None:
