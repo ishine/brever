@@ -72,10 +72,16 @@ def main(model_dir, force):
 
     # get mean and std
     if config.POST.GLOBALSTANDARDIZATION:
-        logging.info('Calculating mean and std...')
-        mean, std = get_mean_and_std(train_dataloader, config.POST.LOAD)
+        stat_path = os.path.join(model_dir, 'statistics.npy')
+        if os.path.exists(stat_path):
+            logging.info('Loading mean and std...')
+            mean, std = np.load(stat_path)
+        else:
+            logging.info('Calculating mean and std...')
+            mean, std = get_mean_and_std(train_dataloader, config.POST.LOAD)
 
     # initialize and load network
+    logging.info('Loading model...')
     model = Feedforward(
         input_size=train_dataset.n_features,
         output_size=train_dataset.n_labels,
@@ -94,13 +100,20 @@ def main(model_dir, force):
     criterion = getattr(torch.nn, config.MODEL.CRITERION)()
 
     # load pipes
+    logging.info('Loading pipes...')
     pipes_file = os.path.join(config.POST.PATH.TRAIN, 'pipes.pkl')
     with open(pipes_file, 'rb') as f:
         pipes = pickle.load(f)
     scaler = pipes['scaler']
     filterbank = pipes['filterbank']
 
+    # load matlab engine
+    logging.info('Starting MATLAB engine...')
+    eng = matlab.engine.start_matlab()
+    eng.addpath('matlab\\loizou', nargout=0)
+
     # main loop
+    logging.info('Starting main loop:')
     snrs = [0, 3, 6, 9, 12, 15]
     room_aliases = [
         'surrey_room_a',
@@ -110,8 +123,6 @@ def main(model_dir, force):
     ]
     PESQ = np.zeros((len(snrs), len(room_aliases)))
     MSE = np.zeros((len(snrs), len(room_aliases)))
-    eng = matlab.engine.start_matlab()
-    eng.addpath('matlab\\loizou', nargout=0)
     for i, snr in enumerate(snrs):
         for j, room_alias in enumerate(room_aliases):
             suffix = f'snr{snr}_room{room_alias[-1].upper()}'
@@ -154,7 +165,7 @@ def main(model_dir, force):
             with h5py.File(test_dataset_path, 'r') as f:
                 n = len(f['mixtures'])
                 for k in range(n):
-                    logging.info(f"Processing mixture {k}/{n}...")
+                    logging.info(f"Calculating PESQ for mixture {k}/{n}...")
                     mixture = f['mixtures'][k].reshape(-1, 2)
                     foreground = f['foregrounds'][k].reshape(-1, 2)
                     background = f['backgrounds'][k].reshape(-1, 2)

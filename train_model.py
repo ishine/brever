@@ -167,6 +167,9 @@ def main(model_dir, force):
     if config.POST.GLOBALSTANDARDIZATION:
         logging.info('Calculating mean and std...')
         mean, std = get_mean_and_std(train_dataloader, config.POST.LOAD)
+        to_save = np.vstack((mean, std))
+        stat_path = os.path.join(model_dir, 'statistics.npy')
+        np.save(stat_path, to_save)
         train_dataset.transform = TensorStandardizer(mean, std)
         val_dataset.transform = TensorStandardizer(mean, std)
 
