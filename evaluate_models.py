@@ -168,14 +168,12 @@ def main(model_dir, force):
                     logging.info(f"Calculating PESQ for mixture {k}/{n}...")
                     mixture = f['mixtures'][k].reshape(-1, 2)
                     foreground = f['foregrounds'][k].reshape(-1, 2)
-                    background = f['backgrounds'][k].reshape(-1, 2)
                     i_start, i_end = file_indices[k]
 
                     # scale signal
                     scaler.fit(mixture)
                     mixture = scaler.scale(mixture)
                     foreground = scaler.scale(foreground)
-                    background = scaler.scale(background)
                     scaler.__init__(scaler.active)
 
                     # apply filterbank
