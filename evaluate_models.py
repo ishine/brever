@@ -114,7 +114,10 @@ def main(model_dir, force):
 
     # main loop
     logging.info('Starting main loop:')
-    snrs = [0, 3, 6, 9, 12, 15]
+    if config.POST.PATH.TEST == 'data\\processed\\onlyreverb_testing':
+        snrs = [0]
+    else:
+        snrs = [0, 3, 6, 9, 12, 15]
     room_aliases = [
         'surrey_room_a',
         'surrey_room_b',
