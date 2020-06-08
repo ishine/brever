@@ -80,6 +80,18 @@ def colored_noise(color, n_samples):
     return x
 
 
+def match_ltas(x, ltas, n_fft=512, hop_length=256):
+    n = len(x)
+    noverlap = n_fft-hop_length
+    _, _, X = scipy.signal.stft(x, nperseg=n_fft, noverlap=noverlap, axis=0)
+    ltas_X = np.mean(np.abs(X**2), axis=(1, 2))
+    EQ = (ltas/ltas_X)**0.5
+    X *= EQ[:, np.newaxis, np.newaxis]
+    _, x = scipy.signal.istft(X, nperseg=n_fft, noverlap=noverlap, freq_axis=0)
+    x = x.T
+    return x[:n]
+
+
 def split_brir(brir, reflection_boundary=50e-3, fs=16e3, max_itd=1e-3):
     '''
     Splits a BRIR into a direct or early reflections component and a reverb or
@@ -176,8 +188,8 @@ def adjust_rms(signal, rms_dB):
     return signal_scaled, gain
 
 
-def diffuse_and_directional_noise(xs_sources, brirs_sources, x_diffuse,
-                                  brirs_diffuse, snr):
+def diffuse_and_directional_noise(xs_sources, brirs_sources, xs_diffuse,
+                                  brirs_diffuse, snr, ltas):
     '''
     Creates a mixture consisting of a set of directional noise sources in
     diffuse noise at given SNR.
@@ -189,17 +201,21 @@ def diffuse_and_directional_noise(xs_sources, brirs_sources, x_diffuse,
         brirs_sources:
             List of BRIRs to convolve each directional noise signal with.
             Must have same length as x_sources.
-        x_diffuse:
-            Clean noise signal to make diffuse using brirs_diffuse. Must have
-            same length as the elements of x_sources.
+        xs_diffuse:
+            Clean noise signals used to create diffuse noise using
+            brirs_diffuse. All the elements must have same length as the
+            elements of x_sources.
         brirs_diffuse:
             List of BRIRs to use to create the diffuse noise. Ideally the BRIRs
             in sources_brirs should figure in diffuse_brirs for realism
-            purposes.
+            purposes. Must have same length as xs_diffuse.
         snr:
             Directional components to diffuse noise signal-to-noise ratio. The
             total energy of the directional noise sources is compared to the
             diffuse noise. The directional sources all have the same level.
+        ltas:
+            If True, the diffuse noise is equalized to match the LTAS of the
+            TIMIT database.
 
     Returns:
         mixture:
@@ -208,27 +224,41 @@ def diffuse_and_directional_noise(xs_sources, brirs_sources, x_diffuse,
     if len(xs_sources) != len(brirs_sources):
         raise ValueError(('xs_sources and brirs_sources must have same '
                           'length'))
+    if len(xs_diffuse) != len(brirs_diffuse):
+        raise ValueError(('xs_diffuse and brirs_diffuse must have same '
+                          'length'))
     if xs_sources:
         n_samples = len(xs_sources[0])
-    elif x_diffuse is not None:
-        n_samples = len(x_diffuse)
+    elif xs_diffuse:
+        broken = False
+        for x_diffuse in xs_diffuse:
+            if x_diffuse is not None:
+                n_samples = len(x_diffuse)
+                broken = True
+                break
+        if not broken:
+            return None
     else:
         return None
     directional_sources = np.zeros((n_samples, 2))
     for x, brir in zip(xs_sources, brirs_sources):
         directional_sources += spatialize(x, brir)
-    if x_diffuse is None:
-        diffuse_noise = np.zeros((n_samples, 1))
-    else:
-        diffuse_noise = spatialize_multi(x_diffuse, brirs_diffuse)
-        if xs_sources:
-            diffuse_noise = adjust_snr(directional_sources, diffuse_noise, snr)
+    diffuse_noise = np.zeros((n_samples, 2))
+    for x, brir in zip(xs_diffuse, brirs_diffuse):
+        if x is not None:
+            diffuse_noise += spatialize(x, brir)
+    if not (diffuse_noise == 0).all() and ltas:
+        ltas = np.load('ltas.npy')
+        diffuse_noise = match_ltas(diffuse_noise, ltas)
+    if not (directional_sources == 0).all() and not (diffuse_noise == 0).all():
+        diffuse_noise = adjust_snr(directional_sources, diffuse_noise, snr)
     return diffuse_noise + directional_sources
 
 
 def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
-                 snr_directional_to_diffuse, x_diffuse, xs_directional,
-                 rms_dB=0, padding=0, reflection_boundary=50e-3, fs=16e3):
+                 snr_directional_to_diffuse, xs_diffuse, xs_directional,
+                 rms_dB=0, padding=0, reflection_boundary=50e-3, fs=16e3,
+                 ltas=False):
     '''
     Make a binaural mixture consisting of a target signal, some diffuse noise
     and some directional noise sources
@@ -253,11 +283,13 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
             Directional components to diffuse noise signal-to-noise ratio. The
             total energy of the directional noise sources is compared to the
             diffuse noise. The directional sources all have the same level.
-        x_diffuse:
-            Clean noise signal to make diffuse using brirs_diffuse.
+        xs_diffuse:
+            Clean noise signals used to create diffuse noise using
+            brirs_diffuse. All the elements must have same length as x_target.
         xs_directional:
             List of clean directional noise signals to convolve with
-            brirs_directional.
+            brirs_directional. All the elements must have same length as
+            x_target and as the elements of xs_diffuse.
         rms_dB:
             RMS of the total mixture in dB, with unit reference.
         padding:
@@ -268,6 +300,9 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
             reflections.
         fs:
             Sampling frequency.
+        ltas:
+            If True, the diffuse noise is equalized to match the LTAS of the
+            TIMIT database.
 
     Returns:
         mixture:
@@ -289,9 +324,10 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
     target_late = zero_pad(target_late, padding, 'both')
     noise = diffuse_and_directional_noise(xs_directional,
                                           brirs_directional,
-                                          x_diffuse,
+                                          xs_diffuse,
                                           brirs_diffuse,
-                                          snr_directional_to_diffuse)
+                                          snr_directional_to_diffuse,
+                                          ltas)
     if noise is None:
         noise = 0
     else:

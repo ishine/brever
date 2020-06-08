@@ -21,6 +21,12 @@ from brever.classes import (Standardizer, Filterbank, Framer, FeatureExtractor,
 
 
 def main(dataset_dir):
+    # check if dataset already exists
+    datasets_output_path = os.path.join(dataset_dir, 'dataset.hdf5')
+    if os.path.exists(datasets_output_path):
+        logging.info('Dataset already exists')
+        return
+
     config_file = os.path.join(dataset_dir, 'config.yaml')
     with open(config_file, 'r') as f:
         data = yaml.safe_load(f)
@@ -84,6 +90,7 @@ def main(dataset_dir):
         surrey_dirpath=config.PRE.MIXTURES.PATH.SURREY,
         timit_dirpath=config.PRE.MIXTURES.PATH.TIMIT,
         dcase_dirpath=config.PRE.MIXTURES.PATH.DCASE,
+        ltas=config.PRE.MIXTURES.LTAS,
     )
 
     # scaler
@@ -129,6 +136,10 @@ def main(dataset_dir):
     i_start = 0
     total_time = 0
     start_time = time.time()
+    n_examples = min(10, config.PRE.MIXTURES.NUMBER)
+    examples = []
+    examples_index = random.sample(range(config.PRE.MIXTURES.NUMBER),
+                                   n_examples)
     for i in range(config.PRE.MIXTURES.NUMBER):
 
         # estimate time remaining and show progress
@@ -148,6 +159,8 @@ def main(dataset_dir):
             mixtures.append(mixture.flatten())
             foregrounds.append(foreground.flatten())
             backgrounds.append(background.flatten())
+        if i in examples_index:
+            examples.append(mixture.flatten())
 
         # scale signal
         scaler.fit(mixture)
@@ -186,7 +199,6 @@ def main(dataset_dir):
     labels = np.vstack(labels)
 
     # save datasets
-    datasets_output_path = os.path.join(dataset_dir, 'dataset.hdf5')
     with h5py.File(datasets_output_path, 'w') as f:
         f.create_dataset('features', data=features)
         f.create_dataset('labels', data=labels)
@@ -217,15 +229,13 @@ def main(dataset_dir):
         pickle.dump(pipes, f)
 
     # save up to 10 random mixtures for verification
-    mixtures_dir = os.path.join(dataset_dir, 'examples')
-    if not os.path.exists(mixtures_dir):
-        os.mkdir(mixtures_dir)
-    n = len(mixtures)
-    for i in random.sample(range(n), min(10, n)):
-        mixture = mixtures[i]
-        gain = 1/mixture.max()
-        filepath = os.path.join(mixtures_dir, f'mixture_{i}.wav')
-        sf.write(filepath, gain*mixture.reshape(-1, 2), config.PRE.FS)
+    examples_dir = os.path.join(dataset_dir, 'examples')
+    if not os.path.exists(examples_dir):
+        os.mkdir(examples_dir)
+    for example, i in zip(examples, examples_index):
+        gain = 1/example.max()
+        filepath = os.path.join(examples_dir, f'example_{i}.wav')
+        sf.write(filepath, gain*example.reshape(-1, 2), config.PRE.FS)
 
     # plot a small sample of the dataset
     def plot(x, y, filename):

@@ -68,6 +68,7 @@ def defaults():
     config.PRE.MIXTURES.PATH.DCASE = 'data\\external\\DCASE'
     config.PRE.MIXTURES.PATH.SURREY = 'data\\external\\SURREY'
     config.PRE.MIXTURES.PATH.TIMIT = 'data\\external\\TIMIT\\TRAIN'
+    config.PRE.MIXTURES.LTAS = True
     config.PRE.MIXTURES.NUMBER = 100
     config.PRE.MIXTURES.PADDING = 0.1
     config.PRE.MIXTURES.REFLECTIONBOUNDARY = 50e-3
@@ -106,7 +107,7 @@ def defaults():
         'dcase_tram',
     }
     config.PRE.MIXTURES.RANDOM.DIFFUSE.TYPES = {
-        'noise_pink'
+        'noise_white'
     }
     config.PRE.SCALERMS = True
     config.PRE.FILTERBANK.KIND = 'mel'

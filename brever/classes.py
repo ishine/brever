@@ -129,7 +129,7 @@ class Framer(PipeBaseClass):
 
 class FeatureExtractor(PipeBaseClass):
     def __init__(self, features):
-        self.features = list(features)
+        self.features = features
         self.indices = None
 
     def run(self, x):
@@ -160,7 +160,8 @@ class RandomMixtureMaker(PipeBaseClass):
                  snrs_directional_to_diffuse, types_directional,
                  types_diffuse, n_directional_sources, padding,
                  reflection_boundary, fs, noise_file_lims, target_file_lims,
-                 rms_jitter_dB, surrey_dirpath, timit_dirpath, dcase_dirpath):
+                 rms_jitter_dB, surrey_dirpath, timit_dirpath, dcase_dirpath,
+                 ltas):
         self.rooms = list(rooms)
         self.angles_target = angles_target
         self.angles_directional = angles_directional
@@ -178,6 +179,7 @@ class RandomMixtureMaker(PipeBaseClass):
         self.surrey_dirpath = surrey_dirpath
         self.timit_dirpath = timit_dirpath
         self.dcase_dirpath = dcase_dirpath
+        self.ltas = ltas
 
     def make(self):
         angle = random.choice(self.angles_target)
@@ -188,7 +190,7 @@ class RandomMixtureMaker(PipeBaseClass):
         else:
             type_diff = None
         n_dir_sources = random.choice(self.n_directional_sources)
-        if self.types_diffuse:
+        if self.types_diffuse and n_dir_sources != 0:
             snr_dir_to_diff = random.choice(self.snrs_directional_to_diffuse)
         else:
             snr_dir_to_diff = None
@@ -201,23 +203,29 @@ class RandomMixtureMaker(PipeBaseClass):
                                                    self.target_file_lims,
                                                    self.fs)
         n_samples = len(x_target) + 2*round(self.padding*self.fs)
-        x_diff, file_diff, i_diff = self._load_noises(type_diff, n_samples)
-        xs_dir, files_dir, is_dir = self._load_noises(types_dir, n_samples)
         brir_target = self._load_brirs(room, angle)
         brirs_diff = self._load_brirs(room)
         brirs_dir = self._load_brirs(room, angles_dir)
+        types_diff = [type_diff for brir in brirs_diff]
+        xs_diff, files_diff, is_diff = self._load_noises(types_diff, n_samples)
+        if all(item is None for item in files_diff):
+            files_diff = None
+        if all(item is None for item in is_diff):
+            is_diff = None
+        xs_dir, files_dir, is_dir = self._load_noises(types_dir, n_samples)
         components = make_mixture(x_target=x_target,
                                   brir_target=brir_target,
                                   brirs_diffuse=brirs_diff,
                                   brirs_directional=brirs_dir,
                                   snr=snr,
                                   snr_directional_to_diffuse=snr_dir_to_diff,
-                                  x_diffuse=x_diff,
+                                  xs_diffuse=xs_diff,
                                   xs_directional=xs_dir,
                                   rms_dB=rms_dB,
                                   padding=self.padding,
                                   reflection_boundary=self.reflection_boundary,
-                                  fs=self.fs)
+                                  fs=self.fs,
+                                  ltas=self.ltas)
         metadata = {
             'room': room,
             'target_filename': file_target,
@@ -226,10 +234,12 @@ class RandomMixtureMaker(PipeBaseClass):
             'n_directional_sources': n_dir_sources,
             'directional_noises_filenames': files_dir,
             'directional_sources_angles': angles_dir,
-            'snr_dir_to_diff': snr_dir_to_diff,
-            'diffuse_noise_filename': file_diff,
             'directional_sources_file_indices': is_dir,
-            'difuse_noise_file_indices': i_diff,
+            'diffuse_noise_type': type_diff,
+            'diffuse_noise_filename': files_diff,
+            'difuse_noise_file_indices': is_diff,
+            'diffuse_ltas': self.ltas,
+            'snr_dir_to_diff': snr_dir_to_diff,
             'rms_dB': rms_dB,
         }
         return components, metadata
