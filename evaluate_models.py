@@ -169,7 +169,7 @@ def main(model_dir, force):
             with h5py.File(test_dataset_path, 'r') as f:
                 n = len(f['mixtures'])
                 for k in range(n):
-                    logging.info(f"Calculating PESQ for mixture {k}/{n}...")
+                    logging.info(f'Calculating PESQ for mixture {k}/{n}...')
                     mixture = f['mixtures'][k].reshape(-1, 2)
                     foreground = f['foregrounds'][k].reshape(-1, 2)
                     i_start, i_end = file_indices[k]
@@ -203,7 +203,7 @@ def main(model_dir, force):
                     mixture_ref = filterbank.rfilt(mixture_filt)
                     foreground_ref = filterbank.rfilt(foreground_filt)
 
-                    # write audio and plot mask
+                    # write audio
                     gain = 1/mixture.max()
                     output_dir = os.path.join(model_dir, 'audio', suffix)
                     if not os.path.exists(output_dir):
@@ -231,7 +231,9 @@ def main(model_dir, force):
                                            config.PRE.FS)
                     pesq_after = eng.pesq(foreground_ref, mixture_enhanced,
                                           config.PRE.FS)
-                    dpesqs.append(pesq_after - pesq_before)
+                    dpesq = pesq_after - pesq_before
+                    dpesqs.append(dpesq)
+                    logging.info(f'Delta PESQ: {dpesq:.2f}')
 
             PESQ[i, j] = np.mean(dpesqs)
 
