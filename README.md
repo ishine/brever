@@ -35,9 +35,9 @@ brever
 │       └── ...
 ├── models
 │   └── ...
-├── README.md
-├── create_dataset.py
-└── train_model.py
+├── scripts
+│   └── ...
+└── README.md
 ```
 
 # How to use
@@ -49,7 +49,7 @@ To create a dataset, first create a new directory under `data/processed/`. Then 
 Then run `create_dataset.py` with the dataset directory as argument:
 
 ```
-python create_dataset.py data/processed/dataset_name
+python scripts/create_dataset.py data/processed/dataset_name
 ```
 
 The following files are then created next to the YAML file:
@@ -83,7 +83,7 @@ brever
 Then simply run:
 
 ```
-python create_dataset.py data/processed/dataset_name
+python scripts/create_dataset.py data/processed/dataset_name
 ```
 
 Your working tree will then look like this:
