@@ -17,7 +17,7 @@ def main(**kwargs):
     }
     base_params = {
         'layers': 1,
-        'stacks': 4,
+        'stacks': 0,
         'features': ['mfcc'],
         'batchsize': 32,
     }
@@ -40,8 +40,8 @@ def main(**kwargs):
         },
     ]
     for key in base_params.keys():
-        if getattr(args, key) is not None:
-            base_params[key] = getattr(args, key)
+        if kwargs[key] is not None:
+            base_params[key] = kwargs[key]
     train_path_keys = ['POST', 'PATH', 'TRAIN']
     val_path_keys = ['POST', 'PATH', 'VAL']
     test_path_keys = ['POST', 'PATH', 'TEST']
@@ -143,9 +143,7 @@ def main(**kwargs):
                     label=label,
                 )
             xticks = np.arange(len(xticklabels) + 1, dtype=float)
-            print(xticks)
             xticks[-1] = xticks[-1] + 2*width
-            print(xticks)
             ax.set_xticks(xticks)
             ax.set_xticklabels(xticklabels + ['mean'])
             ax.set_xlabel(xlabel)

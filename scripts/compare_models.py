@@ -19,9 +19,9 @@ def main(**kwargs):
     }
     base_params = {
         'layers': 1,
-        'stacks': 4,
+        'stacks': 0,
         'batchnorm': False,
-        'dropout': True,
+        'dropout': False,
         'features': ['mfcc'],
         'batchsize': 32,
     }
