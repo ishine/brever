@@ -25,13 +25,14 @@ def main():
             'BATCHSIZE': 32,
         },
         'POST': {
-            'STACK': 0,
-            'FEATURES': ['mfcc'],
+            'STACK': 4,
+            'FEATURES': ['pdf'],
             'PATH': {
-                'TRAIN': 'data\\processed\\centered_training',
-                'VAL': 'data\\processed\\centered_validation',
-                'TEST': 'data\\processed\\centered_testing',
-            }
+                'TRAIN': 'data\\processed\\training',
+                'VAL': 'data\\processed\\validation',
+                'TEST': 'data\\processed\\testing_big',
+            },
+            'DECIMATION': 2,
         }
     }
 
@@ -39,18 +40,21 @@ def main():
     keys_values = [
         # (['MODEL', 'BATCHNORM', 'ON'], [False, True]),
         # (['MODEL', 'DROPOUT', 'ON'], [False, True]),
-        # (['MODEL', 'NLAYERS'], [1, 2, 3, 4]),
+        # (['MODEL', 'NLAYERS'], [1, 2, 3]),
         # (['POST', 'STACK'], [0, 1, 2, 3, 4]),
-        (['POST', 'FEATURES'], [
-            ['ild'],
-            ['itd'],
-            ['ic'],
-            ['mfcc'],
-            ['pdf'],
-            ['ild', 'itd', 'ic'],
-            ['mfcc', 'pdf'],
-            ['ic', 'mfcc', 'pdf'],
-        ]),
+        # (['POST', 'FEATURES'], [
+        #     ['ild'],
+        #     ['itd'],
+        #     ['ic'],
+        #     ['mfcc'],
+        #     ['pdf'],
+        #     ['logpdf'],
+        #     ['ild', 'itd', 'ic'],
+        #     ['mfcc', 'pdf'],
+        #     ['mfcc', 'logpdf'],
+        #     ['ic', 'mfcc', 'pdf'],
+        #     ['ic', 'mfcc', 'logpdf'],
+        # ]),
         # (['MODEL', 'BATCHSIZE'], [32, 1024]),
         # (['POST', 'PATH'], [
         #         {

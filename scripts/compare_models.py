@@ -19,9 +19,9 @@ def main(**kwargs):
     }
     base_params = {
         'layers': 1,
-        'stacks': 0,
+        'stacks': 4,
         'batchnorm': False,
-        'dropout': False,
+        'dropout': True,
         'features': ['mfcc'],
         'batchsize': 32,
     }
@@ -31,9 +31,9 @@ def main(**kwargs):
     train_path_keys = ['POST', 'PATH', 'TRAIN']
     val_path_keys = ['POST', 'PATH', 'VAL']
     test_path_keys = ['POST', 'PATH', 'TEST']
-    if kwargs['centered'] + kwargs['onlyreverb'] + kwargs['noltas'] > 1:
-        raise ValueError(('Only one of centered, onlyreverb and noltas is '
-                          'allowed at a time'))
+    if kwargs['centered'] + kwargs['onlyreverb'] > 1:
+        raise ValueError(('Only one of centered and onlyreverb is allowed at a'
+                          'time'))
     elif kwargs['centered']:
         train_path = 'data\\processed\\centered_training'
         val_path = 'data\\processed\\centered_validation'
@@ -42,22 +42,20 @@ def main(**kwargs):
         train_path = 'data\\processed\\onlyreverb_training'
         val_path = 'data\\processed\\onlyreverb_validation'
         test_path = 'data\\processed\\onlyreverb_testing'
-    elif kwargs['noltas']:
-        train_path = 'data\\processed\\noltas_training'
-        val_path = 'data\\processed\\noltas_validation'
-        test_path = 'data\\processed\\noltas_testing'
     else:
         train_path = 'data\\processed\\training'
         val_path = 'data\\processed\\validation'
         test_path = 'data\\processed\\testing'
+    if kwargs['testbig']:
+        test_path = test_path + '_big'
+    if kwargs['trainbig']:
+        train_path = train_path + '_big'
+        val_path = val_path + '_big'
     values = []
     models_sorted = []
     for model_id in os.listdir('models'):
         pesq_filepath = os.path.join('models', model_id, 'eval_PESQ.npy')
         mse_filepath = os.path.join('models', model_id, 'eval_MSE.npy')
-        if (not os.path.exists(pesq_filepath)
-                or not os.path.exists(mse_filepath)):
-            continue
         config_file = os.path.join('models', model_id, 'config.yaml')
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
@@ -72,6 +70,11 @@ def main(**kwargs):
                 invalid = True
                 break
         if invalid:
+            continue
+        if (not os.path.exists(pesq_filepath)
+                or not os.path.exists(mse_filepath)):
+            print((f'Model {model_id} is attempted to be compared but is not '
+                   'evaluated!'))
             continue
         val = get_dict_field(config, key_dict[kwargs['dimension']])
         if val not in values:
@@ -104,7 +107,22 @@ def main(**kwargs):
     n = len(pesqs)
     width = 1/(n+1)
     if kwargs['dimension'] == 'features':
-        i_values_sorted = np.argsort(np.mean(pesqs, axis=(1, 2)))
+        # i_values_sorted = np.argsort(np.mean(pesqs, axis=(1, 2)))
+        i_values_sorted = []
+        order_wanted = [
+            {'ild'},
+            {'itd'},
+            {'ic'},
+            {'ild', 'itd', 'ic'},
+            {'pdf'},
+            {'mfcc'},
+            {'pdf', 'mfcc'},
+            {'mfcc', 'ic'},
+            # {'pdf', 'mfcc', 'ic'},
+        ]
+        values_ = [set(val) for val in values]
+        for features in order_wanted:
+            i_values_sorted.append(values_.index(features))
     else:
         i_values_sorted = np.argsort(values)
 
@@ -117,18 +135,18 @@ def main(**kwargs):
 
     for metrics, ylabel, filetag in zip(
                 [mses, pesqs],
-                ['MSE', '$\\Delta PESQ$'],
+                ['MSE', r'$\Delta PESQ$'],
                 ['mse', 'pesq'],
             ):
-        for axis, (xticklabels, xlabel, filetag_) in enumerate(zip(
+        fig, axes = plt.subplots(1, 2, sharey=True)
+        for axis, (ax, xticklabels, xlabel, filetag_) in enumerate(zip(
+                    axes[::-1],
                     [room_names, snrs],
                     ['room', 'SNR (dB)'],
                     ['rooms', 'snrs'],
                 )):
-            if ((kwargs['onlyreverb'] or kwargs['noltas'])
-                    and xticklabels == snrs):
+            if kwargs['onlyreverb'] and xticklabels == snrs:
                 continue
-            fig, ax = plt.subplots()
             for i, j in enumerate(i_values_sorted):
                 metric = metrics[j]
                 val = values[j]
@@ -143,6 +161,7 @@ def main(**kwargs):
                     width=width,
                     label=label,
                 )
+                print(data)
             xticks = np.arange(len(xticklabels) + 1, dtype=float)
             xticks[-1] = xticks[-1] + 2*width
             ax.set_xticks(xticks)
@@ -150,12 +169,13 @@ def main(**kwargs):
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
             ax.legend()
-            fig.tight_layout()
+            ax.yaxis.set_tick_params(labelleft=True)
+        fig.tight_layout()
     plt.show()
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Compare trained models.')
+    parser = argparse.ArgumentParser(description='Compare models.')
     parser.add_argument('dimension',
                         help=('Parameter dimension of models to compare.'))
     parser.add_argument('--layers', type=int,
@@ -174,8 +194,10 @@ if __name__ == '__main__':
                         help=('Centered target.'))
     parser.add_argument('--onlyreverb', action='store_true',
                         help=('Only reverb.'))
-    parser.add_argument('--noltas', action='store_true',
-                        help=('No LTAS.'))
+    parser.add_argument('--testbig', action='store_true',
+                        help=('Use models evaluated on big test datasets.'))
+    parser.add_argument('--trainbig', action='store_true',
+                        help=('Use models trained on big train datasets.'))
     args = parser.parse_args()
 
     main(
@@ -188,5 +210,6 @@ if __name__ == '__main__':
         batchsize=args.batchsize,
         centered=args.centered,
         onlyreverb=args.onlyreverb,
-        noltas=args.noltas,
+        testbig=args.testbig,
+        trainbig=args.trainbig,
     )

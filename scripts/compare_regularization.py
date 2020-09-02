@@ -17,7 +17,7 @@ def main(**kwargs):
     }
     base_params = {
         'layers': 1,
-        'stacks': 0,
+        'stacks': 4,
         'features': ['mfcc'],
         'batchsize': 32,
     }
@@ -45,9 +45,9 @@ def main(**kwargs):
     train_path_keys = ['POST', 'PATH', 'TRAIN']
     val_path_keys = ['POST', 'PATH', 'VAL']
     test_path_keys = ['POST', 'PATH', 'TEST']
-    if kwargs['centered'] + kwargs['onlyreverb'] + kwargs['noltas'] > 1:
-        raise ValueError(('Only one of centered, onlyreverb and noltas is '
-                          'allowed at a time'))
+    if kwargs['centered'] + kwargs['onlyreverb'] > 1:
+        raise ValueError(('Only one of centered and onlyreverb is allowed at a'
+                          'time'))
     elif kwargs['centered']:
         train_path = 'data\\processed\\centered_training'
         val_path = 'data\\processed\\centered_validation'
@@ -56,21 +56,19 @@ def main(**kwargs):
         train_path = 'data\\processed\\onlyreverb_training'
         val_path = 'data\\processed\\onlyreverb_validation'
         test_path = 'data\\processed\\onlyreverb_testing'
-    elif kwargs['noltas']:
-        train_path = 'data\\processed\\noltas_training'
-        val_path = 'data\\processed\\noltas_validation'
-        test_path = 'data\\processed\\noltas_testing'
     else:
         train_path = 'data\\processed\\training'
         val_path = 'data\\processed\\validation'
         test_path = 'data\\processed\\testing'
+    if kwargs['testbig']:
+        test_path = test_path + '_big'
+    if kwargs['trainbig']:
+        train_path = train_path + '_big'
+        val_path = val_path + '_big'
     models_sorted = [[] for i in range(len(values))]
     for model_id in os.listdir('models'):
         pesq_filepath = os.path.join('models', model_id, 'eval_PESQ.npy')
         mse_filepath = os.path.join('models', model_id, 'eval_MSE.npy')
-        if (not os.path.exists(pesq_filepath)
-                or not os.path.exists(mse_filepath)):
-            continue
         config_file = os.path.join('models', model_id, 'config.yaml')
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
@@ -85,10 +83,20 @@ def main(**kwargs):
                 break
         if invalid:
             continue
+        invalid = True
         for i, val in enumerate(values):
             if (val['batchnorm'] == config['MODEL']['BATCHNORM']['ON']
                     and val['dropout'] == config['MODEL']['DROPOUT']['ON']):
-                models_sorted[i].append(model_id)
+                invalid = False
+                break
+        if invalid:
+            continue
+        if (not os.path.exists(pesq_filepath)
+                or not os.path.exists(mse_filepath)):
+            print((f'Model {model_id} is attempted to be compared but is not '
+                   'evaluated!'))
+            continue
+        models_sorted[i].append(model_id)
 
     pesqs = []
     mses = []
@@ -121,15 +129,16 @@ def main(**kwargs):
 
     for metrics, ylabel, filetag in zip(
                 [mses, pesqs],
-                ['MSE', '$\\Delta PESQ$'],
+                ['MSE', r'$\Delta PESQ$'],
                 ['mse', 'pesq'],
             ):
-        for axis, (xticklabels, xlabel, filetag_) in enumerate(zip(
+        fig, axes = plt.subplots(1, 2, sharey=True)
+        for axis, (ax, xticklabels, xlabel, filetag_) in enumerate(zip(
+                    axes[::-1],
                     [room_names, snrs],
                     ['room', 'SNR (dB)'],
                     ['rooms', 'snrs'],
                 )):
-            fig, ax = plt.subplots()
             for i, (metric, val) in enumerate(zip(metrics, values)):
                 data = metric.mean(axis=axis)
                 data = np.hstack((data, data.mean()))
@@ -149,7 +158,8 @@ def main(**kwargs):
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
             ax.legend()
-            fig.tight_layout()
+            ax.yaxis.set_tick_params(labelleft=True)
+        fig.tight_layout()
     plt.show()
 
 
@@ -167,8 +177,10 @@ if __name__ == '__main__':
                         help=('Centered target.'))
     parser.add_argument('--onlyreverb', action='store_true',
                         help=('Only reverb.'))
-    parser.add_argument('--noltas', action='store_true',
-                        help=('No LTAS.'))
+    parser.add_argument('--testbig', action='store_true',
+                        help=('Use models evaluated on big test datasets.'))
+    parser.add_argument('--trainbig', action='store_true',
+                        help=('Use models trained on big train datasets.'))
     args = parser.parse_args()
 
     main(
@@ -178,5 +190,6 @@ if __name__ == '__main__':
         batchsize=args.batchsize,
         centered=args.centered,
         onlyreverb=args.onlyreverb,
-        noltas=args.noltas,
+        testbig=args.testbig,
+        trainbig=args.trainbig,
     )

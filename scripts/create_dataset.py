@@ -140,6 +140,7 @@ def main(dataset_dir):
     examples = []
     examples_index = random.sample(range(config.PRE.MIXTURES.NUMBER),
                                    n_examples)
+    examples_index.sort()
     for i in range(config.PRE.MIXTURES.NUMBER):
 
         # estimate time remaining and show progress

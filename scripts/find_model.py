@@ -1,5 +1,6 @@
 import os
 import argparse
+import json
 
 import yaml
 
@@ -18,12 +19,20 @@ if __name__ == '__main__':
                         help=('Fixed batchsize.'))
     parser.add_argument('--features', nargs='+',
                         help=('Fixed batchsize.'))
-    parser.add_argument('--centered', type=int,
-                        help=('Centered target.'))
-    parser.add_argument('--onlyreverb', type=int,
-                        help=('Only reverb.'))
-    parser.add_argument('--noltas', type=int,
-                        help=('No LTAS.'))
+    parser.add_argument('--traincentered', type=int,
+                        help=('Trained on centered target.'))
+    parser.add_argument('--testcentered', type=int,
+                        help=('Tested on centered target.'))
+    parser.add_argument('--testonlyreverb', type=int,
+                        help=('Tested on only reverberation.'))
+    parser.add_argument('--testonlydiffuse', type=int,
+                        help=('Tested on only diffuse nosie.'))
+    parser.add_argument('--trainbig', type=int,
+                        help=('Trained on big dataset.'))
+    parser.add_argument('--testbig', type=int,
+                        help=('Tested on big dataset.'))
+    parser.add_argument('--showconfig', action='store_true',
+                        help=('Print configs.'))
     args = parser.parse_args()
 
     trained = []
@@ -50,38 +59,47 @@ if __name__ == '__main__':
         if args.features is not None:
             if set(config['POST']['FEATURES']) != set(args.features):
                 continue
-        if args.centered is not None:
-            train_path = 'data\\processed\\centered_training'
-            val_path = 'data\\processed\\centered_validation'
-            train_path_ = config['POST']['PATH']['TRAIN']
-            val_path_ = config['POST']['PATH']['VAL']
-            if train_path != train_path_ or val_path != val_path_:
-                if args.centered:
+        if args.traincentered is not None:
+            if args.traincentered:
+                if 'centered' not in config['POST']['PATH']['TRAIN']:
                     continue
             else:
-                if not args.centered:
+                if 'centered' in config['POST']['PATH']['TRAIN']:
                     continue
-        if args.onlyreverb is not None:
-            train_path = 'data\\processed\\onlyreverb_training'
-            val_path = 'data\\processed\\onlyreverb_validation'
-            train_path_ = config['POST']['PATH']['TRAIN']
-            val_path_ = config['POST']['PATH']['VAL']
-            if train_path != train_path_ or val_path != val_path_:
-                if args.onlyreverb:
+        if args.testcentered is not None:
+            if args.testcentered:
+                if 'centered' not in config['POST']['PATH']['TEST']:
                     continue
             else:
-                if not args.onlyreverb:
+                if 'centered' in config['POST']['PATH']['TEST']:
                     continue
-        if args.noltas is not None:
-            train_path = 'data\\processed\\noltas_training'
-            val_path = 'data\\processed\\noltas_validation'
-            train_path_ = config['POST']['PATH']['TRAIN']
-            val_path_ = config['POST']['PATH']['VAL']
-            if train_path != train_path_ or val_path != val_path_:
-                if args.noltas:
+        if args.testonlyreverb is not None:
+            if args.testonlyreverb:
+                if 'onlyreverb' not in config['POST']['PATH']['TEST']:
                     continue
             else:
-                if not args.noltas:
+                if 'onlyreverb' in config['POST']['PATH']['TEST']:
+                    continue
+        if args.testonlydiffuse is not None:
+            if args.testonlydiffuse:
+                if 'onlydiffuse' not in config['POST']['PATH']['TEST']:
+                    continue
+            else:
+                if 'onlydiffuse' in config['POST']['PATH']['TEST']:
+                    continue
+        if args.testbig is not None:
+            if args.testbig:
+                if not config['POST']['PATH']['TEST'].endswith('big'):
+                    continue
+            else:
+                if config['POST']['PATH']['TEST'].endswith('big'):
+                    continue
+        if args.trainbig is not None:
+            if args.trainbig:
+                if not config['POST']['PATH']['TRAIN'].endswith('big'):
+                    continue
+            else:
+                if config['POST']['PATH']['TRAIN'].endswith('big'):
                     continue
         train_loss = os.path.join('models', model_id, 'train_losses.npy')
         val_loss = os.path.join('models', model_id, 'val_losses.npy')
@@ -89,6 +107,8 @@ if __name__ == '__main__':
             trained.append(model_id)
         else:
             untrained.append(model_id)
+        if args.showconfig:
+            print(json.dumps(config, indent=4))
 
     print(f'{len(trained) + len(untrained)} total models found.')
     print(f'{len(trained)} trained models:')

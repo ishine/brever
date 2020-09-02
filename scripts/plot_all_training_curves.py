@@ -77,6 +77,7 @@ if __name__ == '__main__':
         train_loss = os.path.join('models', model_id, 'train_losses.npy')
         val_loss = os.path.join('models', model_id, 'val_losses.npy')
         if os.path.exists(train_loss) and os.path.exists(val_loss):
+            print(config)
             model_ids.append(model_id)
 
     cmap = matplotlib.cm.get_cmap('gist_rainbow')
@@ -84,6 +85,7 @@ if __name__ == '__main__':
 
     plt.figure(figsize=(16, 8))
     for i, model_id in enumerate(model_ids):
+        print(model_id)
         path = os.path.join('models', model_id, 'train_losses.npy')
         data = np.load(path)
         last = data[-1]

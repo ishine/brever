@@ -24,9 +24,9 @@ for model_id in os.listdir('models'):
             and val_path == 'data\\processed\\onlyreverb_validation'
             and test_path == 'data\\processed\\onlyreverb_testing'):
         pass
-    elif (train_path == 'data\\processed\\noltas_training'
-            and val_path == 'data\\processed\\noltas_validation'
-            and test_path == 'data\\processed\\noltas_testing'):
+    elif (train_path == 'data\\processed\\training'
+            and val_path == 'data\\processed\\validation'
+            and test_path == 'data\\processed\\testing_big'):
         pass
     else:
         print(f'Model {model_id} has unconsistent dataset paths:')
