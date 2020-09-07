@@ -26,8 +26,6 @@ class AttrDict:
         if dict_ is None:
             return
         for key, value in dict_.items():
-            print(self)
-            print(dir(self))
             if key not in self.__dict__:
                 raise AttributeError(
                     f'{self.__class__.__name__} instance has no attribute {key}'
