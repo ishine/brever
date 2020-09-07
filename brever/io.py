@@ -27,6 +27,8 @@ def load_random_target(timit_dirpath, lims=None, fs=16e3):
         filepath:
             Path to the loaded file.
     '''
+    if not os.path.exists(timit_dirpath):
+        raise ValueError(f'Directory not found: {timit_dirpath}')
     all_filepaths = []
     for root, dirs, files in os.walk(timit_dirpath):
         for file in files:
@@ -34,8 +36,7 @@ def load_random_target(timit_dirpath, lims=None, fs=16e3):
                     not in file):
                 all_filepaths.append(os.path.join(root, file))
     if not all_filepaths:
-        raise ValueError(('no target file found, check your paths in '
-                          'config.py'))
+        raise ValueError(f'No .wav file found in {timit_dirpath}')
     state = random.getstate()
     random.seed(42)
     random.shuffle(all_filepaths)
@@ -197,6 +198,8 @@ def load_random_noise(dcase_dirpath, type_, n_samples, lims=None, fs=16e3):
             Starting and ending indices of the audio sample extracted from
             filepath.
     '''
+    if not os.path.exists(dcase_dirpath):
+        raise ValueError(f'Directory not found: {dcase_dirpath}')
     all_filepaths = []
     m = re.match('^dcase_(.*)$', type_)
     if m is None:
@@ -206,19 +209,9 @@ def load_random_noise(dcase_dirpath, type_, n_samples, lims=None, fs=16e3):
         for file in files:
             if file.endswith(('.wav', '.WAV')) and file.startswith(prefix):
                 all_filepaths.append(os.path.join(root, file))
+    # TODO: type_ is actually not used to filter all_filepaths!!!
     if not all_filepaths:
-        raise ValueError(('no noise file found, make sure the path to the '
-                          'noise dataset is correctly set in config.py or '
-                          'that type_ is either one of:\n'
-                          '- dcase_airport\n'
-                          '- dcase_bus\n'
-                          '- dcase_metro\n'
-                          '- dcase_park\n'
-                          '- dcase_public_square\n'
-                          '- dcase_shopping_mall\n'
-                          '- dcase_street_pedestrian\n'
-                          '- dcase_street_traffic\n'
-                          '- dcase_tram'))
+        raise ValueError(f'No .wav file found in {dcase_dirpath}')
     if lims is not None:
         n_files = len(all_filepaths)
         i_min, i_max = round(lims[0]*n_files), round(lims[1]*n_files)

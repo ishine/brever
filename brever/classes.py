@@ -5,7 +5,7 @@ import re
 
 from .utils import pca, frame, rms
 from .filters import mel_filterbank, gammatone_filterbank
-from .mixture import make_mixture, colored_noise
+from .mixture import Mixture, colored_noise
 from .io import load_random_target, load_brir, load_brirs, load_random_noise
 from . import features as features_module
 from . import labels as labels_module
@@ -41,28 +41,7 @@ class PCA:
         return (X - self.means) @ self.components
 
 
-class PipeBaseClass:
-    def __init__(self):
-        pass
-
-    def __str__(self):
-        attrs = {}
-        for key, value in self.__dict__.items():
-            if isinstance(value, list):
-                attrs[key] = ('\n        '
-                              + '\n        '.join(str(item) for item in value))
-            elif isinstance(value, np.ndarray):
-                attrs[key] = 'numpy array with shape %s' % str(value.shape)
-            else:
-                attrs[key] = value
-        output = (f'{self.__class__.__module__}.{self.__class__.__name__} '
-                  'instance:\n    '
-                  + '\n    '.join(': '.join((str(key), str(value)))
-                                  for key, value in attrs.items()))
-        return output
-
-
-class UnitRMSScaler(PipeBaseClass):
+class UnitRMSScaler:
     def __init__(self, active=True):
         self.active = active
         self.gain = None
@@ -78,7 +57,7 @@ class UnitRMSScaler(PipeBaseClass):
             return signal
 
 
-class Filterbank(PipeBaseClass):
+class Filterbank:
     def __init__(self, kind, n_filters, f_min, f_max, fs, order):
         self.kind = kind
         self.n_filters = n_filters
@@ -114,7 +93,7 @@ class Filterbank(PipeBaseClass):
         return x[::-1].squeeze()
 
 
-class Framer(PipeBaseClass):
+class Framer:
     def __init__(self, frame_length, hop_length, window, center):
         self.frame_length = frame_length
         self.hop_length = hop_length
@@ -127,7 +106,7 @@ class Framer(PipeBaseClass):
                      center=self.center)
 
 
-class FeatureExtractor(PipeBaseClass):
+class FeatureExtractor:
     def __init__(self, features):
         self.features = features
         self.indices = None
@@ -146,7 +125,7 @@ class FeatureExtractor(PipeBaseClass):
         return np.hstack(output)
 
 
-class LabelExtractor(PipeBaseClass):
+class LabelExtractor:
     def __init__(self, label):
         self.label = label
 
@@ -155,98 +134,115 @@ class LabelExtractor(PipeBaseClass):
         return label_func(target, noise, filtered=True, framed=True)
 
 
-class RandomMixtureMaker(PipeBaseClass):
-    def __init__(self, rooms, angles_target, angles_directional, snrs,
-                 snrs_directional_to_diffuse, types_directional,
-                 types_diffuse, n_directional_sources, padding,
-                 reflection_boundary, fs, noise_file_lims, target_file_lims,
-                 rms_jitter_dB, surrey_dirpath, timit_dirpath, dcase_dirpath,
-                 ltas):
-        self.rooms = list(rooms)
-        self.angles_target = angles_target
-        self.angles_directional = angles_directional
-        self.snrs = snrs
-        self.snrs_directional_to_diffuse = snrs_directional_to_diffuse
-        self.types_directional = list(types_directional)
-        self.types_diffuse = list(types_diffuse)
-        self.n_directional_sources = n_directional_sources
-        self.padding = padding
-        self.reflection_boundary = reflection_boundary
+class RandomMixtureMaker:
+    def __init__(self, fs, rooms, target_angles, target_snrs,
+                 directional_noise_numbers, directional_noise_types,
+                 directional_noise_angles, directional_noise_snrs,
+                 diffuse_noise_color, diffuse_ltas_eq, mixture_pad, mixture_rb,
+                 mixture_rms_jitter, path_timit, path_surrey, path_dcase,
+                 filelims_target, filelims_directional_noise):
         self.fs = fs
-        self.noise_file_lims = noise_file_lims
-        self.target_file_lims = target_file_lims
-        self.rms_jitter_dB = rms_jitter_dB
-        self.surrey_dirpath = surrey_dirpath
-        self.timit_dirpath = timit_dirpath
-        self.dcase_dirpath = dcase_dirpath
-        self.ltas = ltas
+        self.rooms = rooms
+        self.target_angles = target_angles
+        self.target_snrs = target_snrs
+        self.directional_noise_snrs = directional_noise_snrs
+        self.directional_noise_numbers = directional_noise_numbers
+        self.directional_noise_types = directional_noise_types
+        self.directional_noise_angles = directional_noise_angles
+        self.diffuse_noise_color = diffuse_noise_color
+        self.diffuse_ltas_eq = diffuse_ltas_eq
+        self.mixture_pad = mixture_pad
+        self.mixture_rb = mixture_rb
+        self.mixture_rms_jitter = mixture_rms_jitter
+        self.path_timit = path_timit
+        self.path_surrey = path_surrey
+        self.path_dcase = path_dcase
+        self.filelims_target = filelims_target
+        self.filelims_directional_noise = filelims_directional_noise
 
     def make(self):
-        angle = random.choice(self.angles_target)
-        room = random.choice(self.rooms)
-        snr = random.choice(self.snrs)
-        if self.types_diffuse:
-            type_diff = random.choice(self.types_diffuse)
-        else:
-            type_diff = None
-        n_dir_sources = random.choice(self.n_directional_sources)
-        if self.types_diffuse and n_dir_sources != 0:
-            snr_dir_to_diff = random.choice(self.snrs_directional_to_diffuse)
-        else:
-            snr_dir_to_diff = None
-        types_dir = random.choices(self.types_directional,
-                                   k=n_dir_sources)
-        angles_dir = random.sample(self.angles_directional,
-                                   k=n_dir_sources)
-        rms_dB = random.choice(self.rms_jitter_dB)
-        x_target, file_target = load_random_target(self.timit_dirpath,
-                                                   self.target_file_lims,
-                                                   self.fs)
-        n_samples = len(x_target) + 2*round(self.padding*self.fs)
-        brir_target = self._load_brirs(room, angle)
-        brirs_diff = self._load_brirs(room)
-        brirs_dir = self._load_brirs(room, angles_dir)
-        types_diff = [type_diff for brir in brirs_diff]
-        xs_diff, files_diff, is_diff = self._load_noises(types_diff, n_samples)
-        if all(item is None for item in files_diff):
-            files_diff = None
-        if all(item is None for item in is_diff):
-            is_diff = None
-        xs_dir, files_dir, is_dir = self._load_noises(types_dir, n_samples)
-        components = make_mixture(x_target=x_target,
-                                  brir_target=brir_target,
-                                  brirs_diffuse=brirs_diff,
-                                  brirs_directional=brirs_dir,
-                                  snr=snr,
-                                  snr_directional_to_diffuse=snr_dir_to_diff,
-                                  xs_diffuse=xs_diff,
-                                  xs_directional=xs_dir,
-                                  rms_dB=rms_dB,
-                                  padding=self.padding,
-                                  reflection_boundary=self.reflection_boundary,
-                                  fs=self.fs,
-                                  ltas=self.ltas)
-        metadata = {
-            'room': room,
-            'target_filename': file_target,
-            'target_angle': angle,
-            'snr': snr,
-            'n_directional_sources': n_dir_sources,
-            'directional_noises_filenames': files_dir,
-            'directional_sources_angles': angles_dir,
-            'directional_sources_file_indices': is_dir,
-            'diffuse_noise_type': type_diff,
-            'diffuse_noise_filename': files_diff,
-            'difuse_noise_file_indices': is_diff,
-            'diffuse_ltas': self.ltas,
-            'snr_dir_to_diff': snr_dir_to_diff,
-            'rms_dB': rms_dB,
-        }
-        return components, metadata
+        self.mixture = Mixture()
+        self.metadata = {}
+        room = choice(self.rooms)
+        self.add_target(room)
+        self.add_directional_noises(room)
+        self.add_diffuse_noise(room)
+        self.set_dir_to_diff_snr()
+        self.set_target_snr()
+        self.set_rms()
+        components = (
+            self.mixture.mixture,
+            self.mixture.foreground,
+            self.mixture.background,
+        )
+        return components, self.metadata
+
+    def add_target(self, room):
+        angle = choice(self.target_angles)
+        brir = self._load_brirs(room, angle)
+        target, filename = load_random_target(
+            self.path_timit,
+            self.filelims_target,
+            self.fs
+        )
+        self.mixture.add_target(
+            x=target,
+            brir=brir,
+            rb=self.mixture_rb,
+            pad=self.mixture_pad,
+            fs=self.fs,
+        )
+        self.metadata['target'] = {}
+        self.metadata['target']['angle'] = angle
+        self.metadata['target']['filename'] = filename
+
+    def add_directional_noises(self, room):
+        number = choice(self.directional_noise_numbers)
+        types = choices(self.directional_noise_types, k=number)
+        angles = choices(self.directional_noise_angles, k=number)
+        noises, files, indices = self._load_noises(types, len(self.mixture))
+        brirs = self._load_brirs(room, angles)
+        self.mixture.add_directional_noises(noises, brirs)
+        self.metadata['directional'] = {}
+        self.metadata['directional']['number'] = number
+        self.metadata['directional']['sources'] = []
+        for i in range(number):
+            source_metadata = {
+                'angle': angles[i],
+                'type': types[i],
+                'filename': files[i],
+                'indices': indices[i],
+            }
+            self.metadata['directional']['sources'].append(source_metadata)
+
+    def add_diffuse_noise(self, room):
+        color = self.diffuse_noise_color
+        brirs = self._load_brirs(room)
+        self.mixture.add_diffuse_noise(brirs, color, self.diffuse_ltas_eq)
+        self.metadata['diffuse'] = {}
+        self.metadata['diffuse']['color'] = color
+        self.metadata['diffuse']['ltas_eq'] = self.diffuse_ltas_eq
+
+    def set_dir_to_diff_snr(self):
+        if self.metadata['directional']['number'] == 0:
+            return
+        snr = choice(self.directional_noise_snrs)
+        self.mixture.adjust_dir_to_diff_snr(snr)
+        self.metadata['directional']['snr'] = snr
+
+    def set_target_snr(self):
+        snr = choice(self.target_snrs)
+        self.mixture.adjust_target_snr(snr)
+        self.metadata['target']['snr'] = snr
+
+    def set_rms(self):
+        rms_dB = choice(self.mixture_rms_jitter)
+        self.mixture.adjust_rms(rms_dB)
+        self.metadata['rms_dB'] = rms_dB
 
     def _load_brirs(self, room, angles=None):
         if angles is None or isinstance(angles, list):
-            brirs, fs = load_brirs(self.surrey_dirpath, room, angles)
+            brirs, fs = load_brirs(self.path_surrey, room, angles)
             if fs is not None and fs != self.fs:
                 raise ValueError(('the brir samplerate obtained from '
                                   'load_brirs(%s, %s) does not match the '
@@ -255,7 +251,7 @@ class RandomMixtureMaker(PipeBaseClass):
                                   % (room, angles, fs, self.fs)))
             return brirs
         else:
-            brir, fs = load_brir(self.surrey_dirpath, room, angles)
+            brir, fs = load_brir(self.path_surrey, room, angles)
             if fs is not None and fs != self.fs:
                 raise ValueError(('the brir samplerate obtained from '
                                   'load_brir(%s, %s) does not match the '
@@ -281,11 +277,26 @@ class RandomMixtureMaker(PipeBaseClass):
                 filepath = None
                 indices = None
             elif type_.startswith('dcase_'):
-                x, filepath, indices = load_random_noise(self.dcase_dirpath,
-                                                         type_, n_samples,
-                                                         self.noise_file_lims,
-                                                         self.fs)
+                x, filepath, indices = load_random_noise(
+                    self.path_dcase,
+                    type_,
+                    n_samples,
+                    self.filelims_directional_noise,
+                    self.fs,
+                )
             else:
                 raise ValueError(('type_ must start with noise_ or '
                                   'dcase_, got %s' % type_))
             return x, filepath, indices
+
+
+def choice(sequence):
+    if isinstance(sequence, set):
+        return random.choice(list(sequence))
+    return random.choice(sequence)
+
+
+def choices(sequence, k):
+    if isinstance(sequence, set):
+        return random.choices(list(sequence), k=k)
+    return random.choices(sequence, k=k)

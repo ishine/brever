@@ -34,7 +34,7 @@ def troubleshoot(model_dir, test_dataset_dir, n_mixtures):
         mean, std = np.load(stat_path)
 
     feature_indices = get_feature_indices(test_dataset_dir,
-                                          sorted(config.POST.FEATURES))
+                                          config.POST.FEATURES)
     file_indices = get_file_indices(test_dataset_dir)
     test_dataset = H5Dataset(
         filepath=test_dataset_path,

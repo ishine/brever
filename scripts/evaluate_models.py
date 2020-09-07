@@ -52,7 +52,7 @@ def main(model_dir, force):
     # and n_labels attributes as well as its mean and std
     train_dataset_path = os.path.join(config.POST.PATH.TRAIN, 'dataset.hdf5')
     feature_indices = get_feature_indices(config.POST.PATH.TRAIN,
-                                          sorted(config.POST.FEATURES))
+                                          config.POST.FEATURES)
     file_indices = get_file_indices(config.POST.PATH.TRAIN)
     train_dataset = H5Dataset(
         filepath=train_dataset_path,
@@ -141,7 +141,7 @@ def main(model_dir, force):
 
             # recalculate feature_indices and file_indices
             feature_indices = get_feature_indices(test_dataset_dir,
-                                                  sorted(config.POST.FEATURES))
+                                                  config.POST.FEATURES)
             file_indices = get_file_indices(test_dataset_dir)
             test_dataset = H5Dataset(
                 filepath=test_dataset_path,

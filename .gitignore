@@ -4,3 +4,4 @@ venv/
 data/
 models/
 ltas.npy
+brever.egg-info/

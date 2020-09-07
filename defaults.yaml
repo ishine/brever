@@ -1,0 +1,132 @@
+MODEL:
+    BATCHNORM:
+        MOMENTUM: 0.1
+        'ON': false
+    BATCHSIZE: 32
+    CRITERION: MSELoss
+    CUDA: true
+    DROPOUT:
+        'ON': false
+        RATE: 0.2
+    EARLYSTOP:
+        DELTA: 0
+        PATIENCE: 20
+        VERBOSE: true
+    EPOCHS: 1000
+    LEARNINGRATE: 0.0001
+    NLAYERS: 1
+    NWORKERS: 4
+    OPTIMIZER: Adam
+    SHUFFLE: true
+    WEIGHTDECAY: 0
+POST:
+    DECIMATION: 2
+    FEATURES: !!set
+        mfcc: null
+    GLOBALSTANDARDIZATION: true
+    LOAD: false
+    PATH:
+        TEST: data\processed\testing
+        TRAIN: data\processed\training
+        VAL: data\processed\validation
+    STACK: 4
+PRE:
+    FEATURES: !!set
+        ild: null
+        itd_ic: null
+        logpdf: null
+        mfcc: null
+        pdf: null
+    FILTERBANK:
+        FMAX: 8000
+        FMIN: 50
+        KIND: mel
+        NFILTERS: 64
+        ORDER: 4
+    FRAMER:
+        CENTER: false
+        FRAMELENGTH: 512
+        HOPLENGTH: 256
+        WINDOW: hann
+    FS: 16000
+    LABEL: irm
+    MIXTURES:
+        DECAY:
+            COLOR: white
+            TOGGLE: false
+        FILELIMITS:
+            NOISE:
+            - 0.0
+            - 1.0
+            TARGET:
+            - 0.0
+            - 1.0
+        DIFFUSE:
+            LTASEQ: true
+            COLOR: white
+        NUMBER: 100
+        PADDING: 0.1
+        PATH:
+            DCASE: data\external\DCASE
+            SURREY: data\external\SURREY
+            TIMIT: data\external\TIMIT\TRAIN
+        RANDOM:
+            DECAY:
+                DELAY:
+                    MAX: 0.2
+                    MIN: 0
+                    STEP: 0.02
+                DRR:
+                    MAX: 0
+                    MIN: -20
+                    STEP: 1
+                RT60:
+                    MAX: 1
+                    MIN: 0
+                    STEP: 0.1
+            RMSDB:
+                MAX: 0
+                MIN: -20
+            ROOMS: !!set
+                surrey_room_a: null
+                surrey_room_b: null
+                surrey_room_c: null
+                surrey_room_d: null
+            SOURCES:
+                ANGLE:
+                    MAX: 90
+                    MIN: -90
+                    STEP: 5
+                NUMBER:
+                    MAX: 3
+                    MIN: 0
+                SNR:
+                    MAX: 30
+                    MIN: 0
+                TYPES: !!set
+                    dcase_airport: null
+                    dcase_bus: null
+                    dcase_metro: null
+                    dcase_park: null
+                    dcase_public_square: null
+                    dcase_shopping_mall: null
+                    dcase_street_pedestrian: null
+                    dcase_street_traffic: null
+                    dcase_tram: null
+            TARGET:
+                ANGLE:
+                    MAX: 90
+                    MIN: -90
+                    STEP: 5
+                SNR:
+                    MAX: 15
+                    MIN: 0
+        REFLECTIONBOUNDARY: 0.05
+        SAVE: false
+        SCALERMS: true
+    PLOT:
+        NSAMPLES: 1000
+        'ON': true
+    SEED:
+        'ON': true
+        VALUE: 0

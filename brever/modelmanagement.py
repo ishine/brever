@@ -3,7 +3,7 @@ import json
 import pickle
 import hashlib
 
-from brever.config import defaults
+from .config import defaults
 
 
 def sorted_dict(data, config=defaults()):
@@ -64,6 +64,8 @@ def unflatten(keys, values):
 
 
 def get_feature_indices(train_path, features):
+    if isinstance(features, set):
+        features = sorted(features)
     pipes_path = os.path.join(train_path, 'pipes.pkl')
     with open(pipes_path, 'rb') as f:
         featureExtractor = pickle.load(f)['featureExtractor']

@@ -44,14 +44,12 @@ def check_overlapping_files(train_path, val_path):
     with open(val_info_path, 'r') as f:
         val_info = json.load(f)
 
-    train_targets = [x['target_filename'] for x in train_info]
-    val_targets = [x['target_filename'] for x in val_info]
+    train_targets = [x['target']['filename'] for x in train_info]
+    val_targets = [x['target']['filename'] for x in val_info]
     assert not set(train_targets) & set(val_targets)
 
-    train_noises = [x['directional_noises_filenames'] for x in train_info]
-    val_noises = [x['directional_noises_filenames'] for x in val_info]
-    train_noises = [x for sublist in train_noises for x in sublist]
-    val_noises = [x for sublist in val_noises for x in sublist]
+    train_noises = [y['filename'] for x in train_info for y in x['directional']['sources']]
+    val_noises = [y['filename'] for x in val_info for y in x['directional']['sources']]
     assert not set(train_noises) & set(val_noises)
 
 
@@ -105,8 +103,8 @@ def main(model_dir, force):
 
     # print model info
     logging.info('\n' + pprint.pformat({
-        'POST': config.POST.todict(),
-        'MODEL': config.MODEL.todict(),
+        'POST': config.POST.to_dict(),
+        'MODEL': config.MODEL.to_dict(),
     }))
 
     # check that there are no overlapping files between train and val sets
@@ -117,9 +115,9 @@ def main(model_dir, force):
 
     # get features indices from feature extractor instance
     train_feature_indices = get_feature_indices(config.POST.PATH.TRAIN,
-                                                sorted(config.POST.FEATURES))
+                                                config.POST.FEATURES)
     val_feature_indices = get_feature_indices(config.POST.PATH.VAL,
-                                              sorted(config.POST.FEATURES))
+                                              config.POST.FEATURES)
 
     # get files indices from mixture info file
     train_file_indices = get_file_indices(config.POST.PATH.TRAIN)

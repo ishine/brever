@@ -24,27 +24,6 @@ def spatialize(x, brir):
     return np.vstack([x_left, x_right]).T
 
 
-def spatialize_multi(x, brirs):
-    '''
-    Sum of convolutions of input signal with multiple BRIRs
-
-    Parameters:
-        x:
-            Input signal.
-        brirs:
-            List of BRIRs to convolve the input signal with.
-
-    Returns:
-        y:
-            Sum of convolutions of x with each BRIR in brirs. Shape
-            length(x)*2.
-    '''
-    y = np.zeros((len(x), 2))
-    for brir in brirs:
-        y += spatialize(x, brir)
-    return y
-
-
 def colored_noise(color, n_samples):
     '''
     Generate 1/f**alpha colored noise.
@@ -163,7 +142,7 @@ def adjust_snr(signal, noise, snr, slice_=None):
         raise ValueError('Can\'t scale noise signal if it equals 0!')
     gain = (10**(-snr/10)*energy_signal/energy_noise)**0.5
     noise_scaled = gain*noise
-    return noise_scaled
+    return noise_scaled, gain
 
 
 def adjust_rms(signal, rms_dB):
@@ -251,7 +230,7 @@ def diffuse_and_directional_noise(xs_sources, brirs_sources, xs_diffuse,
         ltas = np.load('ltas.npy')
         diffuse_noise = match_ltas(diffuse_noise, ltas)
     if not (directional_sources == 0).all() and not (diffuse_noise == 0).all():
-        diffuse_noise = adjust_snr(directional_sources, diffuse_noise, snr)
+        diffuse_noise, _ = adjust_snr(directional_sources, diffuse_noise, snr)
     return diffuse_noise + directional_sources
 
 
@@ -331,8 +310,8 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
     if noise is None:
         noise = 0
     else:
-        noise = adjust_snr(target_full, noise, snr,
-                           slice(padding, len(target_full)-padding))
+        noise, _ = adjust_snr(target_full, noise, snr,
+                              slice(padding, len(target_full)-padding))
     mixture = target_full + noise
     foreground = target_early
     background = target_late + noise
@@ -340,3 +319,94 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
     foreground *= gain
     background *= gain
     return mixture, foreground, background
+
+
+class Mixture:
+    def __init__(self):
+        self.early_target = None
+        self.late_target = None
+        self.directional_noise = None
+        self.diffuse_noise = None
+
+    @property
+    def mixture(self):
+        return self.target + self.noise
+
+    @property
+    def target(self):
+        return self.early_target + self.late_target
+
+    @property
+    def noise(self):
+        output = np.zeros(self.shape)
+        if self.directional_noise is not None:
+            output += self.directional_noise
+        if self.diffuse_noise is not None:
+            output += self.diffuse_noise
+        return output
+
+    @property
+    def foreground(self):
+        return self.early_target
+
+    @property
+    def background(self):
+        return self.late_target + self.noise
+
+    @property
+    def shape(self):
+        return self.early_target.shape
+
+    def __len__(self):
+        return len(self.early_target)
+
+    def add_target(self, x, brir, rb, pad, fs):
+        brir_early, brir_late = split_brir(brir, rb, fs)
+        self.early_target = spatialize(x, brir_early)
+        self.late_target = spatialize(x, brir_early)
+        n_pad = round(pad*fs)
+        self.early_target = zero_pad(self.early_target, n_pad, 'both')
+        self.late_target = zero_pad(self.late_target, n_pad, 'both')
+
+    def add_directional_noises(self, xs, brirs):
+        if len(xs) != len(brirs):
+            raise ValueError('xs and brirs must have same number of elements')
+        self.directional_noise = np.zeros(self.shape)
+        for x, brir in zip(xs, brirs):
+            self.directional_noise += spatialize(x, brir)
+
+    def add_diffuse_noise(self, brirs, color, ltas_eq):
+        self.diffuse_noise = np.zeros(self.shape)
+        for brir in brirs:
+            noise = colored_noise(color, len(self))
+            self.diffuse_noise += spatialize(noise, brir)
+        if ltas_eq:
+            ltas = np.load('ltas.npy')
+            self.diffuse_noise = match_ltas(self.diffuse_noise, ltas)
+
+    def adjust_dir_to_diff_snr(self, snr):
+        self.diffuse_noise, _ = adjust_snr(
+            self.directional_noise,
+            self.diffuse_noise,
+            snr,
+        )
+
+    def adjust_target_snr(self, snr):
+        _, gain = adjust_snr(
+            self.target,
+            self.noise,
+            snr,
+        )
+        if self.directional_noise is not None:
+            self.directional_noise *= gain
+        if self.diffuse_noise is not None:
+            self.diffuse_noise *= gain
+
+    def adjust_rms(self, rms_dB):
+        _, gain = adjust_rms(self.mixture, rms_dB)
+        self.early_target *= gain
+        self.late_target *= gain
+        if self.directional_noise is not None:
+            self.directional_noise *= gain
+        if self.diffuse_noise is not None:
+            self.diffuse_noise *= gain

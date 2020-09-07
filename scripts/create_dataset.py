@@ -45,7 +45,7 @@ def main(dataset_dir):
     streamhandler.setFormatter(formatter)
     logger.addHandler(filehandler)
     logger.addHandler(streamhandler)
-    logging.info('\n' + pprint.pformat({'PRE': config.PRE.todict()}))
+    logging.info(pprint.pformat({'PRE': config.PRE.to_dict()}))
 
     # seed for reproducibility
     if config.PRE.SEED.ON:
@@ -53,49 +53,49 @@ def main(dataset_dir):
 
     # mixture maker
     randomMixtureMaker = RandomMixtureMaker(
+        fs=config.PRE.FS,
         rooms=config.PRE.MIXTURES.RANDOM.ROOMS,
-        angles_target=range(
+        target_angles=range(
             config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MIN,
             config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MAX + 1,
             config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.STEP,
         ),
-        angles_directional=range(
+        target_snrs=range(
+            config.PRE.MIXTURES.RANDOM.TARGET.SNR.MIN,
+            config.PRE.MIXTURES.RANDOM.TARGET.SNR.MAX + 1,
+        ),
+        directional_noise_numbers=range(
+            config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MIN,
+            config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MAX + 1,
+        ),
+        directional_noise_types=config.PRE.MIXTURES.RANDOM.SOURCES.TYPES,
+        directional_noise_angles=range(
             config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MIN,
             config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MAX + 1,
             config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.STEP,
         ),
-        snrs=range(
-            config.PRE.MIXTURES.RANDOM.TARGET.SNR.MIN,
-            config.PRE.MIXTURES.RANDOM.TARGET.SNR.MAX + 1,
-        ),
-        snrs_directional_to_diffuse=range(
+        directional_noise_snrs=range(
             config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN,
             config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MAX + 1,
         ),
-        types_directional=config.PRE.MIXTURES.RANDOM.SOURCES.TYPES,
-        types_diffuse=config.PRE.MIXTURES.RANDOM.DIFFUSE.TYPES,
-        n_directional_sources=range(
-            config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MIN,
-            config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MAX + 1,
-        ),
-        padding=config.PRE.MIXTURES.PADDING,
-        reflection_boundary=config.PRE.MIXTURES.REFLECTIONBOUNDARY,
-        fs=config.PRE.FS,
-        noise_file_lims=config.PRE.MIXTURES.FILELIMITS.NOISE,
-        target_file_lims=config.PRE.MIXTURES.FILELIMITS.TARGET,
-        rms_jitter_dB=range(
+        diffuse_noise_color=config.PRE.MIXTURES.DIFFUSE.COLOR,
+        diffuse_ltas_eq=config.PRE.MIXTURES.DIFFUSE.LTASEQ,
+        mixture_pad=config.PRE.MIXTURES.PADDING,
+        mixture_rb=config.PRE.MIXTURES.REFLECTIONBOUNDARY,
+        mixture_rms_jitter=range(
             config.PRE.MIXTURES.RANDOM.RMSDB.MIN,
             config.PRE.MIXTURES.RANDOM.RMSDB.MAX + 1,
         ),
-        surrey_dirpath=config.PRE.MIXTURES.PATH.SURREY,
-        timit_dirpath=config.PRE.MIXTURES.PATH.TIMIT,
-        dcase_dirpath=config.PRE.MIXTURES.PATH.DCASE,
-        ltas=config.PRE.MIXTURES.LTAS,
+        path_surrey=config.PRE.MIXTURES.PATH.SURREY,
+        path_timit=config.PRE.MIXTURES.PATH.TIMIT,
+        path_dcase=config.PRE.MIXTURES.PATH.DCASE,
+        filelims_directional_noise=config.PRE.MIXTURES.FILELIMITS.NOISE,
+        filelims_target=config.PRE.MIXTURES.FILELIMITS.TARGET,
     )
 
     # scaler
     scaler = UnitRMSScaler(
-        active=config.PRE.SCALERMS,
+        active=config.PRE.MIXTURES.SCALERMS,
     )
 
     # filterbank

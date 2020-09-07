@@ -736,7 +736,7 @@ def example_enhancement(mix_index, test_dataset_dir=None, save_filepath=None,
         test_dataset_dir = r'data\processed\centered_testing_snr6_roomA'
     test_dataset_path = os.path.join(test_dataset_dir, 'dataset.hdf5')
     feature_indices = get_feature_indices(test_dataset_dir,
-                                          sorted(config.POST.FEATURES))
+                                          config.POST.FEATURES)
     file_indices = get_file_indices(test_dataset_dir)
     test_dataset = H5Dataset(
         filepath=test_dataset_path,
@@ -1042,7 +1042,7 @@ def mse_vs_pesq_test(mix_index, test_dataset_dir=None, save_filepath=None,
         test_dataset_dir = r'data\processed\centered_testing_snr6_roomA'
     test_dataset_path = os.path.join(test_dataset_dir, 'dataset.hdf5')
     feature_indices = get_feature_indices(test_dataset_dir,
-                                          sorted(config.POST.FEATURES))
+                                          config.POST.FEATURES)
     file_indices = get_file_indices(test_dataset_dir)
     test_dataset = H5Dataset(
         filepath=test_dataset_path,

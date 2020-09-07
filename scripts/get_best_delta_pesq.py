@@ -77,7 +77,7 @@ if __name__ == '__main__':
     test_dataset_path = os.path.join(test_dataset_dir, 'dataset.hdf5')
     file_indices = get_file_indices(test_dataset_dir)
     feature_indices = get_feature_indices(test_dataset_dir,
-                                          sorted(config.POST.FEATURES))
+                                          config.POST.FEATURES)
     test_dataset = H5Dataset(
         filepath=test_dataset_path,
         load=config.POST.LOAD,
