@@ -1,85 +1,36 @@
 import os
 import shutil
-import copy
+import argparse
+import itertools
 
 import yaml
 
 from brever.config import defaults
-from brever.modelmanagement import get_unique_id, set_dict_field
+from brever.modelmanagement import get_unique_id, set_dict_field, flatten, unflatten
 
 
-def main():
-    base_config = {
-        'MODEL': {
-            'BATCHNORM': {
-                'ON': False,
-                'MOMENTUM': 0.1,
-            },
-            'DROPOUT': {
-                'ON': True,
-                'RATE': 0.2,
-            },
-            'NLAYERS': 1,
-            'WEIGHTDECAY': 0,
-            'LEARNINGRATE': 1e-4,
-            'BATCHSIZE': 32,
-        },
-        'POST': {
-            'STACK': 4,
-            'FEATURES': ['pdf'],
-            'PATH': {
-                'TRAIN': 'data\\processed\\training',
-                'VAL': 'data\\processed\\validation',
-                'TEST': 'data\\processed\\testing_big',
-            },
-            'DECIMATION': 2,
-        }
-    }
+def main(args):
+    to_combine = {}
+    for attr, key_list in [
+                ('layers', ['MODEL', 'NLAYERS']),
+                ('stacks', ['POST', 'STACK']),
+                ('batchnorm', ['MODEL', 'BATCHNORM', 'ON']),
+                ('dropout', ['MODEL', 'DROPOUT', 'ON']),
+                ('batchsize', ['MODEL', 'BATCHSIZE']),
+                ('features', ['POST', 'FEATURES']),
+            ]:
+        value = args.__getattribute__(attr)
+        if value is not None:
+            value = list(dict.fromkeys(value))
+            if attr == 'features':
+                value = [set(item.split(' ')) for item in value]
+            set_dict_field(to_combine, key_list, value)
 
-    configs = [copy.deepcopy(base_config)]
-    keys_values = [
-        # (['MODEL', 'BATCHNORM', 'ON'], [False, True]),
-        # (['MODEL', 'DROPOUT', 'ON'], [False, True]),
-        # (['MODEL', 'NLAYERS'], [1, 2, 3]),
-        # (['POST', 'STACK'], [0, 1, 2, 3, 4]),
-        # (['POST', 'FEATURES'], [
-        #     ['ild'],
-        #     ['itd'],
-        #     ['ic'],
-        #     ['mfcc'],
-        #     ['pdf'],
-        #     ['logpdf'],
-        #     ['ild', 'itd', 'ic'],
-        #     ['mfcc', 'pdf'],
-        #     ['mfcc', 'logpdf'],
-        #     ['ic', 'mfcc', 'pdf'],
-        #     ['ic', 'mfcc', 'logpdf'],
-        # ]),
-        # (['MODEL', 'BATCHSIZE'], [32, 1024]),
-        # (['POST', 'PATH'], [
-        #         {
-        #             'TRAIN': 'data\\processed\\training',
-        #             'VAL': 'data\\processed\\validation',
-        #             'TEST': 'data\\processed\\testing',
-        #         },
-        #         {
-        #             'TRAIN': 'data\\processed\\centered_training',
-        #             'VAL': 'data\\processed\\centered_validation',
-        #             'TEST': 'data\\processed\\centered_testing',
-        #         },
-        #         {
-        #             'TRAIN': 'data\\processed\\onlyreverb_training',
-        #             'VAL': 'data\\processed\\onlyreverb_validation',
-        #             'TEST': 'data\\processed\\onlyreverb_testing',
-        #         },
-        #     ]),
-    ]
-    for keys, values in keys_values:
-        for val in values:
-            config = copy.deepcopy(base_config)
-            set_dict_field(config, keys, val)
-            if config not in configs:
-                configs.append(config)
+    to_combine = flatten(to_combine)
+    keys, values = zip(*to_combine.items())
+    configs = unflatten(keys, itertools.product(*values))
+
+    [print(config) for config in configs]
 
     new_configs = []
     for config in configs:
@@ -110,4 +61,18 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='Find models.')
+    parser.add_argument('--layers', type=int, nargs='+',
+                        help=('Number of layers.'))
+    parser.add_argument('--stacks', type=int, nargs='+',
+                        help=('Number of extra stacks.'))
+    parser.add_argument('--batchnorm', type=lambda x: bool(int(x)), nargs='+',
+                        help=('Batchnorm toggle.'))
+    parser.add_argument('--dropout', type=lambda x: bool(int(x)), nargs='+',
+                        help=('Dropout toggle.'))
+    parser.add_argument('--batchsize', type=int, nargs='+',
+                        help=('Mini-batch size.'))
+    parser.add_argument('--features', nargs='+',
+                        help=('Feature set.'))
+    args = parser.parse_args()
+    main(args)
