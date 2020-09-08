@@ -38,12 +38,12 @@ def flatten(dictionary, prefix=None):
                 if prefix is None:
                     output[key] = value
                 else:
-                    output[f'{prefix}_{key}'] = value
+                    output[f'{prefix}.{key}'] = value
         else:
             if prefix is None:
                 output[key] = value
             else:
-                output[f'{prefix}_{key}'] = value
+                output[f'{prefix}.{key}'] = value
     return output
 
 
@@ -52,7 +52,7 @@ def unflatten(keys, values):
     for item in values:
         config = {}
         for key, value in zip(keys, item):
-            path = key.split('_')
+            path = key.split('.')
             subdict = config
             for subkey in path[:-1]:
                 if subkey not in subdict.keys():
