@@ -2,7 +2,7 @@ MODEL:
     BATCHNORM:
         MOMENTUM: 0.1
         'ON': false
-    BATCHSIZE: 32
+    BATCHSIZE: 1024
     CRITERION: MSELoss
     CUDA: true
     DROPOUT:
@@ -29,7 +29,7 @@ POST:
         TEST: data\processed\testing
         TRAIN: data\processed\training
         VAL: data\processed\validation
-    STACK: 4
+    STACK: 0
 PRE:
     FEATURES: !!set
         ild: null
@@ -53,7 +53,7 @@ PRE:
     MIXTURES:
         DECAY:
             COLOR: white
-            TOGGLE: false
+            'ON': false
         FILELIMITS:
             NOISE:
             - 0.0
@@ -73,9 +73,9 @@ PRE:
         RANDOM:
             DECAY:
                 DELAY:
-                    MAX: 0.2
+                    MAX: 0.1
                     MIN: 0
-                    STEP: 0.02
+                    STEP: 0.01
                 DRR:
                     MAX: 0
                     MIN: -20
