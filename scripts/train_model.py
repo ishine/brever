@@ -58,6 +58,7 @@ def train(model, criterion, optimizer, train_dataloader, cuda):
     for data, target in train_dataloader:
         if cuda:
             data, target = data.cuda(), target.cuda()
+        data, target = data.float(), target.float()
         optimizer.zero_grad()
         output = model(data)
         loss = criterion(output, target)
@@ -164,7 +165,8 @@ def main(model_dir, force):
     # set normalization transform
     if config.POST.GLOBALSTANDARDIZATION:
         logging.info('Calculating mean and std...')
-        mean, std = get_mean_and_std(train_dataloader, config.POST.LOAD)
+        # mean, std = get_mean_and_std(train_dataloader, config.POST.LOAD)
+        mean, std = torch.tensor(0), torch.tensor(1)
         to_save = np.vstack((mean, std))
         stat_path = os.path.join(model_dir, 'statistics.npy')
         np.save(stat_path, to_save)

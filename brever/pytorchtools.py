@@ -29,6 +29,7 @@ def evaluate(model, criterion, dataloader, load, cuda):
             data, target = dataloader.dataset[:]
             if cuda:
                 data, target = data.cuda(), target.cuda()
+            data, target = data.float(), target.float()
             output = model(data)
             loss = criterion(output, target)
             total_loss = loss.item()
@@ -37,6 +38,7 @@ def evaluate(model, criterion, dataloader, load, cuda):
             for data, target in dataloader:
                 if cuda:
                     data, target = data.cuda(), target.cuda()
+                data, target = data.float(), target.float()
                 output = model(data)
                 loss = criterion(output, target)
                 total_loss += loss.item()
@@ -84,8 +86,8 @@ class EarlyStopping:
 
 class TensorStandardizer:
     def __init__(self, mean=None, std=None):
-        self.mean = mean
-        self.std = std
+        self.mean = mean.numpy()
+        self.std = std.numpy()
 
     def __call__(self, data):
         return (data - self.mean)/self.std
@@ -176,7 +178,6 @@ class H5Dataset(torch.utils.data.Dataset):
             raise ValueError((f'{type(self).__name__} does not support '
                               f'{type(index).__name__} indexing'))
         y = self.datasets[1][index]
-        x, y = torch.from_numpy(x).float(), torch.from_numpy(y).float()
         if self.transform:
             x = self.transform(x)
         return x, y
@@ -185,20 +186,23 @@ class H5Dataset(torch.utils.data.Dataset):
         return self.n_samples
 
 
-class DummyDataset(torch.utils.data.Dataset):
-    def __init__(self, x, y, transform=None):
-        self.x = x
-        self.y = y
-        self.n_samples = len(x)
-        self.n_features = x.shape[1]
-        self.n_labels = y.shape[1]
-        self.transform = transform
+class DummyH5Dataset(torch.utils.data.Dataset):
+    def __init__(self, filepath, load):
+        self.filepath = filepath
+        self.load = load
+        self.file = None
+        with h5py.File(filepath, 'r') as f:
+            self.n_samples = len(f['features'])
+            self.n_features = f['features'].shape[1]
+            self.n_labels = f['labels'].shape[1]
 
     def __getitem__(self, index):
-        if self.transform:
-            return self.transform(self.x[index]), self.y[index]
-        else:
-            return self.x[index], self.y[index]
+        if self.file is None:
+            self.file = h5py.File(self.filepath, 'r')
+        return (
+            self.file['features'][index],
+            self.file['labels'][index],
+        )
 
     def __len__(self):
         return self.n_samples
