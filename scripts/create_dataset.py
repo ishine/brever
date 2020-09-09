@@ -101,14 +101,17 @@ def main(dataset_dir, force):
             config.PRE.MIXTURES.RANDOM.DECAY.RT60.MIN,
             config.PRE.MIXTURES.RANDOM.DECAY.RT60.MAX,
             config.PRE.MIXTURES.RANDOM.DECAY.RT60.STEP,
+        ),
         decay_drrs=np.arange(
             config.PRE.MIXTURES.RANDOM.DECAY.DRR.MIN,
             config.PRE.MIXTURES.RANDOM.DECAY.DRR.MAX,
             config.PRE.MIXTURES.RANDOM.DECAY.DRR.STEP,
+        ),
         decay_delays=np.arange(
             config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MIN,
             config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MAX,
             config.PRE.MIXTURES.RANDOM.DECAY.DELAY.STEP,
+        ),
     )
 
     # scaler
