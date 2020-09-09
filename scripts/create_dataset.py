@@ -81,6 +81,7 @@ def main(dataset_dir, force):
             config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN,
             config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MAX + 1,
         ),
+        diffuse_on=config.PRE.MIXTURES.DIFFUSE.ON,
         diffuse_noise_color=config.PRE.MIXTURES.DIFFUSE.COLOR,
         diffuse_ltas_eq=config.PRE.MIXTURES.DIFFUSE.LTASEQ,
         mixture_pad=config.PRE.MIXTURES.PADDING,
@@ -94,6 +95,20 @@ def main(dataset_dir, force):
         path_dcase=config.PRE.MIXTURES.PATH.DCASE,
         filelims_directional_noise=config.PRE.MIXTURES.FILELIMITS.NOISE,
         filelims_target=config.PRE.MIXTURES.FILELIMITS.TARGET,
+        decay_on=config.PRE.MIXTURES.DECAY.ON,
+        decay_color=config.PRE.MIXTURES.DECAY.COLOR,
+        decay_rt60s=np.arange(
+            config.PRE.MIXTURES.RANDOM.DECAY.RT60.MIN,
+            config.PRE.MIXTURES.RANDOM.DECAY.RT60.MAX,
+            config.PRE.MIXTURES.RANDOM.DECAY.RT60.STEP,
+        decay_drrs=np.arange(
+            config.PRE.MIXTURES.RANDOM.DECAY.DRR.MIN,
+            config.PRE.MIXTURES.RANDOM.DECAY.DRR.MAX,
+            config.PRE.MIXTURES.RANDOM.DECAY.DRR.STEP,
+        decay_delays=np.arange(
+            config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MIN,
+            config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MAX,
+            config.PRE.MIXTURES.RANDOM.DECAY.DELAY.STEP,
     )
 
     # scaler

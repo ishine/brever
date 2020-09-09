@@ -321,6 +321,11 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
     return mixture, foreground, background
 
 
+def add_decay(brir, rt60, drr, delay, fs):
+    n = max(round((2*rt60+delay)*fs), len(brir))
+    return brir
+
+
 class Mixture:
     def __init__(self):
         self.early_target = None

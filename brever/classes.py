@@ -5,7 +5,7 @@ import re
 
 from .utils import pca, frame, rms
 from .filters import mel_filterbank, gammatone_filterbank
-from .mixture import Mixture, colored_noise
+from .mixture import Mixture, colored_noise, add_decay
 from .io import load_random_target, load_brir, load_brirs, load_random_noise
 from . import features as features_module
 from . import labels as labels_module
@@ -137,10 +137,11 @@ class LabelExtractor:
 class RandomMixtureMaker:
     def __init__(self, fs, rooms, target_angles, target_snrs,
                  directional_noise_numbers, directional_noise_types,
-                 directional_noise_angles, directional_noise_snrs,
+                 directional_noise_angles, directional_noise_snrs, diffuse_on,
                  diffuse_noise_color, diffuse_ltas_eq, mixture_pad, mixture_rb,
                  mixture_rms_jitter, path_timit, path_surrey, path_dcase,
-                 filelims_target, filelims_directional_noise):
+                 filelims_target, filelims_directional_noise, decay_on,
+                 decay_color, decay_rt60s, decay_drrs, decay_delays):
         self.fs = fs
         self.rooms = rooms
         self.target_angles = target_angles
@@ -159,17 +160,24 @@ class RandomMixtureMaker:
         self.path_dcase = path_dcase
         self.filelims_target = filelims_target
         self.filelims_directional_noise = filelims_directional_noise
+        self.decay_on = decay_on
+        self.decay_color = decay_color
+        self.decay_rt60s = decay_rt60s
+        self.decay_drrs = decay_drrs
+        self.decay_delays = decay_delays
 
     def make(self):
         self.mixture = Mixture()
         self.metadata = {}
         room = choice(self.rooms)
-        self.add_target(room)
-        self.add_directional_noises(room)
-        self.add_diffuse_noise(room)
-        self.set_dir_to_diff_snr()
-        self.set_target_snr()
-        self.set_rms()
+        self.metadata['room'] = room
+        self.add_random_target(room)
+        self.add_random_directional_noises(room)
+        if self.diffuse_on:
+            self.add_random_diffuse_noise(room)
+            self.set_random_dir_to_diff_snr()
+        self.set_random_target_snr()
+        self.set_random_rms()
         components = (
             self.mixture.mixture,
             self.mixture.foreground,
@@ -177,9 +185,11 @@ class RandomMixtureMaker:
         )
         return components, self.metadata
 
-    def add_target(self, room):
+    def add_random_target(self, room):
         angle = choice(self.target_angles)
         brir = self._load_brirs(room, angle)
+        if self.decay_on:
+            brir = self.add_random_decay(brir)
         target, filename = load_random_target(
             self.path_timit,
             self.filelims_target,
@@ -196,7 +206,19 @@ class RandomMixtureMaker:
         self.metadata['target']['angle'] = angle
         self.metadata['target']['filename'] = filename
 
-    def add_directional_noises(self, room):
+    def add_random_decay(self, brir):
+        rt60 = choice(self.decay_rt60s)
+        drr = choice(self.decay_drrs)
+        delay = choice(self.decay_delays)
+        brir = add_decay(brir, rt60, drr, delay, self.fs, self.decay_color)
+        self.metadata['decay'] = {}
+        self.metadata['decay']['rt60'] = rt60
+        self.metadata['decay']['drr'] = drr
+        self.metadata['decay']['delay'] = delay
+        self.metadata['decay']['color'] = self.decay_color
+        return brir
+
+    def add_random_directional_noises(self, room):
         number = choice(self.directional_noise_numbers)
         types = choices(self.directional_noise_types, k=number)
         angles = choices(self.directional_noise_angles, k=number)
@@ -215,7 +237,7 @@ class RandomMixtureMaker:
             }
             self.metadata['directional']['sources'].append(source_metadata)
 
-    def add_diffuse_noise(self, room):
+    def add_random_diffuse_noise(self, room):
         color = self.diffuse_noise_color
         brirs = self._load_brirs(room)
         self.mixture.add_diffuse_noise(brirs, color, self.diffuse_ltas_eq)
@@ -223,19 +245,19 @@ class RandomMixtureMaker:
         self.metadata['diffuse']['color'] = color
         self.metadata['diffuse']['ltas_eq'] = self.diffuse_ltas_eq
 
-    def set_dir_to_diff_snr(self):
+    def set_random_dir_to_diff_snr(self):
         if self.metadata['directional']['number'] == 0:
             return
         snr = choice(self.directional_noise_snrs)
         self.mixture.adjust_dir_to_diff_snr(snr)
         self.metadata['directional']['snr'] = snr
 
-    def set_target_snr(self):
+    def set_random_target_snr(self):
         snr = choice(self.target_snrs)
         self.mixture.adjust_target_snr(snr)
         self.metadata['target']['snr'] = snr
 
-    def set_rms(self):
+    def set_random_rms(self):
         rms_dB = choice(self.mixture_rms_jitter)
         self.mixture.adjust_rms(rms_dB)
         self.metadata['rms_dB'] = rms_dB

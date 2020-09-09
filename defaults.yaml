@@ -57,6 +57,7 @@ PRE:
     DIFFUSE:
       COLOR: white
       LTASEQ: true
+      'ON': true
     FILELIMITS:
       NOISE:
       - 0.0
