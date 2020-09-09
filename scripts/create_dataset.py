@@ -101,16 +101,19 @@ def main(dataset_dir, force):
             config.PRE.MIXTURES.RANDOM.DECAY.RT60.MIN,
             config.PRE.MIXTURES.RANDOM.DECAY.RT60.MAX,
             config.PRE.MIXTURES.RANDOM.DECAY.RT60.STEP,
+            dtype=float,
         ),
         decay_drrs=np.arange(
             config.PRE.MIXTURES.RANDOM.DECAY.DRR.MIN,
             config.PRE.MIXTURES.RANDOM.DECAY.DRR.MAX,
             config.PRE.MIXTURES.RANDOM.DECAY.DRR.STEP,
+            dtype=float,
         ),
         decay_delays=np.arange(
             config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MIN,
             config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MAX,
             config.PRE.MIXTURES.RANDOM.DECAY.DELAY.STEP,
+            dtype=float,
         ),
     )
 
@@ -254,6 +257,9 @@ def main(dataset_dir, force):
     examples_dir = os.path.join(dataset_dir, 'examples')
     if not os.path.exists(examples_dir):
         os.mkdir(examples_dir)
+    else:
+        for filename in os.listdir(examples_dir):
+            os.remove(os.path.join(examples_dir, filename))
     for example, i in zip(examples, examples_index):
         gain = 1/example.max()
         filepath = os.path.join(examples_dir, f'example_{i}.wav')
