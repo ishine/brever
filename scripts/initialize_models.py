@@ -18,6 +18,8 @@ def main(args):
                 ('dropout', ['MODEL', 'DROPOUT', 'ON']),
                 ('batchsize', ['MODEL', 'BATCHSIZE']),
                 ('features', ['POST', 'FEATURES']),
+                ('train_path', ['POST', 'PATH', 'TRAIN']),
+                ('val_path', ['POST', 'PATH', 'VAL']),
             ]:
         value = args.__getattribute__(attr)
         if value is not None:
@@ -63,16 +65,20 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Find models.')
     parser.add_argument('--layers', type=int, nargs='+',
-                        help=('Number of layers.'))
+                        help=('number of layers'))
     parser.add_argument('--stacks', type=int, nargs='+',
-                        help=('Number of extra stacks.'))
+                        help=('number of extra stacks'))
     parser.add_argument('--batchnorm', type=lambda x: bool(int(x)), nargs='+',
-                        help=('Batchnorm toggle.'))
+                        help=('batchnorm toggle'))
     parser.add_argument('--dropout', type=lambda x: bool(int(x)), nargs='+',
-                        help=('Dropout toggle.'))
+                        help=('dropout toggle'))
     parser.add_argument('--batchsize', type=int, nargs='+',
-                        help=('Mini-batch size.'))
+                        help=('mini-batch size'))
     parser.add_argument('--features', nargs='+',
-                        help=('Feature set.'))
+                        help=('feature set'))
+    parser.add_argument('--train-path', nargs='+',
+                        help=('training dataset path'))
+    parser.add_argument('--val-path', nargs='+',
+                        help=('validation dataset path'))
     args = parser.parse_args()
     main(args)
