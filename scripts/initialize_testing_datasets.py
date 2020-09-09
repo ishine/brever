@@ -53,7 +53,7 @@ if __name__ == '__main__':
             set_dict_field(
                 config,
                 ['PRE', 'MIXTURES', 'RANDOM', 'ROOMS'],
-                [room_alias],
+                {room_alias},
             )
             set_dict_field(
                 config,
@@ -67,8 +67,6 @@ if __name__ == '__main__':
             )
             letter = room_alias[-1].upper()
             dirname = f'testing_snr{snr}_room{letter}'
-            for tag in tags:
-                dirname = f'{dirname}_{tag}'
             dirpath = os.path.join('data', 'processed', dirname)
             if not os.path.exists(dirpath):
                 os.mkdir(dirpath)
