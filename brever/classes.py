@@ -255,6 +255,9 @@ class RandomMixtureMaker:
         self.metadata['directional']['snr'] = snr
 
     def set_random_target_snr(self):
+        if self.metadata['directional']['number'] == 0:
+            if not self.diffuse_noise_on:
+                return
         snr = choice(self.target_snrs)
         self.mixture.adjust_target_snr(snr)
         self.metadata['target']['snr'] = snr
