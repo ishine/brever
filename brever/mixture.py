@@ -322,16 +322,18 @@ def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
 
 
 def add_decay(brir, rt60, drr, delay, fs, color):
-    n = max(round(2*(rt60+delay)*fs), len(brir))
+    if rt60 == 0:
+        return brir
+    n = max(int(round(2*(rt60+delay)*fs)), len(brir))
     offset = min(np.argmax(abs(brir), axis=0))
-    i_start = round(delay*fs) + offset
+    i_start = int(round(delay*fs)) + offset
     brir_padded = np.zeros((n, 2))
     brir_padded[:len(brir)] = brir
     t = np.arange(n-i_start).reshape(-1, 1)/fs
     noise = colored_noise(color, n-i_start).reshape(-1, 1)
     decaying_tail = np.zeros((n, 2))
     decaying_tail[i_start:] = np.exp(-t/rt60*3*np.log(10))*noise
-    decaying_tail, _ = adjust_snr(brir_padded, decaying_tail,)
+    decaying_tail, _ = adjust_snr(brir_padded, decaying_tail, drr)
     return brir_padded + decaying_tail
 
 
