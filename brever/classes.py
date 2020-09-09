@@ -137,11 +137,12 @@ class LabelExtractor:
 class RandomMixtureMaker:
     def __init__(self, fs, rooms, target_angles, target_snrs,
                  directional_noise_numbers, directional_noise_types,
-                 directional_noise_angles, directional_noise_snrs, diffuse_on,
-                 diffuse_noise_color, diffuse_ltas_eq, mixture_pad, mixture_rb,
-                 mixture_rms_jitter, path_timit, path_surrey, path_dcase,
-                 filelims_target, filelims_directional_noise, decay_on,
-                 decay_color, decay_rt60s, decay_drrs, decay_delays):
+                 directional_noise_angles, directional_noise_snrs,
+                 diffuse_noise_on, diffuse_noise_color, diffuse_noise_ltas_eq,
+                 mixture_pad, mixture_rb, mixture_rms_jitter, path_timit,
+                 path_surrey, path_dcase, filelims_target,
+                 filelims_directional_noise, decay_on, decay_color,
+                 decay_rt60s, decay_drrs, decay_delays):
         self.fs = fs
         self.rooms = rooms
         self.target_angles = target_angles
@@ -150,8 +151,9 @@ class RandomMixtureMaker:
         self.directional_noise_numbers = directional_noise_numbers
         self.directional_noise_types = directional_noise_types
         self.directional_noise_angles = directional_noise_angles
+        self.diffuse_noise_on = diffuse_noise_on
         self.diffuse_noise_color = diffuse_noise_color
-        self.diffuse_ltas_eq = diffuse_ltas_eq
+        self.diffuse_noise_ltas_eq = diffuse_noise_ltas_eq
         self.mixture_pad = mixture_pad
         self.mixture_rb = mixture_rb
         self.mixture_rms_jitter = mixture_rms_jitter
@@ -173,7 +175,7 @@ class RandomMixtureMaker:
         self.metadata['room'] = room
         self.add_random_target(room)
         self.add_random_directional_noises(room)
-        if self.diffuse_on:
+        if self.diffuse_noise_on:
             self.add_random_diffuse_noise(room)
             self.set_random_dir_to_diff_snr()
         self.set_random_target_snr()
@@ -240,10 +242,10 @@ class RandomMixtureMaker:
     def add_random_diffuse_noise(self, room):
         color = self.diffuse_noise_color
         brirs = self._load_brirs(room)
-        self.mixture.add_diffuse_noise(brirs, color, self.diffuse_ltas_eq)
+        self.mixture.add_diffuse_noise(brirs, color, self.diffuse_noise_ltas_eq)
         self.metadata['diffuse'] = {}
         self.metadata['diffuse']['color'] = color
-        self.metadata['diffuse']['ltas_eq'] = self.diffuse_ltas_eq
+        self.metadata['diffuse']['ltas_eq'] = self.diffuse_noise_ltas_eq
 
     def set_random_dir_to_diff_snr(self):
         if self.metadata['directional']['number'] == 0:

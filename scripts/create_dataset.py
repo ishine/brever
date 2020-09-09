@@ -81,9 +81,9 @@ def main(dataset_dir, force):
             config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN,
             config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MAX + 1,
         ),
-        diffuse_on=config.PRE.MIXTURES.DIFFUSE.ON,
+        diffuse_noise_on=config.PRE.MIXTURES.DIFFUSE.ON,
         diffuse_noise_color=config.PRE.MIXTURES.DIFFUSE.COLOR,
-        diffuse_ltas_eq=config.PRE.MIXTURES.DIFFUSE.LTASEQ,
+        diffuse_noise_ltas_eq=config.PRE.MIXTURES.DIFFUSE.LTASEQ,
         mixture_pad=config.PRE.MIXTURES.PADDING,
         mixture_rb=config.PRE.MIXTURES.REFLECTIONBOUNDARY,
         mixture_rms_jitter=range(
