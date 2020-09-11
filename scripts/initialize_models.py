@@ -6,7 +6,8 @@ import itertools
 import yaml
 
 from brever.config import defaults
-from brever.modelmanagement import get_unique_id, set_dict_field, flatten, unflatten
+from brever.modelmanagement import (get_unique_id, set_dict_field, flatten,
+                                    unflatten)
 
 
 def main(args):
@@ -23,9 +24,6 @@ def main(args):
             ]:
         value = args.__getattribute__(attr)
         if value is not None:
-            value = list(dict.fromkeys(value))
-            if attr == 'features':
-                value = [set(item.split(' ')) for item in value]
             set_dict_field(to_combine, key_list, value)
 
     to_combine = flatten(to_combine)
@@ -33,6 +31,7 @@ def main(args):
     configs = unflatten(keys, itertools.product(*values))
 
     [print(config) for config in configs]
+    return
 
     new_configs = []
     for config in configs:
@@ -63,22 +62,22 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Find models.')
+    parser = argparse.ArgumentParser(description='initialize models')
     parser.add_argument('--layers', type=int, nargs='+',
-                        help=('number of layers'))
+                        help='number of layers')
     parser.add_argument('--stacks', type=int, nargs='+',
-                        help=('number of extra stacks'))
+                        help='number of extra stacks')
     parser.add_argument('--batchnorm', type=lambda x: bool(int(x)), nargs='+',
-                        help=('batchnorm toggle'))
+                        help='batchnorm toggle')
     parser.add_argument('--dropout', type=lambda x: bool(int(x)), nargs='+',
-                        help=('dropout toggle'))
+                        help='dropout toggle')
     parser.add_argument('--batchsize', type=int, nargs='+',
-                        help=('mini-batch size'))
-    parser.add_argument('--features', nargs='+',
-                        help=('feature set'))
+                        help='mini-batch size')
+    parser.add_argument('--features', type=lambda x: set(x.split(' ')), nargs='+',
+                        help='feature set')
     parser.add_argument('--train-path', nargs='+',
-                        help=('training dataset path'))
+                        help='training dataset path')
     parser.add_argument('--val-path', nargs='+',
-                        help=('validation dataset path'))
+                        help='validation dataset path')
     args = parser.parse_args()
     main(args)

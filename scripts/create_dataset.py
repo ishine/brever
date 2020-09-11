@@ -23,12 +23,9 @@ from brever.classes import (Standardizer, Filterbank, Framer, FeatureExtractor,
 def main(dataset_dir, force):
     # check if dataset already exists
     datasets_output_path = os.path.join(dataset_dir, 'dataset.hdf5')
-    if os.path.exists(datasets_output_path):
+    if os.path.exists(datasets_output_path) and not force:
         logging.info('Dataset already exists')
-        if force:
-            logging.info('Overwriting')
-        else:
-            return
+        return
 
     config_file = os.path.join(dataset_dir, 'config.yaml')
     with open(config_file, 'r') as f:
@@ -320,12 +317,11 @@ def main(dataset_dir, force):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Create a dataset.')
+    parser = argparse.ArgumentParser(description='create a dataset')
     parser.add_argument('input',
-                        help=('Input dataset directory.'))
-    parser.add_argument('-f', '--force',
-                        help=('Overwrite if already exists.'),
-                        action='store_true')
+                        help=('input dataset directory'))
+    parser.add_argument('-f', '--force', action='store_true',
+                        help=('overwrite if already exists'))
     args = parser.parse_args()
 
     logging.basicConfig(

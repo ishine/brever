@@ -48,8 +48,10 @@ def check_overlapping_files(train_path, val_path):
     val_targets = [x['target']['filename'] for x in val_info]
     assert not set(train_targets) & set(val_targets)
 
-    train_noises = [y['filename'] for x in train_info for y in x['directional']['sources']]
-    val_noises = [y['filename'] for x in val_info for y in x['directional']['sources']]
+    train_noises = [y['filename'] for x in train_info
+                    for y in x['directional']['sources']]
+    val_noises = [y['filename'] for x in val_info
+                  for y in x['directional']['sources']]
     assert not set(train_noises) & set(val_noises)
 
 
@@ -263,12 +265,11 @@ def main(model_dir, force):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train a model.')
+    parser = argparse.ArgumentParser(description='train a model')
     parser.add_argument('input',
-                        help=('Input model directory.'))
-    parser.add_argument('-f', '--force',
-                        help=('Train even if already trained.'),
-                        action='store_true')
+                        help='input model directory')
+    parser.add_argument('-f', '--force', action='store_true',
+                        help='train even if already trained')
     args = parser.parse_args()
 
     logging.basicConfig(

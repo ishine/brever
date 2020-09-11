@@ -4,15 +4,10 @@ import argparse
 
 import yaml
 
-from brever.modelmanagement import set_dict_field, get_dict_field
+from brever.modelmanagement import set_dict_field
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Find models.')
-    parser.add_argument('-f', '--force', action='store_true',
-                        help=('Overwrite config file if already exists.'))
-    args = parser.parse_args()
-
+def main(force):
     base_config = {
         'PRE': {
             'SEED': {
@@ -71,12 +66,17 @@ if __name__ == '__main__':
             if not os.path.exists(dirpath):
                 os.mkdir(dirpath)
             config_filepath = os.path.join(dirpath, 'config.yaml')
-            if os.path.exists(config_filepath):
+            if os.path.exists(config_filepath) and not force:
                 print(f'{config_filepath} already exists')
-                if args.force:
-                    print('Overwriting')
-                else:
-                    continue
+                continue
             with open(config_filepath, 'w') as f:
                 yaml.dump(config, f)
-            print(f'Initialized {config_filepath}')
+            print(f'Created {config_filepath}')
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='initialize testing datasets')
+    parser.add_argument('-f', '--force', action='store_true',
+                        help='overwrite config file if already exists')
+    args = parser.parse_args()
+    main(args.force)
