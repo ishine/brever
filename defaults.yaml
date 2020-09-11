@@ -26,9 +26,9 @@ POST:
   GLOBALSTANDARDIZATION: true
   LOAD: false
   PATH:
-    TEST: data\processed\testing
-    TRAIN: data\processed\training
-    VAL: data\processed\validation
+    TEST: data/processed/testing
+    TRAIN: data/processed/training
+    VAL: data/processed/validation
   STACK: 0
 PRE:
   FEATURES: !!set
@@ -68,9 +68,9 @@ PRE:
     NUMBER: 100
     PADDING: 0.1
     PATH:
-      DCASE: data\external\DCASE
-      SURREY: data\external\SURREY
-      TIMIT: data\external\TIMIT\TRAIN
+      DCASE: data/external/DCASE
+      SURREY: data/external/SURREY
+      TIMIT: data/external/TIMIT/TRAIN
     RANDOM:
       DECAY:
         DELAY:
