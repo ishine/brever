@@ -98,7 +98,7 @@ def main(model_dir, force):
     val_losses_path = os.path.join(model_dir, 'val_losses.npy')
     if os.path.exists(train_losses_path) and os.path.exists(val_losses_path):
         if not force:
-            logging.info(f'Model is already trained.')
+            logging.info('Model is already trained')
             return
 
     # set logger
@@ -128,7 +128,7 @@ def main(model_dir, force):
     val_file_indices = get_file_indices(config.POST.PATH.VAL)
 
     # load datasets and dataloaders
-    logging.info('Loading datasets...')
+    logging.info('Initializating dataloaders')
     train_dataset_path = os.path.join(config.POST.PATH.TRAIN, 'dataset.hdf5')
     val_dataset_path = os.path.join(config.POST.PATH.VAL, 'dataset.hdf5')
 
@@ -167,7 +167,7 @@ def main(model_dir, force):
 
     # set normalization transform
     if config.POST.GLOBALSTANDARDIZATION:
-        logging.info('Calculating mean and std...')
+        logging.info('Calculating mean and std')
         mean, std = get_mean_and_std(train_dataloader, config.POST.LOAD)
         to_save = np.vstack((mean, std))
         stat_path = os.path.join(model_dir, 'statistics.npy')
@@ -205,7 +205,7 @@ def main(model_dir, force):
     )
 
     # main loop
-    logging.info('Starting main loop...')
+    logging.info('Starting main loop')
     train_losses = []
     val_losses = []
     start_time = time.time()
@@ -260,6 +260,11 @@ def main(model_dir, force):
     # save errors
     np.save(train_losses_path, train_losses)
     np.save(val_losses_path, val_losses)
+
+    # write full config
+    full_config_file = os.path.join(model_dir, 'config_full.yaml')
+    with open(full_config_file, 'w') as f:
+        yaml.dump(config.to_dict(), f)
 
     # close log file handler and rename model
     clear_logger()
