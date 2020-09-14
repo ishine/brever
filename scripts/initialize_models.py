@@ -30,9 +30,6 @@ def main(args):
     keys, values = zip(*to_combine.items())
     configs = unflatten(keys, itertools.product(*values))
 
-    [print(config) for config in configs]
-    return
-
     new_configs = []
     for config in configs:
         unique_id = get_unique_id(config)
