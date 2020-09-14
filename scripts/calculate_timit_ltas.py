@@ -1,11 +1,12 @@
 import os
+import argparse
 
 import numpy as np
 import soundfile as sf
 import scipy.signal
 
 
-if __name__ == '__main__':
+def main(plot):
     timit_dirpath = 'data\\external\\TIMIT\\TRAIN'
     all_filepaths = []
     for root, dirs, files in os.walk(timit_dirpath):
@@ -18,7 +19,7 @@ if __name__ == '__main__':
     ltas = np.zeros(n)
 
     for i, filepath in enumerate(all_filepaths):
-        print(f'{i}/{len(all_filepaths)}')
+        print(f'Processing recording {i+1}/{len(all_filepaths)}')
         x, _ = sf.read(filepath)
         _, _, X = scipy.signal.stft(x, nperseg=512, noverlap=256)
         ltas += np.mean(np.abs(X)**2, axis=1)
@@ -31,15 +32,24 @@ if __name__ == '__main__':
     g /= g.sum(axis=1)
     ltas_smooth = np.copy(ltas)
     ltas_smooth[1:] = g@ltas_smooth[1:]
-
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.imshow(g)
-    plt.figure()
-    plt.plot(g)
-    plt.figure()
-    plt.semilogx(10*np.log10(ltas))
-    plt.semilogx(10*np.log10(ltas_smooth))
-
-    plt.show()
     np.save('ltas.npy', ltas_smooth)
+
+    if plot:
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.imshow(g)
+        plt.figure()
+        plt.plot(g)
+        plt.figure()
+        plt.semilogx(10*np.log10(ltas))
+        plt.semilogx(10*np.log10(ltas_smooth))
+        plt.grid()
+        plt.show()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='calculate timit ltas')
+    parser.add_argument('--plot', action='store_true',
+                        help='plot ltas and smoothing function')
+    args = parser.parse_args()
+    main(args.plot)
