@@ -27,8 +27,9 @@ class AttrDict:
             return
         for key, value in dict_.items():
             if key not in self.__dict__:
+                class_name = self.__class__.__name__
                 raise AttributeError(
-                    f'{self.__class__.__name__} instance has no attribute {key}'
+                    f'{class_name} instance has no attribute {key}'
                 )
             elif isinstance(self.__getattribute__(key), AttrDict):
                 '''
@@ -36,14 +37,17 @@ class AttrDict:
                 in the input dictionary must be a nested dictionary.
                 '''
                 if not isinstance(value, dict):
+                    in_type = value.__class__.__name__
                     raise TypeError(
-                        f'value with key {key} must have type dict, got {value.__class__.__name__}'
+                        f'field {key} must have type dict, got {in_type}'
                     )
                 self.__getattribute__(key).update(value)
             else:
                 if self.__getattribute__(key).__class__ != value.__class__:
+                    at_type = self.__getattribute__(key).__class__.__name__
+                    in_type = value.__class__.__name__
                     raise TypeError(
-                        f'value with key {key} must have type {self.__getattribute__(key).__class__}, got {value.__class__.__name__}'
+                        f'field {key} must have type {at_type}, got {in_type}'
                     )
                 else:
                     object.__setattr__(self, key, value)
