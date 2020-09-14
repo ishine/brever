@@ -2,6 +2,7 @@ import os
 import json
 import pickle
 import hashlib
+import argparse
 
 import yaml
 
@@ -139,3 +140,24 @@ def find_model(**kwargs):
         if valid:
             models.append(model_id)
     return models
+
+
+class ModelFilterArgParser(argparse.ArgumentParser):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_argument('--layers', type=int,
+                          help='number of layers')
+        self.add_argument('--stacks', type=int,
+                          help='number of extra stacks')
+        self.add_argument('--batchnorm', type=lambda x: bool(int(x)),
+                          help='batchnorm toggle')
+        self.add_argument('--dropout', type=lambda x: bool(int(x)),
+                          help='dropout toggle')
+        self.add_argument('--batchsize', type=int,
+                          help='batchsize')
+        self.add_argument('--features', type=lambda x: set(x.split(' ')),
+                          help='feature set')
+        self.add_argument('--train-path',
+                          help='training dataset path')
+        self.add_argument('--val-path',
+                          help='validation dataset path')
