@@ -86,8 +86,12 @@ class EarlyStopping:
 
 class TensorStandardizer:
     def __init__(self, mean=None, std=None):
-        self.mean = mean.numpy()
-        self.std = std.numpy()
+        if isinstance(mean, torch.Tensor):
+            mean = mean.numpy()
+        if isinstance(std, torch.Tensor):
+            std = std.numpy()
+        self.mean = mean
+        self.std = std
 
     def __call__(self, data):
         return (data - self.mean)/self.std

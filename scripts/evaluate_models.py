@@ -191,6 +191,7 @@ def main(model_dir, force):
 
                     # extract features
                     features, _ = test_dataset[i_start:i_end]
+                    features = torch.from_numpy(features).float()
                     if config.MODEL.CUDA:
                         features = features.cuda()
 
