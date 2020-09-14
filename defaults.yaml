@@ -78,8 +78,8 @@ PRE:
           MIN: 0
           STEP: 0.01
         DRR:
-          MAX: 0
-          MIN: -20
+          MAX: 10
+          MIN: 0
           STEP: 1
         RT60:
           MAX: 1
