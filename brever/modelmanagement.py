@@ -115,28 +115,32 @@ def get_dict_field(input_dict, key_list, default=None):
         return default
 
 
+arg_to_keys_map = {
+    'layers': ['MODEL', 'NLAYERS'],
+    'stacks': ['POST', 'STACK'],
+    'batchnorm': ['MODEL', 'BATCHNORM', 'ON'],
+    'dropout': ['MODEL', 'DROPOUT', 'ON'],
+    'batchsize': ['MODEL', 'BATCHSIZE'],
+    'features': ['POST', 'FEATURES'],
+    'train_path': ['POST', 'PATH', 'TRAIN'],
+    'val_path': ['POST', 'PATH', 'VAL'],
+}
+
+
 def find_model(**kwargs):
     models = []
     for model_id in os.listdir('models'):
-        config_file = os.path.join('models', model_id, 'config.yaml')
+        config_file = os.path.join('models', model_id, 'config_full.yaml')
+        if not os.path.exists(config_file):
+            config_file = os.path.join('models', model_id, 'config.yaml')
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
         valid = True
-        for attr, keys in [
-                    ('layers', ['MODEL', 'NLAYERS']),
-                    ('stacks', ['POST', 'STACK']),
-                    ('batchnorm', ['MODEL', 'BATCHNORM', 'ON']),
-                    ('dropout', ['MODEL', 'DROPOUT', 'ON']),
-                    ('batchsize', ['MODEL', 'BATCHSIZE']),
-                    ('features', ['POST', 'FEATURES']),
-                    ('train_path', ['POST', 'PATH', 'TRAIN']),
-                    ('val_path', ['POST', 'PATH', 'VAL']),
-                ]:
-            if attr in kwargs.keys():
-                value = kwargs[attr]
-                if value is not None and get_dict_field(config, keys) != value:
-                    valid = False
-                    break
+        for key, value in kwargs.items():
+            keys = arg_to_keys_map[key]
+            if value is not None and get_dict_field(config, keys) != value:
+                valid = False
+                break
         if valid:
             models.append(model_id)
     return models
