@@ -1,7 +1,5 @@
 import os
-import argparse
 
-import yaml
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
