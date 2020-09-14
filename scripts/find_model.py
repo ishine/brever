@@ -1,38 +1,16 @@
 import os
 import argparse
 
-import yaml
-
-from brever.modelmanagement import get_dict_field
+from brever.modelmanagement import find_model
 
 
 def main(args):
+    models = find_model(**vars(args))
+
     trained = []
     untrained = []
-    for model_id in os.listdir('models'):
-        invalid = False
 
-        config_file = os.path.join('models', model_id, 'config.yaml')
-        with open(config_file, 'r') as f:
-            config = yaml.safe_load(f)
-
-        for attr, key_list in [
-                    ('layers', ['MODEL', 'NLAYERS']),
-                    ('stacks', ['POST', 'STACK']),
-                    ('batchnorm', ['MODEL', 'BATCHNORM', 'ON']),
-                    ('dropout', ['MODEL', 'DROPOUT', 'ON']),
-                    ('batchsize', ['MODEL', 'BATCHSIZE']),
-                    ('features', ['POST', 'FEATURES']),
-                    ('train_path', ['POST', 'PATH', 'TRAIN']),
-                    ('val_path', ['POST', 'PATH', 'VAL']),
-                ]:
-            value = args.__getattribute__(attr)
-            if value is not None and get_dict_field(config, key_list) != value:
-                invalid = True
-                break
-        if invalid:
-            continue
-
+    for model_id in models:
         train_loss = os.path.join('models', model_id, 'train_losses.npy')
         val_loss = os.path.join('models', model_id, 'val_losses.npy')
         if os.path.exists(train_loss) and os.path.exists(val_loss):
@@ -40,7 +18,7 @@ def main(args):
         else:
             untrained.append(model_id)
 
-    print(f'{len(trained) + len(untrained)} total models found.')
+    print(f'{len(models)} total models found')
     print(f'{len(trained)} trained models:')
     for model_id in trained:
         print(model_id)
@@ -62,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('--batchsize', type=int,
                         help='batchsize')
     parser.add_argument('--features', type=lambda x: set(x.split(' ')),
-                        help='feature set.')
+                        help='feature set')
     parser.add_argument('--train-path',
                         help='training dataset path')
     parser.add_argument('--val-path',

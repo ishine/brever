@@ -3,6 +3,8 @@ import json
 import pickle
 import hashlib
 
+import yaml
+
 from .config import defaults
 
 
@@ -100,10 +102,40 @@ def set_dict_field(input_dict, key_list, value):
             dict_ = dict_[key]
 
 
-def get_dict_field(input_dict, key_list):
-    dict_ = input_dict
-    for key in key_list:
-        if key == key_list[-1]:
-            return dict_[key]
-        else:
-            dict_ = dict_[key]
+def get_dict_field(input_dict, key_list, default=None):
+    try:
+        dict_ = input_dict
+        for key in key_list:
+            if key == key_list[-1]:
+                return dict_[key]
+            else:
+                dict_ = dict_[key]
+    except KeyError:
+        return default
+
+
+def find_model(**kwargs):
+    models = []
+    for model_id in os.listdir('models'):
+        config_file = os.path.join('models', model_id, 'config.yaml')
+        with open(config_file, 'r') as f:
+            config = yaml.safe_load(f)
+        valid = True
+        for attr, keys in [
+                    ('layers', ['MODEL', 'NLAYERS']),
+                    ('stacks', ['POST', 'STACK']),
+                    ('batchnorm', ['MODEL', 'BATCHNORM', 'ON']),
+                    ('dropout', ['MODEL', 'DROPOUT', 'ON']),
+                    ('batchsize', ['MODEL', 'BATCHSIZE']),
+                    ('features', ['POST', 'FEATURES']),
+                    ('train_path', ['POST', 'PATH', 'TRAIN']),
+                    ('val_path', ['POST', 'PATH', 'VAL']),
+                ]:
+            if attr in kwargs.keys():
+                value = kwargs[attr]
+                if value is not None and get_dict_field(config, keys) != value:
+                    valid = False
+                    break
+        if valid:
+            models.append(model_id)
+    return models
