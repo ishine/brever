@@ -4,8 +4,8 @@ import argparse
 from brever.modelmanagement import find_model
 
 
-def main(args):
-    models = find_model(**vars(args))
+def main(**kwargs):
+    models = find_model(**kwargs)
 
     trained = []
     untrained = []
@@ -46,4 +46,4 @@ if __name__ == '__main__':
     parser.add_argument('--val-path',
                         help='validation dataset path')
     args = parser.parse_args()
-    main(args)
+    main(**vars(args))
