@@ -320,9 +320,9 @@ def main(dataset_dir, force):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='create a dataset')
     parser.add_argument('input',
-                        help=('input dataset directory'))
+                        help='input dataset directory')
     parser.add_argument('-f', '--force', action='store_true',
-                        help=('overwrite if already exists'))
+                        help='overwrite if already exists')
     args = parser.parse_args()
 
     logging.basicConfig(
