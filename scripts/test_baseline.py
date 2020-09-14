@@ -115,7 +115,7 @@ def main(dataset_dir, force, eng):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='test baseline system')
     parser.add_argument('input',
-                        help='input model directory')
+                        help='input dataset directory')
     parser.add_argument('-f', '--force', action='store_true',
                         help='test even if already tested')
     args = parser.parse_args()
