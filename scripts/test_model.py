@@ -3,6 +3,7 @@ import argparse
 from glob import glob
 import pickle
 import logging
+import sys
 
 import yaml
 import torch
@@ -22,12 +23,12 @@ from brever.modelmanagement import get_feature_indices, get_file_indices
 def main(model_dir, force):
     logging.info(f'Processing {model_dir}')
 
-    # check if model is already evaluated
+    # check if model is already tested
     output_pesq_path = os.path.join(model_dir, 'eval_PESQ.npy')
     output_mse_path = os.path.join(model_dir, 'eval_MSE.npy')
     if os.path.exists(output_pesq_path) and os.path.exists(output_mse_path):
         if not force:
-            logging.info(f'Model is already evaluated!')
+            logging.info(f'Model is already tested!')
             return
 
     # check if model is trained
@@ -248,15 +249,16 @@ def main(model_dir, force):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='evaluate a model')
+    parser = argparse.ArgumentParser(description='test a model')
     parser.add_argument('input',
                         help='input model directory')
     parser.add_argument('-f', '--force', action='store_true',
-                        help='evaluate even if already evaluated')
+                        help='test even if already tested')
     args = parser.parse_args()
 
     logging.basicConfig(
         level=logging.INFO,
+        stream=sys.stdout,
         format='%(asctime)s [%(levelname)s] %(message)s',
     )
 

@@ -4,6 +4,7 @@ from glob import glob
 import os
 import pickle
 import time
+import sys
 
 import h5py
 import matlab
@@ -112,17 +113,16 @@ def main(dataset_dir, force, eng):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Evaluate the baseline system.')
+    parser = argparse.ArgumentParser(description='test baseline system')
     parser.add_argument('input',
-                        help='Input model directory.')
-    parser.add_argument('-f', '--force',
-                        help='Evaluate even if already evaluated.',
-                        action='store_true')
+                        help='input model directory')
+    parser.add_argument('-f', '--force', action='store_true',
+                        help='test even if already tested')
     args = parser.parse_args()
 
     logging.basicConfig(
         level=logging.INFO,
+        stream=sys.stdout,
         format='%(asctime)s [%(levelname)s] %(message)s',
     )
 

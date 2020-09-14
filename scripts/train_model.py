@@ -5,6 +5,7 @@ import time
 import pprint
 import json
 from glob import glob
+import sys
 
 import yaml
 import numpy as np
@@ -28,7 +29,7 @@ def set_logger(output_dir):
     logger = logging.getLogger()
     logfile = os.path.join(output_dir, 'log.txt')
     filehandler = logging.FileHandler(logfile, mode='w')
-    streamhandler = logging.StreamHandler()
+    streamhandler = logging.StreamHandler(sys.stdout)
     formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
     filehandler.setFormatter(formatter)
     streamhandler.setFormatter(formatter)
@@ -274,6 +275,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(
         level=logging.INFO,
+        stream=sys.stdout,
     )
 
     for model_dir in glob(args.input):

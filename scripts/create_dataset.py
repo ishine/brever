@@ -7,6 +7,7 @@ import json
 import pickle
 import random
 from glob import glob
+import sys
 
 import yaml
 import numpy as np
@@ -39,7 +40,7 @@ def main(dataset_dir, force):
         logger.removeHandler(logger.handlers[i])
     logfile = os.path.join(dataset_dir, 'log.txt')
     filehandler = logging.FileHandler(logfile, mode='w')
-    streamhandler = logging.StreamHandler()
+    streamhandler = logging.StreamHandler(sys.stdout)
     formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
     filehandler.setFormatter(formatter)
     streamhandler.setFormatter(formatter)
@@ -326,6 +327,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(
         level=logging.INFO,
+        stream=sys.stdout,
     )
 
     for dataset_dir in glob(args.input):
