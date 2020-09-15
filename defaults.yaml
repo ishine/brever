@@ -15,7 +15,7 @@ MODEL:
   EPOCHS: 1000
   LEARNINGRATE: 0.0001
   NLAYERS: 1
-  NWORKERS: 4
+  NWORKERS: 0
   OPTIMIZER: Adam
   SHUFFLE: true
   WEIGHTDECAY: 0
@@ -24,7 +24,7 @@ POST:
   FEATURES: !!set
     mfcc: null
   GLOBALSTANDARDIZATION: true
-  LOAD: false
+  LOAD: true
   PATH:
     TEST: data\processed\testing
     TRAIN: data\processed\training\
