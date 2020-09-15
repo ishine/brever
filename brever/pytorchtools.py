@@ -7,18 +7,19 @@ import logging
 
 def get_mean_and_std(dataloader, load):
     if load:
-        mean = dataloader.dataset[:][0].mean(0)
-        std = dataloader.dataset[:][0].std(0)
+        mean = dataloader.dataset[:][0].mean(axis=0)
+        std = dataloader.dataset[:][0].std(axis=0)
     else:
         mean = 0
         for data, _ in dataloader:
-            mean += data.mean(0)
+            mean += data.mean(axis=0)
         mean /= len(dataloader)
         var = 0
         for data, _ in dataloader:
-            var += ((data - mean)**2).mean(0)
+            var += ((data - mean)**2).mean(axis=0)
         var /= len(dataloader)
         std = var**0.5
+        mean, std = mean.numpy(), std.numpy()
     return mean, std
 
 
@@ -27,6 +28,7 @@ def evaluate(model, criterion, dataloader, load, cuda):
     with torch.no_grad():
         if load:
             data, target = dataloader.dataset[:]
+            data, target = torch.from_numpy(data), torch.from_numpy(target)
             if cuda:
                 data, target = data.cuda(), target.cuda()
             data, target = data.float(), target.float()
@@ -86,10 +88,6 @@ class EarlyStopping:
 
 class TensorStandardizer:
     def __init__(self, mean=None, std=None):
-        if isinstance(mean, torch.Tensor):
-            mean = mean.numpy()
-        if isinstance(std, torch.Tensor):
-            std = std.numpy()
         self.mean = mean
         self.std = std
 
@@ -158,17 +156,18 @@ class H5Dataset(torch.utils.data.Dataset):
                     for i, j in self.feature_indices:
                         x[count:count+j-i] = self.datasets[0][index_lag, i:j]
                         count += j-i
+            y = self.datasets[1][index]
+            if self.transform:
+                x = self.transform(x)
         elif isinstance(index, slice):
             indexes = list(range(self.n_samples))[index]
             x = np.empty((len(indexes), self.n_features))
+            y = np.empty((len(indexes), self.n_labels))
             for i, j in enumerate(indexes):
-                x[i, :] = self.__getitem__(j)[0]
+                x[i, :], y[i, :] = self.__getitem__(j)
         else:
             raise ValueError((f'{type(self).__name__} does not support '
                               f'{type(index).__name__} indexing'))
-        y = self.datasets[1][index]
-        if self.transform:
-            x = self.transform(x)
         return x, y
 
     def __len__(self):
