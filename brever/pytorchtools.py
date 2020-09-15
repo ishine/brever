@@ -106,15 +106,17 @@ class H5Dataset(torch.utils.data.Dataset):
         self.transform = transform
         self.stack = stack
         self.decimation = decimation
-        self.feature_indices = feature_indices
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
             self.n_samples = len(f['features'])//decimation
             if feature_indices is None:
                 self.n_features = f['features'].shape[1]
+                self.n_features *= (stack+1)
+                self.feature_indices = [(0, self.n_features)]
             else:
                 self.n_features = sum(j-i for i, j in feature_indices)
-            self.n_features *= (stack+1)
+                self.n_features *= (stack+1)
+                self.feature_indices = feature_indices
             self.n_labels = f['labels'].shape[1]
             if self.load:
                 self.datasets = (f['features'][:], f['labels'][:])
@@ -129,55 +131,40 @@ class H5Dataset(torch.utils.data.Dataset):
                 self.datasets = (f['features'][:], f['labels'][:])
             else:
                 self.datasets = (f['features'], f['labels'])
-        # decimate
         if isinstance(index, int):
+            x = np.empty(self.n_features)
+            count = 0
+            # decimate
             index *= self.decimation
-            if self.feature_indices is None:
-                x = self.datasets[0][index]
-            else:
-                x = np.hstack([self.datasets[0][index, i:j]
-                               for i, j in self.feature_indices])
-            for k in range(self.stack):
-                lag = k+1
-                index_lagged = index-lag
+            # frame at current time index
+            for i, j in self.feature_indices:
+                x[count:count+j-i] = self.datasets[0][index, i:j]
+                count += j-i
+            # frames at previous time indexes
+            if self.stack > 0:
+                # first check if a file starts during delay window
+                index_min = index-self.stack
                 for i_file, _ in self.file_indices:
-                    if i_file <= index and not i_file <= index-lag:
-                        index_lagged = i_file
+                    if index_min < i_file <= index:
+                        index_min = i_file
                         break
-                if self.feature_indices is None:
-                    lagged = self.datasets[0][index_lagged]
-                else:
-                    lagged = np.hstack([self.datasets[0][index_lagged, i:j]
-                                        for i, j in self.feature_indices])
-                x = np.hstack((x, lagged))
+                    # stop searching if current time index is reached
+                    elif i_file > index:
+                        break
+                # then add context stacking
+                for k in range(self.stack):
+                    # if context overlaps previous file then replicate
+                    index_lag = max(index-k-1, index_min)
+                    if index-k-1 < index_min <= index:
+                        print('wdwd')
+                    for i, j in self.feature_indices:
+                        x[count:count+j-i] = self.datasets[0][index_lag, i:j]
+                        count += j-i
         elif isinstance(index, slice):
-            start, stop, step = index.start, index.stop, index.step
-            if start is not None:
-                start *= self.decimation
-            if stop is not None:
-                stop *= self.decimation
-            if step is None:
-                step = self.decimation
-            else:
-                step *= self.decimation
-            index = slice(start, stop, step)
-            if self.feature_indices is None:
-                x = self.datasets[0][index]
-            else:
-                x = np.hstack([self.datasets[0][index, i:j]
-                               for i, j in self.feature_indices])
-            for k in range(self.stack):
-                lag = k+1
-                if self.feature_indices is None:
-                    lagged = self.datasets[0][:]
-                else:
-                    lagged = np.hstack([self.datasets[0][:, i:j]
-                                        for i, j in self.feature_indices])
-                lagged = np.roll(lagged, lag, axis=0)
-                for i_file, _ in self.file_indices:
-                    lagged[i_file:i_file+lag] = lagged[i_file+lag]
-                lagged = lagged[index]
-                x = np.hstack((x, lagged))
+            indexes = list(range(self.n_samples))[index]
+            x = np.empty((len(indexes), self.n_features))
+            for i, j in enumerate(indexes):
+                x[i, :] = self.__getitem__(j)[0]
         else:
             raise ValueError((f'{type(self).__name__} does not support '
                               f'{type(index).__name__} indexing'))
