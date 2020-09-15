@@ -155,8 +155,6 @@ class H5Dataset(torch.utils.data.Dataset):
                 for k in range(self.stack):
                     # if context overlaps previous file then replicate
                     index_lag = max(index-k-1, index_min)
-                    if index-k-1 < index_min <= index:
-                        print('wdwd')
                     for i, j in self.feature_indices:
                         x[count:count+j-i] = self.datasets[0][index_lag, i:j]
                         count += j-i
