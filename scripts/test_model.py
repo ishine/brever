@@ -115,27 +115,18 @@ def main(model_dir, force):
 
     # main loop
     logging.info('Starting main loop:')
-    if 'onlyreverb' in config.POST.PATH.TEST:
-        snrs = [0]
-    else:
-        snrs = [0, 3, 6, 9, 12, 15]
-    if 'onlydiffuse' in config.POST.PATH.TEST:
-        room_aliases = ['surrey_anechoic']
-    else:
-        room_aliases = [
-            'surrey_room_a',
-            'surrey_room_b',
-            'surrey_room_c',
-            'surrey_room_d',
-        ]
+    snrs = [0, 3, 6, 9, 12, 15]
+    room_aliases = [
+        'surrey_room_a',
+        'surrey_room_b',
+        'surrey_room_c',
+        'surrey_room_d',
+    ]
     PESQ = np.zeros((len(snrs), len(room_aliases)))
     MSE = np.zeros((len(snrs), len(room_aliases)))
     for i, snr in enumerate(snrs):
         for j, room_alias in enumerate(room_aliases):
-            if 'onlydiffuse' in config.POST.PATH.TEST:
-                suffix = f'snr{snr}_anechoic'
-            else:
-                suffix = f'snr{snr}_room{room_alias[-1].upper()}'
+            suffix = f'snr{snr}_room{room_alias[-1].upper()}'
             test_dataset_dir = f'{config.POST.PATH.TEST}_{suffix}'
             test_dataset_path = os.path.join(test_dataset_dir, 'dataset.hdf5')
             logging.info(f'Processing {test_dataset_dir}:')
