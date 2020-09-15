@@ -26,7 +26,7 @@ POST:
   GLOBALSTANDARDIZATION: true
   LOAD: false
   PATH:
-    TEST: data\processed\testing\
+    TEST: data\processed\testing
     TRAIN: data\processed\training\
     VAL: data\processed\validation\
   STACK: 0
