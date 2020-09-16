@@ -56,7 +56,6 @@ def group_by_dimension(models, values, dimension):
     # then match order across groups
     for i, group in enumerate(groups):
         group_sorted = []
-        print(group[0])
         group_inner_vals_local = [model['val'].copy() for model in group]
         for val in group_inner_vals_local:
             val.pop(dimension)
