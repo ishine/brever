@@ -1,171 +1,149 @@
 import os
-import argparse
 
 import numpy as np
 import matplotlib.pyplot as plt
 import yaml
 
-from brever.modelmanagement import get_dict_field
+from brever.modelmanagement import (get_dict_field, ModelFilterArgParser,
+                                    find_model, arg_to_keys_map)
 
 
-def main(**kwargs):
-    key_dict = {
-        'layers': ['MODEL', 'NLAYERS'],
-        'stacks': ['POST', 'STACK'],
-        'batchnorm': ['MODEL', 'BATCHNORM', 'ON'],
-        'dropout': ['MODEL', 'DROPOUT', 'ON'],
-        'features': ['POST', 'FEATURES'],
-        'batchsize': ['MODEL', 'BATCHSIZE'],
-    }
-    base_params = {
-        'layers': 1,
-        'stacks': 4,
-        'batchnorm': False,
-        'dropout': True,
-        'features': ['mfcc'],
-        'batchsize': 32,
-    }
-    for key in base_params.keys():
-        if kwargs[key] is not None:
-            base_params[key] = kwargs[key]
-    train_path_keys = ['POST', 'PATH', 'TRAIN']
-    val_path_keys = ['POST', 'PATH', 'VAL']
-    test_path_keys = ['POST', 'PATH', 'TEST']
-    if kwargs['centered'] + kwargs['onlyreverb'] > 1:
-        raise ValueError(('Only one of centered and onlyreverb is allowed at a'
-                          'time'))
-    elif kwargs['centered']:
-        train_path = 'data\\processed\\centered_training'
-        val_path = 'data\\processed\\centered_validation'
-        test_path = 'data\\processed\\centered_testing'
-    elif kwargs['onlyreverb']:
-        train_path = 'data\\processed\\onlyreverb_training'
-        val_path = 'data\\processed\\onlyreverb_validation'
-        test_path = 'data\\processed\\onlyreverb_testing'
-    else:
-        train_path = 'data\\processed\\training'
-        val_path = 'data\\processed\\validation'
-        test_path = 'data\\processed\\testing'
-    if kwargs['testbig']:
-        test_path = test_path + '_big'
-    if kwargs['trainbig']:
-        train_path = train_path + '_big'
-        val_path = val_path + '_big'
+def check_models(models, dims):
     values = []
-    models_sorted = []
-    for model_id in os.listdir('models'):
-        pesq_filepath = os.path.join('models', model_id, 'eval_PESQ.npy')
-        mse_filepath = os.path.join('models', model_id, 'eval_MSE.npy')
-        config_file = os.path.join('models', model_id, 'config.yaml')
+    models_ = []
+    for model in models:
+        pesq_file = os.path.join('models', model, 'eval_PESQ.npy')
+        mse_file = os.path.join('models', model, 'eval_MSE.npy')
+        config_file = os.path.join('models', model, 'config_full.yaml')
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
-        if (get_dict_field(config, train_path_keys) != train_path
-                or get_dict_field(config, val_path_keys) != val_path
-                or get_dict_field(config, test_path_keys) != test_path):
+        if not (os.path.exists(pesq_file) and os.path.exists(mse_file)):
+            print(f'Model {model} is not evaluated!')
             continue
-        invalid = False
-        for filter_dim, filter_val in base_params.items():
-            if (get_dict_field(config, key_dict[filter_dim]) != filter_val
-                    and filter_dim != kwargs['dimension']):
-                invalid = True
-                break
-        if invalid:
-            continue
-        if (not os.path.exists(pesq_filepath)
-                or not os.path.exists(mse_filepath)):
-            print((f'Model {model_id} is attempted to be compared but is not '
-                   'evaluated!'))
-            continue
-        val = get_dict_field(config, key_dict[kwargs['dimension']])
+        val = {dim: get_dict_field(config, arg_to_keys_map[dim])
+               for dim in dims}
         if val not in values:
             values.append(val)
-            models_sorted.append([model_id])
+            models_.append(model)
         else:
-            index = values.index(val)
-            models_sorted[index].append(model_id)
+            raise ValueError(f'Found more than one model for value {val}')
+    return models_, values
 
-    pesqs = []
-    mses = []
-    for models in models_sorted:
-        pesq = []
-        mse = []
-        for model_id in models:
-            pesq_filepath = os.path.join('models', model_id, 'eval_PESQ.npy')
-            mse_filepath = os.path.join('models', model_id, 'eval_MSE.npy')
-            pesq.append(np.load(pesq_filepath))
-            mse.append(np.load(mse_filepath))
-        pesqs.append(np.asarray(pesq).mean(axis=0))
-        mses.append(np.asarray(mse).mean(axis=0))
+
+def group_by_dimension(models, values, dimension):
+    # first make groups
+    if dimension is None:
+        group = []
+        for model, val in zip(models, values):
+            group.append({'model': model, 'val': val})
+        groups = [group]
+    else:
+        group_outer_values = []
+        groups = []
+        group_inner_values = []
+        for model, val in zip(models, values):
+            group_outer_val = val[dimension]
+            if group_outer_val not in group_outer_values:
+                group_outer_values.append(group_outer_val)
+                groups.append([{'model': model, 'val': val}])
+            else:
+                index = group_outer_values.index(group_outer_val)
+                groups[index].append({'model': model, 'val': val})
+            group_inner_val = val.copy()
+            group_inner_val.pop(dimension)
+            if group_inner_val not in group_inner_values:
+                group_inner_values.append(group_inner_val)
+    # then match order across groups
+    for i, group in enumerate(groups):
+        group_sorted = []
+        print(group[0])
+        group_inner_vals_local = [model['val'].copy() for model in group]
+        for val in group_inner_vals_local:
+            val.pop(dimension)
+        for group_inner_val in group_inner_values:
+            if group_inner_val in group_inner_vals_local:
+                index = group_inner_vals_local.index(group_inner_val)
+                group_sorted.append(group[index])
+        groups[i] = group_sorted
+    return groups
+
+
+def load_pesq_and_mse(groups):
+    for group in groups:
+        for i in range(len(group)):
+            model = group[i]['model']
+            pesq = np.load(os.path.join('models', model, 'eval_PESQ.npy'))
+            mse = np.load(os.path.join('models', model, 'eval_MSE.npy'))
+            group[i]['pesq'] = pesq
+            group[i]['mse'] = mse
+
+
+def sort_groups_by_mean_pesq(groups):
+    groups_mean_pesq = []
+    for group in groups:
+        mean_pesqs = [model['pesq'].mean() for model in group]
+        group_mean_pesq = np.mean(mean_pesqs)
+        groups_mean_pesq.append(group_mean_pesq)
+    indexes = np.argsort(groups_mean_pesq)
+    groups = [groups[i] for i in indexes]
+    return groups
+
+
+def main(dimensions, group_by, filter_):
+    models = find_model(**filter_)
+    models, values = check_models(models, dimensions)
+    groups = group_by_dimension(models, values, group_by)
+    load_pesq_and_mse(groups)
+    groups = sort_groups_by_mean_pesq(groups)
+
+    try:
+        i_values_sorted = np.argsort(values)
+    except TypeError:
+        i_values_sorted = np.arange(len(values))
+
+    print(f'Comparing {len(models)} models:')
+    for i in i_values_sorted:
+        print(f'Model {models[i]} with dimension value {values[i]}')
 
     snrs = [0, 3, 6, 9, 12, 15]
-    room_names = [
-        'surrey_room_a',
-        'surrey_room_b',
-        'surrey_room_c',
-        'surrey_room_d',
-    ]
-    n = len(pesqs)
+    room_names = ['A', 'B', 'C', 'D']
+
+    n = len(models)
     width = 1/(n+1)
-    if kwargs['dimension'] == 'features':
-        # i_values_sorted = np.argsort(np.mean(pesqs, axis=(1, 2)))
-        i_values_sorted = []
-        order_wanted = [
-            {'ild'},
-            {'itd'},
-            {'ic'},
-            {'ild', 'itd', 'ic'},
-            {'pdf'},
-            {'mfcc'},
-            {'pdf', 'mfcc'},
-            {'mfcc', 'ic'},
-            # {'pdf', 'mfcc', 'ic'},
-        ]
-        values_ = [set(val) for val in values]
-        for features in order_wanted:
-            i_values_sorted.append(values_.index(features))
-    else:
-        i_values_sorted = np.argsort(values)
 
-    print(f'Comparing {len(models_sorted)} group(s) of models')
-    for i, j in enumerate(i_values_sorted):
-        print((f'Group {i+1} associated with dimension value {values[j]} '
-               f'contains {len(models_sorted[j])} model(s):'))
-        for model in models_sorted[j]:
-            print(f'  {model}')
-
-    for metrics, ylabel, filetag in zip(
-                [mses, pesqs],
+    for ylabel, metric in zip(
                 ['MSE', r'$\Delta PESQ$'],
                 ['mse', 'pesq'],
             ):
         fig, axes = plt.subplots(1, 2, sharey=True)
-        for axis, (ax, xticklabels, xlabel, filetag_) in enumerate(zip(
+        for axis, (ax, xticklabels, xlabel) in enumerate(zip(
                     axes[::-1],
                     [room_names, snrs],
-                    ['room', 'SNR (dB)'],
-                    ['rooms', 'snrs'],
+                    ['Room', 'SNR (dB)'],
                 )):
-            if kwargs['onlyreverb'] and xticklabels == snrs:
-                continue
-            for i, j in enumerate(i_values_sorted):
-                metric = metrics[j]
-                val = values[j]
-                data = metric.mean(axis=axis)
-                data = np.hstack((data, data.mean()))
-                label = f"{kwargs['dimension']} = {val}"
-                x = np.arange(len(data)) + (i - (n-1)/2)*width
-                x[-1] = x[-1] + 2*width
-                ax.bar(
-                    x=x,
-                    height=data,
-                    width=width,
-                    label=label,
-                )
-                print(data)
+            model_count = 0
+            color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+            hatch_cycle = ['', '//', '////']
+            for i, group in enumerate(groups):
+                for j, model in enumerate(group):
+                    data = model[metric].mean(axis=axis)
+                    data = np.hstack((data, data.mean()))
+                    label = f'{model["val"]}'
+                    x = np.arange(len(data)) + (model_count - (n-1)/2)*width
+                    x[-1] = x[-1] + 2*width
+                    ax.bar(
+                        x=x,
+                        height=data,
+                        width=width,
+                        label=label,
+                        color=color_cycle[i % len(color_cycle)],
+                        hatch=hatch_cycle[j % len(hatch_cycle)],
+                    )
+                    model_count += 1
             xticks = np.arange(len(xticklabels) + 1, dtype=float)
             xticks[-1] = xticks[-1] + 2*width
             ax.set_xticks(xticks)
-            ax.set_xticklabels(xticklabels + ['mean'])
+            ax.set_xticklabels(xticklabels + ['Mean'])
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
             ax.legend()
@@ -175,41 +153,15 @@ def main(**kwargs):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Compare models.')
-    parser.add_argument('dimension',
-                        help=('Parameter dimension of models to compare.'))
-    parser.add_argument('--layers', type=int,
-                        help=('Fixed number of layers.'))
-    parser.add_argument('--stacks', type=int,
-                        help=('Fixed number of stacks.'))
-    parser.add_argument('--batchnorm', type=int,
-                        help=('Fixed batchnorm.'))
-    parser.add_argument('--dropout', type=int,
-                        help=('Fixed dropout.'))
-    parser.add_argument('--features', nargs='+',
-                        help=('Fixed feature set.'))
-    parser.add_argument('--batchsize', type=int,
-                        help=('Fixed batchsize.'))
-    parser.add_argument('--centered', action='store_true',
-                        help=('Centered target.'))
-    parser.add_argument('--onlyreverb', action='store_true',
-                        help=('Only reverb.'))
-    parser.add_argument('--testbig', action='store_true',
-                        help=('Use models evaluated on big test datasets.'))
-    parser.add_argument('--trainbig', action='store_true',
-                        help=('Use models trained on big train datasets.'))
+    parser = ModelFilterArgParser(description='compare models')
+    parser.add_argument('dimensions', nargs='+',
+                        help='parameter dimensions to compare')
+    parser.add_argument('--group-by',
+                        help='parameter to group by')
     args = parser.parse_args()
 
-    main(
-        dimension=args.dimension,
-        layers=args.layers,
-        stacks=args.stacks,
-        batchnorm=args.batchnorm,
-        dropout=args.dropout,
-        features=args.features,
-        batchsize=args.batchsize,
-        centered=args.centered,
-        onlyreverb=args.onlyreverb,
-        testbig=args.testbig,
-        trainbig=args.trainbig,
-    )
+    filter_ = vars(args).copy()
+    filter_.pop('dimensions')
+    filter_.pop('group_by')
+
+    main(args.dimensions, args.group_by, filter_)
