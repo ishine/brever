@@ -54,6 +54,10 @@ def group_by_dimension(models, values, dimension):
             if group_inner_val not in group_inner_values:
                 group_inner_values.append(group_inner_val)
     # then match order across groups
+    # first sort the list of values
+    for dim in group_inner_values[0].keys():
+        group_inner_values = sorted(group_inner_values, key=lambda x: x[dim])
+    # then make all groups have that order
     for i, group in enumerate(groups):
         group_sorted = []
         group_inner_vals_local = [model['val'].copy() for model in group]
@@ -122,7 +126,7 @@ def main(dimensions, group_by, filter_):
                 )):
             model_count = 0
             color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
-            hatch_cycle = ['', '//', '////']
+            hatch_cycle = ['', '//', '\\\\', 'xx']
             for i, group in enumerate(groups):
                 for j, model in enumerate(group):
                     data = model[metric].mean(axis=axis)
