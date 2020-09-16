@@ -218,11 +218,11 @@ def main(model_dir, force):
 
                     # flatten and convert to matlab float
                     mixture_enhanced = matlab.single(
-                        mixture_enhanced.sum(axis=1, keepdims=True).tolist())
+                        mixture_enhanced.sum(axis=1).tolist())
                     mixture_ref = matlab.single(
-                        mixture_ref.sum(axis=1, keepdims=True).tolist())
+                        mixture_ref.sum(axis=1).tolist())
                     foreground_ref = matlab.single(
-                        foreground_ref.sum(axis=1, keepdims=True).tolist())
+                        foreground_ref.sum(axis=1).tolist())
 
                     # calculate PESQ
                     pesq_before = eng.pesq(foreground_ref, mixture_ref,
