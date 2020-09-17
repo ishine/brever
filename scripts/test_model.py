@@ -112,9 +112,9 @@ def main(model_dir, force):
     logging.info('Starting MATLAB engine...')
     eng = matlab.engine.start_matlab()
     eng.addpath('matlab\\loizou', nargout=0)
+    eng.addpath('matlab', nargout=0)
 
     # main loop
-    logging.info('Starting main loop:')
     snrs = [0, 3, 6, 9, 12, 15]
     room_aliases = [
         'surrey_room_a',
@@ -122,7 +122,6 @@ def main(model_dir, force):
         'surrey_room_c',
         'surrey_room_d',
     ]
-    PESQ = np.zeros((len(snrs), len(room_aliases)))
     MSE = np.zeros((len(snrs), len(room_aliases)))
     for i, snr in enumerate(snrs):
         for j, room_alias in enumerate(room_aliases):
@@ -161,12 +160,13 @@ def main(model_dir, force):
                 cuda=config.MODEL.CUDA,
             )
 
-            # calculate PESQ; first load mixtures
-            dpesqs = []
+            # enhance mixtures for PESQ calculation
             with h5py.File(test_dataset_path, 'r') as f:
                 n = len(f['mixtures'])
                 for k in range(n):
-                    logging.info(f'Calculating PESQ for mixture {k}/{n}...')
+                    logging.info(f'Enhancing mixture {k}/{n}...')
+
+                    # load mixture
                     mixture = f['mixtures'][k].reshape(-1, 2)
                     foreground = f['foregrounds'][k].reshape(-1, 2)
                     i_start, i_end = file_indices[k]
@@ -201,42 +201,59 @@ def main(model_dir, force):
                     mixture_ref = filterbank.rfilt(mixture_filt)
                     foreground_ref = filterbank.rfilt(foreground_filt)
 
-                    # write audio
+                    # write mixtures
                     gain = 1/mixture.max()
                     output_dir = os.path.join(model_dir, 'audio', suffix)
                     if not os.path.exists(output_dir):
                         os.makedirs(output_dir)
-                    sf.write(os.path.join(output_dir,
-                                          f'mixture_enhanced_{k}.wav'),
-                             mixture_enhanced*gain, config.PRE.FS)
+                    sf.write(
+                        os.path.join(output_dir, f'mixture_enhanced_{k}.wav'),
+                        mixture_enhanced*gain,
+                        config.PRE.FS,
+                    )
+                    sf.write(
+                        os.path.join(output_dir, f'mixture_ref_{k}.wav'),
+                        mixture_ref*gain,
+                        config.PRE.FS,
+                    )
+                    sf.write(
+                        os.path.join(output_dir, f'foreground_ref_{k}.wav'),
+                        foreground_ref*gain,
+                        config.PRE.FS,
+                    )
 
-                    # remove noise-only parts
-                    npad = round(config.PRE.MIXTURES.PADDING*config.PRE.FS)
-                    mixture_enhanced = mixture_enhanced[npad:-npad]
-                    mixture_ref = mixture_ref[npad:-npad]
-                    foreground_ref = foreground_ref[npad:-npad]
+                    # # remove noise-only parts
+                    # npad = round(config.PRE.MIXTURES.PADDING*config.PRE.FS)
+                    # mixture_enhanced = mixture_enhanced[npad:-npad]
+                    # mixture_ref = mixture_ref[npad:-npad]
+                    # foreground_ref = foreground_ref[npad:-npad]
 
-                    # flatten and convert to matlab float
-                    mixture_enhanced = matlab.single(
-                        mixture_enhanced.sum(axis=1).tolist())
-                    mixture_ref = matlab.single(
-                        mixture_ref.sum(axis=1).tolist())
-                    foreground_ref = matlab.single(
-                        foreground_ref.sum(axis=1).tolist())
+                    # # flatten and convert to matlab float
+                    # mixture_enhanced = matlab.single(
+                    #     mixture_enhanced.sum(axis=1).tolist())
+                    # mixture_ref = matlab.single(
+                    #     mixture_ref.sum(axis=1).tolist())
+                    # foreground_ref = matlab.single(
+                    #     foreground_ref.sum(axis=1).tolist())
 
-                    # calculate PESQ
-                    pesq_before = eng.pesq(foreground_ref, mixture_ref,
-                                           config.PRE.FS)
-                    pesq_after = eng.pesq(foreground_ref, mixture_enhanced,
-                                          config.PRE.FS)
-                    dpesq = pesq_after - pesq_before
-                    dpesqs.append(dpesq)
-                    logging.info(f'Delta PESQ: {dpesq:.2f}')
+                    # # calculate PESQ
+                    # pesq_before = eng.pesq(foreground_ref, mixture_ref,
+                    #                        config.PRE.FS)
+                    # pesq_after = eng.pesq(foreground_ref, mixture_enhanced,
+                    #                       config.PRE.FS)
+                    # dpesq = pesq_after - pesq_before
+                    # dpesqs.append(dpesq)
+                    # logging.info(f'Delta PESQ: {dpesq:.2f}')
 
-            PESQ[i, j] = np.mean(dpesqs)
+    np.save(os.path.join(model_dir, 'mse_scores.npy'), MSE)
 
-    np.save(os.path.join(model_dir, 'eval_MSE.npy'), MSE)
-    np.save(os.path.join(model_dir, 'eval_PESQ.npy'), PESQ)
+    logging.info(f'Calculating PESQ...')
+    eng.testModel(
+        model_dir,
+        config.PRE.FS,
+        config.PRE.MIXTURES.PADDING,
+        nargout=0,
+    )
 
 
 if __name__ == '__main__':
