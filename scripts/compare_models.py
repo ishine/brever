@@ -3,6 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import yaml
+import scipy.io
 
 from brever.modelmanagement import (get_dict_field, ModelFilterArgParser,
                                     find_model, arg_to_keys_map)
@@ -12,8 +13,8 @@ def check_models(models, dims):
     values = []
     models_ = []
     for model in models:
-        pesq_file = os.path.join('models', model, 'eval_PESQ.npy')
-        mse_file = os.path.join('models', model, 'eval_MSE.npy')
+        pesq_file = os.path.join('models', model, 'pesq_scores.mat')
+        mse_file = os.path.join('models', model, 'mse_scores.npy')
         config_file = os.path.join('models', model, 'config_full.yaml')
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
@@ -53,6 +54,8 @@ def group_by_dimension(models, values, dimension):
             group_inner_val.pop(dimension)
             if group_inner_val not in group_inner_values:
                 group_inner_values.append(group_inner_val)
+    if dimension is None:
+        return groups
     # then match order across groups
     # first sort the list of values
     for dim in group_inner_values[0].keys():
@@ -75,8 +78,10 @@ def load_pesq_and_mse(groups):
     for group in groups:
         for i in range(len(group)):
             model = group[i]['model']
-            pesq = np.load(os.path.join('models', model, 'eval_PESQ.npy'))
-            mse = np.load(os.path.join('models', model, 'eval_MSE.npy'))
+            pesq_filepath = os.path.join('models', model, 'pesq_scores.mat')
+            pesq = scipy.io.loadmat(pesq_filepath)['scores'].mean(axis=-1)
+            mse_filepath = os.path.join('models', model, 'mse_scores.npy')
+            mse = np.load(mse_filepath)
             group[i]['pesq'] = pesq
             group[i]['mse'] = mse
 
@@ -92,8 +97,18 @@ def sort_groups_by_mean_pesq(groups):
     return groups
 
 
-def main(dimensions, group_by, filter_):
-    models = find_model(**filter_)
+def paths_to_dirnames(paths):
+    dirnames = []
+    for path in paths:
+        dirnames.append(os.path.basename(os.path.normpath(path)))
+    return dirnames
+
+
+def main(dimensions, group_by, filter_, models):
+    if models is None:
+        models = find_model(**filter_)
+    else:
+        models = paths_to_dirnames(models)
     models, values = check_models(models, dimensions)
     groups = group_by_dimension(models, values, group_by)
     load_pesq_and_mse(groups)
@@ -160,11 +175,14 @@ if __name__ == '__main__':
     parser.add_argument('dimensions', nargs='+',
                         help='parameter dimensions to compare')
     parser.add_argument('--group-by',
-                        help='parameter to group by')
+                        help='parameter dimension to group by')
+    parser.add_argument('--models', nargs='+',
+                        help='explicit set of models to compare')
     args = parser.parse_args()
 
     filter_ = vars(args).copy()
     filter_.pop('dimensions')
     filter_.pop('group_by')
+    filter_.pop('models')
 
-    main(args.dimensions, args.group_by, filter_)
+    main(args.dimensions, args.group_by, filter_, args.models)
