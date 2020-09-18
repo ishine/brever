@@ -379,7 +379,7 @@ class Mixture:
     def add_target(self, x, brir, rb, pad, fs):
         brir_early, brir_late = split_brir(brir, rb, fs)
         self.early_target = spatialize(x, brir_early)
-        self.late_target = spatialize(x, brir_early)
+        self.late_target = spatialize(x, brir_late)
         n_pad = round(pad*fs)
         self.early_target = zero_pad(self.early_target, n_pad, 'both')
         self.late_target = zero_pad(self.late_target, n_pad, 'both')
