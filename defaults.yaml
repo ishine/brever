@@ -75,15 +75,15 @@ PRE:
       DECAY:
         DELAY:
           MAX: 0.1
-          MIN: 0
+          MIN: 0.0
           STEP: 0.01
         DRR:
           MAX: 10
           MIN: 0
           STEP: 1
         RT60:
-          MAX: 1
-          MIN: 0
+          MAX: 1.0
+          MIN: 0.0
           STEP: 0.1
       RMSDB:
         MAX: 0
