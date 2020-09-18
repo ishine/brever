@@ -24,8 +24,8 @@ def main(model_dir, force):
     logging.info(f'Processing {model_dir}')
 
     # check if model is already tested
-    output_pesq_path = os.path.join(model_dir, 'eval_PESQ.npy')
-    output_mse_path = os.path.join(model_dir, 'eval_MSE.npy')
+    output_pesq_path = os.path.join(model_dir, 'pesq_scores.mat')
+    output_mse_path = os.path.join(model_dir, 'mse_scores.npy')
     if os.path.exists(output_pesq_path) and os.path.exists(output_mse_path):
         if not force:
             logging.info(f'Model is already tested!')
@@ -221,29 +221,6 @@ def main(model_dir, force):
                         foreground_ref*gain,
                         config.PRE.FS,
                     )
-
-                    # # remove noise-only parts
-                    # npad = round(config.PRE.MIXTURES.PADDING*config.PRE.FS)
-                    # mixture_enhanced = mixture_enhanced[npad:-npad]
-                    # mixture_ref = mixture_ref[npad:-npad]
-                    # foreground_ref = foreground_ref[npad:-npad]
-
-                    # # flatten and convert to matlab float
-                    # mixture_enhanced = matlab.single(
-                    #     mixture_enhanced.sum(axis=1).tolist())
-                    # mixture_ref = matlab.single(
-                    #     mixture_ref.sum(axis=1).tolist())
-                    # foreground_ref = matlab.single(
-                    #     foreground_ref.sum(axis=1).tolist())
-
-                    # # calculate PESQ
-                    # pesq_before = eng.pesq(foreground_ref, mixture_ref,
-                    #                        config.PRE.FS)
-                    # pesq_after = eng.pesq(foreground_ref, mixture_enhanced,
-                    #                       config.PRE.FS)
-                    # dpesq = pesq_after - pesq_before
-                    # dpesqs.append(dpesq)
-                    # logging.info(f'Delta PESQ: {dpesq:.2f}')
 
     np.save(os.path.join(model_dir, 'mse_scores.npy'), MSE)
 
