@@ -180,12 +180,7 @@ class RandomMixtureMaker:
             self.set_random_dir_to_diff_snr()
         self.set_random_target_snr()
         self.set_random_rms()
-        components = (
-            self.mixture.mixture,
-            self.mixture.foreground,
-            self.mixture.background,
-        )
-        return components, self.metadata
+        return self.mixture, self.metadata
 
     def add_random_target(self, room):
         angle = choice(self.target_angles)

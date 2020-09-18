@@ -176,8 +176,10 @@ def main(dataset_dir, force):
                           f'ETR: {int(etr/60)} m {int(etr%60)} s'))
 
         # make mixture and save
-        components, metadata = randomMixtureMaker.make()
-        mixture, foreground, background = components
+        mixtureObject, metadata = randomMixtureMaker.make()
+        mixture = mixtureObject.mixture
+        foreground = mixtureObject.foreground
+        background = mixtureObject.background
         if config.PRE.MIXTURES.SAVE:
             mixtures.append(mixture.flatten())
             foregrounds.append(foreground.flatten())
