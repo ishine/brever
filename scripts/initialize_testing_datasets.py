@@ -10,20 +10,13 @@ from brever.modelmanagement import set_dict_field
 def main(force):
     base_config = {
         'PRE': {
-            'SEED': {
-                'ON': False,
-            },
             'MIXTURES': {
-                'NUMBER': 10,
+                'NUMBER': 25,
                 'DIFFUSE': {
                     'ON': False,
                 },
-                'RANDOM': {
-                    'SOURCES': {
-                        'NUMBER': {
-                            'MIN': 1
-                        }
-                    },
+                'DECAY': {
+                    'ON': False,
                 },
                 'FILELIMITS': {
                     'NOISE': [0.85, 1.0],
