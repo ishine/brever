@@ -6,7 +6,7 @@ MODEL:
   CRITERION: MSELoss
   CUDA: true
   DROPOUT:
-    'ON': false
+    'ON': true
     RATE: 0.2
   EARLYSTOP:
     DELTA: 0
@@ -74,15 +74,15 @@ PRE:
     RANDOM:
       DECAY:
         DELAY:
-          MAX: 0.1
-          MIN: 0.0
-          STEP: 0.01
+          MAX: 0.100
+          MIN: 0.075
+          STEP: 0.001
         DRR:
-          MAX: 10
-          MIN: 0
+          MAX: 35
+          MIN: 5
           STEP: 1
         RT60:
-          MAX: 1.0
+          MAX: 2.0
           MIN: 0.0
           STEP: 0.1
       RMSDB:
