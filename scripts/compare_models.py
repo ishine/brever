@@ -34,10 +34,9 @@ def check_models(models, dims):
 def group_by_dimension(models, values, dimension):
     # first make groups
     if dimension is None:
-        group = []
+        groups = []
         for model, val in zip(models, values):
-            group.append({'model': model, 'val': val})
-        groups = [group]
+            groups.append([{'model': model, 'val': val}])
     else:
         group_outer_values = []
         groups = []
@@ -104,6 +103,38 @@ def paths_to_dirnames(paths):
     return dirnames
 
 
+class LegendFormatter:
+    def __init__(self, figure):
+        self.figure = figure
+        self.lh = figure.legend(loc=9)
+        self.showed = False
+        self.figure.canvas.mpl_connect('draw_event', self)
+        self.figure.canvas.mpl_connect('resize_event', self)
+
+    def __call__(self, event):
+        if self.figure._cachedRenderer is None:
+            return
+        if event.name == 'draw_event' and self.showed:
+            return
+        self.showed = True
+        lbbox = self.lh.get_window_extent()
+        fig_width = self.figure.get_figwidth()*self.figure.dpi
+        ncol = int(fig_width//(lbbox.width/self.lh._ncol))
+        ncol = ncol//2+1
+        if ncol != self.lh._ncol:
+            self.lh.remove()
+            self.lh = self.figure.legend(loc=9, ncol=ncol)
+            self(event)
+        else:
+            fig_height = self.figure.get_figheight()*self.figure.dpi
+            ratio = 1 - (lbbox.height + 20)/fig_height
+            self.figure.tight_layout()
+            try:
+                self.figure.subplots_adjust(top=ratio)
+            except ValueError:
+                pass
+
+
 def main(dimensions, group_by, filter_, models):
     if models is None:
         models = find_model(**filter_)
@@ -141,12 +172,15 @@ def main(dimensions, group_by, filter_, models):
                 )):
             model_count = 0
             color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
-            hatch_cycle = ['', '//', '\\\\', 'xx']
+            hatch_cycle = ['', '////', '\\\\\\', 'xxxx']
             for i, group in enumerate(groups):
                 for j, model in enumerate(group):
                     data = model[metric].mean(axis=axis)
                     data = np.hstack((data, data.mean()))
-                    label = f'{model["val"]}'
+                    if axis == 0:
+                        label = f'{model["val"]}'
+                    else:
+                        label = None
                     x = np.arange(len(data)) + (model_count - (n-1)/2)*width
                     x[-1] = x[-1] + 2*width
                     ax.bar(
@@ -164,9 +198,10 @@ def main(dimensions, group_by, filter_, models):
             ax.set_xticklabels(xticklabels + ['Mean'])
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
-            ax.legend()
             ax.yaxis.set_tick_params(labelleft=True)
-        fig.tight_layout()
+
+        LegendFormatter(fig)
+
     plt.show()
 
 
@@ -177,12 +212,12 @@ if __name__ == '__main__':
     parser.add_argument('--group-by',
                         help='parameter dimension to group by')
     parser.add_argument('--models', nargs='+',
-                        help='explicit set of models to compare')
+                        help='explicit list of models to compare')
     args = parser.parse_args()
 
-    filter_ = vars(args).copy()
-    filter_.pop('dimensions')
-    filter_.pop('group_by')
-    filter_.pop('models')
+    filter_ = vars(args)
+    dimensions = filter_.pop('dimensions')
+    group_by = filter_.pop('group_by')
+    models = filter_.pop('models')
 
-    main(args.dimensions, args.group_by, filter_, args.models)
+    main(dimensions, group_by, filter_, models)
