@@ -134,8 +134,8 @@ def adjust_snr(signal, noise, snr, slice_=None):
     '''
     if slice_ is None:
         slice_ = np.s_[:]
-    energy_signal = np.sum(signal[slice_]**2)
-    energy_noise = np.sum(noise[slice_]**2)
+    energy_signal = np.sum(signal[slice_].mean(axis=1)**2)
+    energy_noise = np.sum(noise[slice_].mean(axis=1)**2)
     if energy_signal == 0:
         raise ValueError('Can\'t scale noise signal if target signal is 0!')
     if energy_noise == 0:
@@ -167,160 +167,6 @@ def adjust_rms(signal, rms_dB):
     return signal_scaled, gain
 
 
-def diffuse_and_directional_noise(xs_sources, brirs_sources, xs_diffuse,
-                                  brirs_diffuse, snr, ltas):
-    '''
-    Creates a mixture consisting of a set of directional noise sources in
-    diffuse noise at given SNR.
-
-    Parameters:
-        x_sources:
-            List of clean directional noise signals to convolve with
-            brirs_sources. Must all have same length.
-        brirs_sources:
-            List of BRIRs to convolve each directional noise signal with.
-            Must have same length as x_sources.
-        xs_diffuse:
-            Clean noise signals used to create diffuse noise using
-            brirs_diffuse. All the elements must have same length as the
-            elements of x_sources.
-        brirs_diffuse:
-            List of BRIRs to use to create the diffuse noise. Ideally the BRIRs
-            in sources_brirs should figure in diffuse_brirs for realism
-            purposes. Must have same length as xs_diffuse.
-        snr:
-            Directional components to diffuse noise signal-to-noise ratio. The
-            total energy of the directional noise sources is compared to the
-            diffuse noise. The directional sources all have the same level.
-        ltas:
-            If True, the diffuse noise is equalized to match the LTAS of the
-            TIMIT database.
-
-    Returns:
-        mixture:
-            Output mixture. Shape n_samples*2.
-    '''
-    if len(xs_sources) != len(brirs_sources):
-        raise ValueError(('xs_sources and brirs_sources must have same '
-                          'length'))
-    if len(xs_diffuse) != len(brirs_diffuse):
-        raise ValueError(('xs_diffuse and brirs_diffuse must have same '
-                          'length'))
-    if xs_sources:
-        n_samples = len(xs_sources[0])
-    elif xs_diffuse:
-        broken = False
-        for x_diffuse in xs_diffuse:
-            if x_diffuse is not None:
-                n_samples = len(x_diffuse)
-                broken = True
-                break
-        if not broken:
-            return None
-    else:
-        return None
-    directional_sources = np.zeros((n_samples, 2))
-    for x, brir in zip(xs_sources, brirs_sources):
-        directional_sources += spatialize(x, brir)
-    diffuse_noise = np.zeros((n_samples, 2))
-    for x, brir in zip(xs_diffuse, brirs_diffuse):
-        if x is not None:
-            diffuse_noise += spatialize(x, brir)
-    if not (diffuse_noise == 0).all() and ltas:
-        ltas = np.load('ltas.npy')
-        diffuse_noise = match_ltas(diffuse_noise, ltas)
-    if not (directional_sources == 0).all() and not (diffuse_noise == 0).all():
-        diffuse_noise, _ = adjust_snr(directional_sources, diffuse_noise, snr)
-    return diffuse_noise + directional_sources
-
-
-def make_mixture(x_target, brir_target, brirs_diffuse, brirs_directional, snr,
-                 snr_directional_to_diffuse, xs_diffuse, xs_directional,
-                 rms_dB=0, padding=0, reflection_boundary=50e-3, fs=16e3,
-                 ltas=False):
-    '''
-    Make a binaural mixture consisting of a target signal, some diffuse noise
-    and some directional noise sources
-
-    Parameters:
-        x_target:
-            Clean talker monaural signal.
-        brir_target:
-            Binaural room impulse response used to spatialize the target before
-            mixing. This defines the position of the talker in the room.
-        brirs_diffuse:
-            List of binaural room impulse responses used to create diffuse
-            noise.
-        brirs_directional:
-            List of binaural room impulse responses used to create the
-            directional noise sources.
-        snr:
-            Signal-to-noise ratio, where "signal" refers to the reverberant
-            target signal and "noise" refers to the diffuse noise plus the
-            directional noise.
-        snr_directional_to_diffuse:
-            Directional components to diffuse noise signal-to-noise ratio. The
-            total energy of the directional noise sources is compared to the
-            diffuse noise. The directional sources all have the same level.
-        xs_diffuse:
-            Clean noise signals used to create diffuse noise using
-            brirs_diffuse. All the elements must have same length as x_target.
-        xs_directional:
-            List of clean directional noise signals to convolve with
-            brirs_directional. All the elements must have same length as
-            x_target and as the elements of xs_diffuse.
-        rms_dB:
-            RMS of the total mixture in dB, with unit reference.
-        padding:
-            Amount of zeros to add before and after the target signal before
-            mixing with noise, in seconds.
-        reflection_boundary:
-            Reflection boundary defining the limit between early and late
-            reflections.
-        fs:
-            Sampling frequency.
-        ltas:
-            If True, the diffuse noise is equalized to match the LTAS of the
-            TIMIT database.
-
-    Returns:
-        mixture:
-            Reverberant binaural mixture.
-        foreground:
-            Target signal early reflections. Serves as the target signal in
-            the IRM calculation.
-        background:
-            Target signal late reflections plus diffuse and directional noise
-            components. Serves as the noise signal in the IRM calculation.
-    '''
-    padding = round(padding*fs)
-    brir_early, brir_late = split_brir(brir_target, reflection_boundary, fs)
-    target_full = spatialize(x_target, brir_target)
-    target_early = spatialize(x_target, brir_early)
-    target_late = spatialize(x_target, brir_late)
-    target_full = zero_pad(target_full, padding, 'both')
-    target_early = zero_pad(target_early, padding, 'both')
-    target_late = zero_pad(target_late, padding, 'both')
-    noise = diffuse_and_directional_noise(xs_directional,
-                                          brirs_directional,
-                                          xs_diffuse,
-                                          brirs_diffuse,
-                                          snr_directional_to_diffuse,
-                                          ltas)
-    if noise is None:
-        noise = 0
-    else:
-        noise, _ = adjust_snr(target_full, noise, snr,
-                              slice(padding, len(target_full)-padding))
-    mixture = target_full + noise
-    foreground = target_early
-    background = target_late + noise
-    mixture, gain = adjust_rms(mixture, rms_dB)
-    foreground *= gain
-    background *= gain
-    return mixture, foreground, background
-
-
 def add_decay(brir, rt60, drr, delay, fs, color):
     if rt60 == 0:
         return brir
@@ -343,6 +189,7 @@ class Mixture:
         self.late_target = None
         self.directional_noise = None
         self.diffuse_noise = None
+        self.target_indices = None
 
     @property
     def mixture(self):
@@ -378,9 +225,11 @@ class Mixture:
 
     def add_target(self, x, brir, rb, pad, fs):
         brir_early, brir_late = split_brir(brir, rb, fs)
+        n_pad = round(pad*fs)
+        self.target_indices = (n_pad, n_pad+len(x))
+        x = zero_pad(x, n_pad, 'both')
         self.early_target = spatialize(x, brir_early)
         self.late_target = spatialize(x, brir_late)
-        n_pad = round(pad*fs)
         self.early_target = zero_pad(self.early_target, n_pad, 'both')
         self.late_target = zero_pad(self.late_target, n_pad, 'both')
 
@@ -412,6 +261,7 @@ class Mixture:
             self.target,
             self.noise,
             snr,
+            slice(*self.target_indices)
         )
         if self.directional_noise is not None:
             self.directional_noise *= gain
