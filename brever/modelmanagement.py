@@ -9,7 +9,9 @@ import yaml
 from .config import defaults
 
 
-def sorted_dict(data, config=defaults()):
+def sorted_dict(data, config=None):
+    if config is None:
+        config = defaults()
     output = {}
     for key, value in sorted(data.items()):
         if isinstance(value, dict):
@@ -138,7 +140,7 @@ def find_model(**kwargs):
         valid = True
         for key, value in kwargs.items():
             keys = arg_to_keys_map[key]
-            if value is not None and get_dict_field(config, keys) != value:
+            if value is not None and get_dict_field(config, keys) not in value:
                 valid = False
                 break
         if valid:
@@ -150,18 +152,26 @@ class ModelFilterArgParser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.add_argument('--layers', type=int,
+                          nargs='+',
                           help='number of layers')
         self.add_argument('--stacks', type=int,
+                          nargs='+',
                           help='number of extra stacks')
         self.add_argument('--batchnorm', type=lambda x: bool(int(x)),
+                          nargs='+',
                           help='batchnorm toggle')
         self.add_argument('--dropout', type=lambda x: bool(int(x)),
+                          nargs='+',
                           help='dropout toggle')
         self.add_argument('--batchsize', type=int,
+                          nargs='+',
                           help='batchsize')
         self.add_argument('--features', type=lambda x: set(x.split(' ')),
+                          nargs='+',
                           help='feature set')
         self.add_argument('--train-path',
+                          nargs='+',
                           help='training dataset path')
         self.add_argument('--val-path',
+                          nargs='+',
                           help='validation dataset path')
