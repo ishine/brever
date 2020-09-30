@@ -321,7 +321,7 @@ def main(dataset_dir, force):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='create a dataset')
-    parser.add_argument('input',
+    parser.add_argument('input', nargs='+',
                         help='input dataset directory')
     parser.add_argument('-f', '--force', action='store_true',
                         help='overwrite if already exists')
@@ -332,5 +332,7 @@ if __name__ == '__main__':
         stream=sys.stdout,
     )
 
-    for dataset_dir in glob(args.input):
+    if len(args.input) == 1:
+        args.input = glob(args.input[0])
+    for dataset_dir in args.input:
         main(dataset_dir, args.force)
