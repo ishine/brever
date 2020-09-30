@@ -7,21 +7,12 @@ import yaml
 
 from brever.config import defaults
 from brever.modelmanagement import (get_unique_id, set_dict_field, flatten,
-                                    unflatten)
+                                    unflatten, arg_to_keys_map)
 
 
 def main(args):
     to_combine = {}
-    for attr, key_list in [
-                ('layers', ['MODEL', 'NLAYERS']),
-                ('stacks', ['POST', 'STACK']),
-                ('batchnorm', ['MODEL', 'BATCHNORM', 'ON']),
-                ('dropout', ['MODEL', 'DROPOUT', 'ON']),
-                ('batchsize', ['MODEL', 'BATCHSIZE']),
-                ('features', ['POST', 'FEATURES']),
-                ('train_path', ['POST', 'PATH', 'TRAIN']),
-                ('val_path', ['POST', 'PATH', 'VAL']),
-            ]:
+    for attr, key_list in arg_to_keys_map.items():
         value = args.__getattribute__(attr)
         if value is not None:
             set_dict_field(to_combine, key_list, value)
