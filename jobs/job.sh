@@ -12,14 +12,6 @@
 #BSUB -W 24:00
 # request 8GB of system-memory
 #BSUB -R "rusage[mem=8GB]"
-### -- set the email address --
-# please uncomment the following line and put in your e-mail address,
-# if you want to receive e-mail notifications on a non-default address
-##BSUB -u phigon@dtu.dk
-### -- send notification at start --
-#BSUB -B
-### -- send notification at completion--
-#BSUB -N
 ### -- Specify the output and error file. %J is the job-id --
 ### -- -o and -e mean append, -oo and -eo mean overwrite --
 #BSUB -oo jobs/logs/%J.out
