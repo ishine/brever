@@ -171,20 +171,45 @@ class RandomMixtureMaker:
     def make(self):
         self.mixture = Mixture()
         self.metadata = {}
-        room = choice(self.rooms)
-        self.metadata['room'] = room
-        self.add_random_target(room)
-        self.add_random_directional_noises(room)
+        room = self.get_random_room()
+        decayer = self.get_random_decayer()
+        self.add_random_target(room, decayer)
+        self.add_random_directional_noises(room, decayer)
         self.add_random_diffuse_noise(room)
         self.set_random_dir_to_diff_snr()
         self.set_random_target_snr()
         self.set_random_rms()
         return self.mixture, self.metadata
 
-    def add_random_target(self, room):
+    def get_random_room(self):
+        room = choice(self.rooms)
+        self.metadata['room'] = room
+        return room
+
+    def get_random_decayer(self):
+        rt60 = choice(self.decay_rt60s)
+        drr = choice(self.decay_drrs)
+        delay = choice(self.decay_delays)
+        decayer = Decayer(
+            rt60,
+            drr,
+            delay,
+            self.fs,
+            self.decay_color,
+            self.decay_on,
+        )
+        if self.decay_on:
+            self.metadata['decay'] = {}
+            self.metadata['decay']['rt60'] = rt60
+            self.metadata['decay']['drr'] = drr
+            self.metadata['decay']['delay'] = delay
+            self.metadata['decay']['color'] = self.decay_color
+        return decayer
+
+    def add_random_target(self, room, decayer):
         angle = choice(self.target_angles)
         brir = self._load_brirs(room, angle)
-        brir = self.add_random_decay(brir)
+        brir = decayer.run(brir)
         target, filename = load_random_target(
             self.path_timit,
             self.filelims_target,
@@ -201,25 +226,13 @@ class RandomMixtureMaker:
         self.metadata['target']['angle'] = angle
         self.metadata['target']['filename'] = filename
 
-    def add_random_decay(self, brir):
-        rt60 = choice(self.decay_rt60s)
-        drr = choice(self.decay_drrs)
-        delay = choice(self.decay_delays)
-        if self.decay_on:
-            brir = add_decay(brir, rt60, drr, delay, self.fs, self.decay_color)
-            self.metadata['decay'] = {}
-            self.metadata['decay']['rt60'] = rt60
-            self.metadata['decay']['drr'] = drr
-            self.metadata['decay']['delay'] = delay
-            self.metadata['decay']['color'] = self.decay_color
-        return brir
-
-    def add_random_directional_noises(self, room):
+    def add_random_directional_noises(self, room, decayer):
         number = choice(self.directional_noise_numbers)
         types = choices(self.directional_noise_types, k=number)
         angles = choices(self.directional_noise_angles, k=number)
         noises, files, indices = self._load_noises(types, len(self.mixture))
         brirs = self._load_brirs(room, angles)
+        brirs = [decayer.run(brir) for brir in brirs]
         self.mixture.add_directional_noises(noises, brirs)
         self.metadata['directional'] = {}
         self.metadata['directional']['number'] = number
@@ -314,6 +327,28 @@ class RandomMixtureMaker:
                 raise ValueError(('type_ must start with noise_ or '
                                   'dcase_, got %s' % type_))
             return x, filepath, indices
+
+
+class Decayer:
+    def __init__(self, rt60, drr, delay, fs, color, active):
+        self.rt60 = rt60
+        self.drr = drr
+        self.delay = delay
+        self.fs = fs
+        self.color = color
+        self.active = active
+
+    def run(self, brir):
+        if self.active:
+            brir = add_decay(
+                brir,
+                self.rt60,
+                self.drr,
+                self.delay,
+                self.fs,
+                self.color,
+            )
+        return brir
 
 
 def choice(sequence):
