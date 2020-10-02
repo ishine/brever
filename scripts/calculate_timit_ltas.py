@@ -6,9 +6,12 @@ import numpy as np
 import soundfile as sf
 import scipy.signal
 
+from brever.config import defaults
+
 
 def main(plot):
-    timit_dirpath = 'data\\external\\TIMIT\\TRAIN'
+    config = defaults()
+    timit_dirpath = config.PRE.MIXTURES.PATH.TIMIT
     all_filepaths = []
     for root, dirs, files in os.walk(timit_dirpath):
         for file in files:
