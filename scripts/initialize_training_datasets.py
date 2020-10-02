@@ -1,5 +1,4 @@
 import os
-import copy
 import argparse
 
 import yaml
@@ -7,10 +6,14 @@ import yaml
 from brever.modelmanagement import set_dict_field
 
 
-def main(alias, params, force):
+def main(alias, params, force, n_train, n_val):
+    if n_train is None:
+        n_train = 1000
+    if n_val is None:
+        n_val = 200
     for basename, filelims, number in [
-                ('training', [0.0, 0.7], 1000),
-                ('validation', [0.7, 0.85], 200),
+                ('training', [0.0, 0.7], n_train),
+                ('validation', [0.7, 0.85], n_val),
             ]:
         config = {
             'PRE': {
@@ -83,10 +86,16 @@ if __name__ == '__main__':
                         help='random decay delay lower bound')
     parser.add_argument('--delay-max', type=float,
                         help='random decay delay upper bound')
+    parser.add_argument('--n-train', type=int,
+                        help='number of training mixture, defaults to 1000')
+    parser.add_argument('--n-val', type=int,
+                        help='number of validation mixture, defaults to 200')
     args = parser.parse_args()
 
     params = vars(args).copy()
     params.pop('alias')
     params.pop('force')
+    params.pop('n_train')
+    params.pop('n_val')
 
-    main(args.alias, params, args.force)
+    main(args.alias, params, args.force, args.n_train, args.n_val)
