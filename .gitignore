@@ -6,3 +6,4 @@ models/
 ltas.npy
 brever.egg-info/
 matlab/scores
+jobs/logs

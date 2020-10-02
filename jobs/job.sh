@@ -3,7 +3,7 @@
 ### -- specify queue --
 #BSUB -q gpuv100
 ### -- set the job Name --
-#BSUB -J createdatasetjob
+#BSUB -J script
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 1
 ### -- Select the resources: 1 gpu in exclusive process mode --
@@ -15,16 +15,16 @@
 ### -- set the email address --
 # please uncomment the following line and put in your e-mail address,
 # if you want to receive e-mail notifications on a non-default address
-#BSUB -u phigon@dtu.dk
+##BSUB -u phigon@dtu.dk
 ### -- send notification at start --
 #BSUB -B
 ### -- send notification at completion--
 #BSUB -N
 ### -- Specify the output and error file. %J is the job-id --
 ### -- -o and -e mean append, -oo and -eo mean overwrite --
-#BSUB -oo jobs/log.out
-#BSUB -eo jobs/log.err
+#BSUB -oo jobs/logs/%J.out
+#BSUB -eo jobs/logs/%J.err
 # -- end of LSF options --
 
 source venv/bin/activate
-python scripts/create_dataset.py $1
+python script args
