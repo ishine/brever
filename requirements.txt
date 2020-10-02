@@ -1,11 +1,12 @@
+-e git+https://github.com/philgzl/brever.git@40c5ef17b64f461846978529a337a70670fcfcb0#egg=brever
 certifi==2020.6.20
-cffi==1.14.2
+cffi==1.14.3
 cycler==0.10.0
 future==0.18.2
 h5py==2.10.0
 kiwisolver==1.2.0
 llvmlite==0.34.0
-matplotlib==3.3.1
+matplotlib==3.3.2
 numba==0.51.2
 numpy==1.19.2
 Pillow==7.2.0
