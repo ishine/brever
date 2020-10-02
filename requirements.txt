@@ -1,4 +1,3 @@
--e git+https://github.com/philgzl/brever.git@40c5ef17b64f461846978529a337a70670fcfcb0#egg=brever
 certifi==2020.6.20
 cffi==1.14.3
 cycler==0.10.0
