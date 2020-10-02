@@ -1,5 +1,6 @@
 import os
 import argparse
+import sys
 
 import numpy as np
 import soundfile as sf
@@ -19,10 +20,12 @@ def main(plot):
     ltas = np.zeros(n)
 
     for i, filepath in enumerate(all_filepaths):
-        print(f'Processing recording {i+1}/{len(all_filepaths)}')
+        sys.stdout.write('\r')
+        sys.stdout.write(f'Processing recording {i+1}/{len(all_filepaths)}')
         x, _ = sf.read(filepath)
         _, _, X = scipy.signal.stft(x, nperseg=512, noverlap=256)
         ltas += np.mean(np.abs(X)**2, axis=1)
+    sys.stdout.write('\n')
 
     n_oct = 3
     f = np.arange(1, n)
