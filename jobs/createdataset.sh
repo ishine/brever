@@ -1,6 +1,6 @@
 #!/bin/sh
 ### General options
-### –- specify queue --
+### -- specify queue --
 #BSUB -q gpuv100
 ### -- set the job Name --
 #BSUB -J createdatasetjob
@@ -22,10 +22,9 @@
 #BSUB -N
 ### -- Specify the output and error file. %J is the job-id --
 ### -- -o and -e mean append, -oo and -eo mean overwrite --
-#BSUB -oo jobs/logs/createdatasetjob.out
-#BSUB -eo jobs/logs/createdatasetjob.err
+#BSUB -oo jobs/log.out
+#BSUB -eo jobs/log.err
 # -- end of LSF options --
 
 source venv/bin/activate
-python scripts/create_dataset.py data/processed/*
-
+python scripts/create_dataset.py $1
