@@ -1,45 +1,24 @@
 #!/bin/sh
 
-usage() { echo "Usage: $0 [inputs] [-f] [--njobs <int>]" 1>&2; exit 1; }
+OPTS=`getopt -o fn: -l force,njobs: -- "$@"`
+if [ $? -ne 0 ]; then exit 1; fi
+eval set -- "$OPTS"
 
-FORCE=''
+FORCE=false
 NJOBS=1
 
-while true
-do
-    while getopts ':f-:' optchar
-    do
-        case ${optchar} in
-            -)
-                case "${OPTARG}" in
-                    njobs)
-                        echo 123
-                        NJOBS="${!OPTIND}"; OPTIND=$(($OPTIND+1)) ;;
-                    *) usage ;;
-                esac ;;
-            f) FORCE='-f' ;;
-            *) usage ;;
-        esac
-    done
-
-    while [[ $OPTIND <= $# && ${!OPTIND} != -* ]]
-    do
-        ((OPTIND++))
-    done
-    if [[ $OPTIND > $# ]]
-    then
-        break
-    fi
-
+while true; do
+  case "$1" in
+    -f | --force ) FORCE=true; shift ;;
+    -n | --njobs ) NJOBS="$2"; shift; shift ;;
+    -- ) shift; break ;;
+  esac
 done
-
-shift "$((OPTIND-1))"
 
 echo "FORCE='${FORCE}'"
 echo "NJOBS='${NJOBS}'"
-echo "$@"
 
-#for dir in "$@"
-#do
-#    echo "$dir"
-#done
+for dir in "$@"
+do
+   echo "$dir"
+done
