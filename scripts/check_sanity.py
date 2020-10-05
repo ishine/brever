@@ -14,12 +14,12 @@ def main():
         train_path = get_dict_field(config, ['POST', 'PATH', 'TRAIN'])
         val_path = get_dict_field(config, ['POST', 'PATH', 'VAL'])
         if train_path is not None and val_path is not None:
-            if not train_path.startswith(r'data\processed\training'):
+            base_train_path = os.path.join(r'data', 'processed', 'training')
+            base_val_path = os.path.join('data', 'processed', 'validation')
+            if not train_path.startswith(base_train_path):
                 print(f'Model {model_id} has wrong train path! {train_path}')
-            if not val_path.startswith(r'data\processed\validation'):
+            if not val_path.startswith(base_val_path):
                 print(f'Model {model_id} has wrong val path! {val_path}')
-            base_train_path = r'data\processed\training'
-            base_val_path = r'data\processed\validation'
             train_path_strip = train_path.replace(base_train_path, '')
             val_path_strip = val_path.replace(base_val_path, '')
             if train_path_strip != val_path_strip:
