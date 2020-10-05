@@ -4,13 +4,12 @@ from glob import glob
 import pickle
 import logging
 import sys
+import traceback
 
 import yaml
 import torch
 import numpy as np
 import h5py
-import matlab
-import matlab.engine
 import soundfile as sf
 
 from brever.config import defaults
@@ -28,7 +27,7 @@ def main(model_dir, force):
     output_mse_path = os.path.join(model_dir, 'mse_scores.npy')
     if os.path.exists(output_pesq_path) and os.path.exists(output_mse_path):
         if not force:
-            logging.info(f'Model is already tested!')
+            logging.info('Model is already tested!')
             return
 
     # check if model is trained
@@ -37,7 +36,7 @@ def main(model_dir, force):
     if os.path.exists(train_losses_path) and os.path.exists(val_losses_path):
         pass
     else:
-        logging.info(f'Model is not trained!')
+        logging.info('Model is not trained!')
         return
 
     config_file = os.path.join(model_dir, 'config.yaml')
@@ -108,12 +107,6 @@ def main(model_dir, force):
     scaler = pipes['scaler']
     filterbank = pipes['filterbank']
 
-    # load matlab engine
-    logging.info('Starting MATLAB engine...')
-    eng = matlab.engine.start_matlab()
-    eng.addpath('matlab\\loizou', nargout=0)
-    eng.addpath('matlab', nargout=0)
-
     # main loop
     snrs = [0, 3, 6, 9, 12, 15]
     room_aliases = [
@@ -151,7 +144,7 @@ def main(model_dir, force):
             )
             if config.POST.GLOBALSTANDARDIZATION:
                 test_dataset.transform = TensorStandardizer(mean, std)
-            logging.info(f'Calculating MSE...')
+            logging.info('Calculating MSE...')
             MSE[i, j] = evaluate(
                 model=model,
                 criterion=criterion,
@@ -224,13 +217,26 @@ def main(model_dir, force):
 
     np.save(os.path.join(model_dir, 'mse_scores.npy'), MSE)
 
-    logging.info(f'Calculating PESQ...')
-    eng.testModel(
-        model_dir,
-        config.PRE.FS,
-        config.PRE.MIXTURES.PADDING,
-        nargout=0,
-    )
+    # calculate pesq on matlab
+    try:
+        import matlab
+        import matlab.engine
+    except OSError:
+        traceback.print_exc()
+        logging.info(('matlabengineforpython import failed. You will have to '
+                      'manually call testModel.m to calculate PESQ scores.'))
+    else:
+        logging.info('Starting MATLAB engine...')
+        eng = matlab.engine.start_matlab()
+        eng.addpath('matlab/loizou', nargout=0)
+        eng.addpath('matlab', nargout=0)
+        logging.info('Calculating PESQ...')
+        eng.testModel(
+            model_dir,
+            config.PRE.FS,
+            config.PRE.MIXTURES.PADDING,
+            nargout=0,
+        )
 
 
 if __name__ == '__main__':
