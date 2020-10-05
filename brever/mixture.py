@@ -137,9 +137,9 @@ def adjust_snr(signal, noise, snr, slice_=None):
     energy_signal = np.sum(signal[slice_].mean(axis=1)**2)
     energy_noise = np.sum(noise[slice_].mean(axis=1)**2)
     if energy_signal == 0:
-        raise ValueError('Can\'t scale noise signal if target signal is 0!')
+        raise ValueError("Can't scale noise signal if target signal is 0!")
     if energy_noise == 0:
-        raise ValueError('Can\'t scale noise signal if it equals 0!')
+        raise ValueError("Can't scale noise signal if it equals 0!")
     gain = (10**(-snr/10)*energy_signal/energy_noise)**0.5
     noise_scaled = gain*noise
     return noise_scaled, gain

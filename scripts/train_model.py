@@ -106,7 +106,7 @@ def main(model_dir, force):
     set_logger(model_dir)
 
     # print model info
-    logging.info('\n' + pprint.pformat({
+    logging.info(pprint.pformat({
         'POST': config.POST.to_dict(),
         'MODEL': config.MODEL.to_dict(),
     }))

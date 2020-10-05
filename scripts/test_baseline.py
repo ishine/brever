@@ -104,7 +104,7 @@ def main(dataset_dir, force, eng):
             total_time = time.time() - start_time
 
     PESQ = np.mean(dpesqs)
-    output_dir = r'matlab\scores'
+    output_dir = 'matlab/scores'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     basename = os.path.basename(dataset_dir)
@@ -132,9 +132,9 @@ if __name__ == '__main__':
         logging.info('Starting MATLAB engine...')
         eng = matlab.engine.start_matlab()
         paths = [
-            r'matlab',
-            r'matlab\loizou',
-            r'matlab\stft-framework\stft-framework\src\tools',
+            'matlab',
+            'matlab/loizou',
+            'matlab/stft-framework/stft-framework/src/tools',
         ]
         for path in paths:
             eng.addpath(path, nargout=0)

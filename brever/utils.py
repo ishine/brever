@@ -192,7 +192,7 @@ def pca(X, n_components=None, fve=None):
     if n_components is None and fve is None:
         raise ValueError('either n_components or fve must be specified')
     elif n_components is not None and fve is not None:
-        raise ValueError('can\'t specify both n_components and fve')
+        raise ValueError("can't specify both n_components and fve")
     elif fve is not None and not 0 <= fve <= 1:
         raise ValueError('when specified, fve must be between 0 and 1')
     means = X.mean(axis=0)
@@ -320,37 +320,3 @@ def fft_freqs(fs=16e3, n_fft=512, onesided=True):
     else:
         freqs[mask] = freqs[mask] - fs
     return freqs
-
-
-if __name__ == '__main__':
-
-    '''fft_freqs test'''
-    import librosa
-
-    fs = 16e3
-
-    n_fft = 8
-
-    print('even number of points, two-sided:')
-    print(librosa.fft_frequencies(fs, n_fft))
-    print(fft_freqs(fs, n_fft))
-    print('ok\n')
-
-    print('even number of points, one-sided:')
-    print(fft_freqs(fs, n_fft, onesided=False))
-    print(np.fft.fftfreq(n_fft)*fs)
-    print(('np.fft.fftfreq is not perfect, the nyquist frequency is '
-           'negative!\n'))
-
-    n_fft = 9
-
-    print('odd number of points, two-sided:')
-    print(librosa.fft_frequencies(fs, n_fft).round())
-    print(fft_freqs(fs, n_fft).round())
-    print(('librosa.fft_frequencies is wrong! the nyquist frequency '
-           'shouldn\'t be calculated when n_fft is odd!\n'))
-
-    print('odd number of points, two-sided:')
-    print(fft_freqs(fs, n_fft, onesided=False).round())
-    print((np.fft.fftfreq(n_fft)*fs).round())
-    print('ok\n')
