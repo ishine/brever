@@ -272,7 +272,7 @@ def main(model_dir, force):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='train a model')
-    parser.add_argument('input',
+    parser.add_argument('input', nargs='+',
                         help='input model directory')
     parser.add_argument('-f', '--force', action='store_true',
                         help='train even if already trained')
@@ -283,5 +283,7 @@ if __name__ == '__main__':
         stream=sys.stdout,
     )
 
-    for model_dir in glob(args.input):
-        main(model_dir, args.force)
+    if len(args.input) == 1:
+        args.input = glob(args.input[0])
+    for dataset_dir in args.input:
+        main(dataset_dir, args.force)
