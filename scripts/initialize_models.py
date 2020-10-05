@@ -38,7 +38,7 @@ def main(args):
         if resp == 'y':
             for config in new_configs:
                 unique_id = get_unique_id(config)
-                dirpath = f'models\\{unique_id}'
+                dirpath = os.path.join('models', unique_id)
                 if os.path.exists(dirpath):
                     shutil.rmtree(dirpath)
                 os.makedirs(dirpath)
