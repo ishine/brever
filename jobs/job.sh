@@ -3,7 +3,7 @@
 ### -- specify queue --
 #BSUB -q gpuv100
 ### -- set the job Name --
-#BSUB -J script
+#BSUB -J "command"
 ### -- ask for number of cores (default: 1) --
 #BSUB -n 1
 ### -- Select the resources: 1 gpu in exclusive process mode --
@@ -19,4 +19,4 @@
 # -- end of LSF options --
 
 source venv/bin/activate
-python script args
+command
