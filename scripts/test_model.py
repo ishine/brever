@@ -4,7 +4,6 @@ from glob import glob
 import pickle
 import logging
 import sys
-import traceback
 
 import yaml
 import torch
@@ -222,7 +221,6 @@ def main(model_dir, force):
         import matlab
         import matlab.engine
     except Exception:
-        traceback.print_exc()
         logging.info(('matlabengineforpython import failed. You will have to '
                       'manually call testModel.m to calculate PESQ scores.'))
     else:
