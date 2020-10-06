@@ -6,7 +6,7 @@ import logging
 import sys
 
 import yaml
-import numba
+import numba  # noqa: F401
 import torch
 import numpy as np
 import h5py
