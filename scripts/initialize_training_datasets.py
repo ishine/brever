@@ -38,9 +38,9 @@ def main(alias, params, force, n_train, n_val):
             'drr_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'MIN'],
             'drr_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'MAX'],
             'rt60_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MIN'],
-            'rt60_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MIN'],
+            'rt60_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MAX'],
             'delay_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MIN'],
-            'delay_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MIN'],
+            'delay_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MAX'],
         }
         for param, value in params.items():
             if value is not None:
