@@ -1,4 +1,5 @@
 import os
+from glob import glob
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -78,7 +79,7 @@ def load_pesq_and_mse(groups):
         for i in range(len(group)):
             model = group[i]['model']
             pesq_filepath = os.path.join('models', model, 'pesq_scores.mat')
-            pesq = scipy.io.loadmat(pesq_filepath)['scores'].mean(axis=-1)
+            pesq = scipy.io.loadmat(pesq_filepath)['scores']
             mse_filepath = os.path.join('models', model, 'mse_scores.npy')
             mse = np.load(mse_filepath)
             group[i]['pesq'] = pesq
@@ -135,7 +136,7 @@ class LegendFormatter:
                 pass
 
 
-def main(dimensions, group_by, filter_, models):
+def main(models, dimensions, group_by, filter_):
     if models is None:
         models = find_model(**filter_)
     else:
@@ -175,21 +176,32 @@ def main(dimensions, group_by, filter_, models):
             hatch_cycle = ['', '////', '\\\\\\', 'xxxx']
             for i, group in enumerate(groups):
                 for j, model in enumerate(group):
-                    data = model[metric].mean(axis=axis)
-                    data = np.hstack((data, data.mean()))
+                    data = model[metric]
+                    if metric == 'mse':
+                        mean = data.mean(axis=axis)
+                        mean = np.hstack((mean, data.mean()))
+                        err = None
+                    elif metric == 'pesq':
+                        mean = data.mean(axis=(axis, -1))
+                        mean = np.hstack((mean, data.mean()))
+                        err = data.std(axis=(axis, -1))
+                        err = err/(data.shape[axis]*data.shape[-1])**0.5
+                        err = np.hstack((err, data.std()))
+                        err[-1] = err[-1]/(data.size)**0.5
                     if axis == 0:
                         label = f'{model["val"]}'
                     else:
                         label = None
-                    x = np.arange(len(data)) + (model_count - (n-1)/2)*width
+                    x = np.arange(len(mean)) + (model_count - (n-1)/2)*width
                     x[-1] = x[-1] + 2*width
                     ax.bar(
                         x=x,
-                        height=data,
+                        height=mean,
                         width=width,
                         label=label,
                         color=color_cycle[i % len(color_cycle)],
                         hatch=hatch_cycle[j % len(hatch_cycle)],
+                        yerr=err,
                     )
                     model_count += 1
             xticks = np.arange(len(xticklabels) + 1, dtype=float)
@@ -207,17 +219,19 @@ def main(dimensions, group_by, filter_, models):
 
 if __name__ == '__main__':
     parser = ModelFilterArgParser(description='compare models')
-    parser.add_argument('dimensions', nargs='+',
+    parser.add_argument('input', nargs='+',
+                        help='list of models to compare')
+    parser.add_argument('--dims', nargs='+',
                         help='parameter dimensions to compare')
     parser.add_argument('--group-by',
                         help='parameter dimension to group by')
-    parser.add_argument('--models', nargs='+',
-                        help='explicit list of models to compare')
     args = parser.parse_args()
 
-    filter_ = vars(args)
-    dimensions = filter_.pop('dimensions')
-    group_by = filter_.pop('group_by')
-    models = filter_.pop('models')
+    filter_ = vars(args).copy()
+    filter_.pop('input')
+    filter_.pop('dims')
+    filter_.pop('group_by')
 
-    main(dimensions, group_by, filter_, models)
+    if len(args.input) == 1:
+        args.input = glob(args.input[0])
+    main(args.input, args.dims, args.group_by, filter_)
