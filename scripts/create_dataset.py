@@ -228,11 +228,11 @@ def main(dataset_dir, force):
         f.create_dataset('features', data=features)
         f.create_dataset('labels', data=labels)
         if config.PRE.MIXTURES.SAVE:
-            f.create_dataset('mixtures', data=mixtures,
+            f.create_dataset('mixtures', data=np.array(mixtures, dtype=object),
                              dtype=h5py.vlen_dtype(float))
-            f.create_dataset('foregrounds', data=foregrounds,
+            f.create_dataset('foregrounds', data=np.array(foregrounds, dtype=object),
                              dtype=h5py.vlen_dtype(float))
-            f.create_dataset('backgrounds', data=backgrounds,
+            f.create_dataset('backgrounds', data=np.array(backgrounds, dtype=object),
                              dtype=h5py.vlen_dtype(float))
 
     # save mixtures metadata
