@@ -353,11 +353,11 @@ class Decayer:
 
 def choice(sequence):
     if isinstance(sequence, set):
-        return random.choice(list(sequence))
+        return random.choice(sorted(sequence))
     return random.choice(sequence)
 
 
 def choices(sequence, k):
     if isinstance(sequence, set):
-        return random.choices(list(sequence), k=k)
+        return random.choices(sorted(sequence), k=k)
     return random.choices(sequence, k=k)
