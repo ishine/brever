@@ -22,7 +22,14 @@ def main(force):
                     'NOISE': [0.85, 1.0],
                     'TARGET': [0.85, 1.0]
                 },
-                'SAVE': True
+                'SAVE': True,
+                'RANDOM': {
+                    'SOURCES': {
+                        'NUMBER': {
+                            'MIN': 1
+                        }
+                    }
+                }
             }
         }
     }
