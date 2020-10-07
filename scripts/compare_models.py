@@ -137,10 +137,8 @@ class LegendFormatter:
 
 
 def main(models, dimensions, group_by, filter_):
-    if models is None:
-        models = find_model(**filter_)
-    else:
-        models = paths_to_dirnames(models)
+    models = paths_to_dirnames(models)
+    models = list(set(models) & set(find_model(**filter_)))
     models, values = check_models(models, dimensions)
     groups = group_by_dimension(models, values, group_by)
     load_pesq_and_mse(groups)
