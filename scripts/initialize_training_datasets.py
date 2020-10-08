@@ -41,6 +41,7 @@ def main(alias, params, force, n_train, n_val):
             'rt60_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MAX'],
             'delay_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MIN'],
             'delay_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MAX'],
+            'rooms': ['PRE', 'MIXTURES', 'RANDOM', 'ROOMS'],
         }
         for param, value in params.items():
             if value is not None:
@@ -90,7 +91,12 @@ if __name__ == '__main__':
                         help='number of training mixture, defaults to 1000')
     parser.add_argument('--n-val', type=int,
                         help='number of validation mixture, defaults to 200')
+    parser.add_argument('--rooms', nargs='+',
+                        help='list of rooms')
     args = parser.parse_args()
+
+    if args.rooms is not None:
+        args.rooms = set(args.rooms)
 
     params = vars(args).copy()
     params.pop('alias')
