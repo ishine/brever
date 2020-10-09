@@ -136,13 +136,19 @@ class LegendFormatter:
                 pass
 
 
-def main(models, dimensions, group_by, filter_):
+def main(models, dimensions, group_by, no_sort, filter_):
     models = paths_to_dirnames(models)
-    models = list(set(models) & set(find_model(**filter_)))
+    possible_models = find_model(**filter_)
+    models = [model for model in models if model in possible_models]
+
+    if group_by is not None and group_by not in dimensions:
+        dimensions.append(group_by)
+
     models, values = check_models(models, dimensions)
     groups = group_by_dimension(models, values, group_by)
     load_pesq_and_mse(groups)
-    groups = sort_groups_by_mean_pesq(groups)
+    if not no_sort:
+        groups = sort_groups_by_mean_pesq(groups)
 
     try:
         i_values_sorted = np.argsort(values)
@@ -223,13 +229,16 @@ if __name__ == '__main__':
                         help='parameter dimensions to compare')
     parser.add_argument('--group-by',
                         help='parameter dimension to group by')
+    parser.add_argument('--no-sort', action='store_true',
+                        help='disable sorting by mean score')
     args = parser.parse_args()
 
     filter_ = vars(args).copy()
     filter_.pop('input')
     filter_.pop('dims')
     filter_.pop('group_by')
+    filter_.pop('no_sort')
 
     if len(args.input) == 1:
         args.input = glob(args.input[0])
-    main(args.input, args.dims, args.group_by, filter_)
+    main(args.input, args.dims, args.group_by, args.no_sort, filter_)
