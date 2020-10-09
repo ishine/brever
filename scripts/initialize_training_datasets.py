@@ -3,7 +3,7 @@ import argparse
 
 import yaml
 
-from brever.modelmanagement import set_dict_field
+from brever.modelmanagement import set_dict_field, DatasetInitArgParser
 
 
 def main(alias, params, force, n_train, n_val):
@@ -62,46 +62,16 @@ def main(alias, params, force, n_train, n_val):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='initialize testing datasets')
+    parser = DatasetInitArgParser(description='initialize training datasets')
     parser.add_argument('alias',
                         help='dataset alias')
     parser.add_argument('-f', '--force', action='store_true',
                         help='overwrite config file if already exists')
-    parser.add_argument('--decay', type=lambda x: bool(int(x)),
-                        help='decaying noise toggle')
-    parser.add_argument('--decay-color',
-                        help='decaying noise color')
-    parser.add_argument('--diffuse', type=lambda x: bool(int(x)),
-                        help='diffuse noise toggle')
-    parser.add_argument('--diffuse-color',
-                        help='diffuse noise color')
-    parser.add_argument('--drr-min', type=int,
-                        help='random decay drr lower bound')
-    parser.add_argument('--drr-max', type=int,
-                        help='random decay drr upper bound')
-    parser.add_argument('--rt60-min', type=float,
-                        help='random decay rt60 lower bound')
-    parser.add_argument('--rt60-max', type=float,
-                        help='random decay rt60 upper bound')
-    parser.add_argument('--delay-min', type=float,
-                        help='random decay delay lower bound')
-    parser.add_argument('--delay-max', type=float,
-                        help='random decay delay upper bound')
     parser.add_argument('--n-train', type=int,
                         help='number of training mixture, defaults to 1000')
     parser.add_argument('--n-val', type=int,
                         help='number of validation mixture, defaults to 200')
-    parser.add_argument('--rooms', nargs='+',
-                        help='list of rooms')
-    args = parser.parse_args()
-
-    if args.rooms is not None:
-        args.rooms = set(args.rooms)
-
-    params = vars(args).copy()
-    params.pop('alias')
-    params.pop('force')
-    params.pop('n_train')
-    params.pop('n_val')
+    dataset_args, args = parser.parse_args()
+    params = vars(dataset_args)
 
     main(args.alias, params, args.force, args.n_train, args.n_val)

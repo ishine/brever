@@ -148,41 +148,148 @@ def find_model(**kwargs):
     return models
 
 
-class ModelFilterArgParser(argparse.ArgumentParser):
+class ExtendableArgParser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.add_argument('--layers', type=int,
-                          nargs='+',
-                          help='number of layers')
-        self.add_argument('--stacks', type=int,
-                          nargs='+',
-                          help='number of extra stacks')
-        self.add_argument('--batchnorm', type=lambda x: bool(int(x)),
-                          nargs='+',
-                          help='batchnorm toggle')
-        self.add_argument('--dropout', type=lambda x: bool(int(x)),
-                          nargs='+',
-                          help='dropout toggle')
-        self.add_argument('--batchsize', type=int,
-                          nargs='+',
-                          help='batchsize')
-        self.add_argument('--features', type=lambda x: set(x.split(' ')),
-                          nargs='+',
-                          help='feature set')
-        self.add_argument('--train-path',
-                          nargs='+',
-                          help='training dataset path')
-        self.add_argument('--val-path',
-                          nargs='+',
-                          help='validation dataset path')
-        self.base_args_name = [action.dest for action in self._actions]
+        self._base_dests = []
+        self._extra_dests = []
 
-    def parse_args(self):
-        base_args = super().parse_args()
-        extra_args = super().parse_args()
-        for arg_name in vars(base_args).copy().keys():
-            if arg_name in self.base_args_name:
-                vars(extra_args).pop(arg_name)
-            else:
-                vars(base_args).pop(arg_name)
+    def add_base_argument(self, *args, **kwargs):
+        _storeAction = super().add_argument(*args, **kwargs)
+        self._base_dests.append(_storeAction.dest)
+
+    def add_argument(self, *args, **kwargs):
+        _storeAction = super().add_argument(*args, **kwargs)
+        if args == ('-h', '--help'):
+            return
+        self._extra_dests.append(_storeAction.dest)
+
+    def parse_args(self, *args, **kwargs):
+        args = super().parse_args(*args, **kwargs)
+        base_args = argparse.Namespace()
+        extra_args = argparse.Namespace()
+        for dest in self._base_dests:
+            setattr(base_args, dest, getattr(args, dest))
+        for dest in self._extra_dests:
+            setattr(extra_args, dest, getattr(args, dest))
+        return base_args, extra_args
+
+
+class ModelFilterArgParser(ExtendableArgParser):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_base_argument(
+            '--layers',
+            type=int,
+            nargs='+',
+            help='number of layers',
+        )
+        self.add_base_argument(
+            '--stacks',
+            type=int,
+            nargs='+',
+            help='number of extra stacks',
+        )
+        self.add_base_argument(
+            '--batchnorm',
+            type=lambda x: bool(int(x)),
+            nargs='+',
+            help='batchnorm toggle',
+        )
+        self.add_base_argument(
+            '--dropout',
+            type=lambda x: bool(int(x)),
+            nargs='+',
+            help='dropout toggle',
+        )
+        self.add_base_argument(
+            '--batchsize',
+            type=int,
+            nargs='+',
+            help='batchsize',
+        )
+        self.add_base_argument(
+            '--features',
+            type=lambda x: set(x.split(' ')),
+            nargs='+',
+            help='feature set',
+        )
+        self.add_base_argument(
+            '--train-path',
+            type=str,
+            nargs='+',
+            help='training dataset path',
+        )
+        self.add_base_argument(
+            '--val-path',
+            type=str,
+            nargs='+',
+            help='validation dataset path',
+        )
+
+
+class DatasetInitArgParser(ExtendableArgParser):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_base_argument(
+            '--decay',
+            type=lambda x: bool(int(x)),
+            help='decaying noise toggle',
+        )
+        self.add_base_argument(
+            '--decay-color',
+            type=str,
+            help='decaying noise color',
+        )
+        self.add_base_argument(
+            '--diffuse',
+            type=lambda x: bool(int(x)),
+            help='diffuse noise toggle',
+        )
+        self.add_base_argument(
+            '--diffuse-color',
+            type=str,
+            help='diffuse noise color',
+        )
+        self.add_base_argument(
+            '--drr-min',
+            type=int,
+            help='random decay drr lower bound',
+        )
+        self.add_base_argument(
+            '--drr-max',
+            type=int,
+            help='random decay drr upper bound',
+        )
+        self.add_base_argument(
+            '--rt60-min',
+            type=float,
+            help='random decay rt60 lower bound',
+        )
+        self.add_base_argument(
+            '--rt60-max',
+            type=float,
+            help='random decay rt60 upper bound',
+        )
+        self.add_base_argument(
+            '--delay-min',
+            type=float,
+            help='random decay delay lower bound',
+        )
+        self.add_base_argument(
+            '--delay-max',
+            type=float,
+            help='random decay delay upper bound',
+        )
+        self.add_base_argument(
+            '--rooms',
+            nargs='+',
+            type=str,
+            help='list of rooms',
+        )
+
+    def parse_args(self, *args, **kwargs):
+        base_args, extra_args = super().parse_args(*args, **kwargs)
+        if base_args.rooms is not None:
+            base_args.rooms = set(base_args.rooms)
         return base_args, extra_args
