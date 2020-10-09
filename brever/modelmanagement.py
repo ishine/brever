@@ -216,13 +216,13 @@ class ModelFilterArgParser(ExtendableArgParser):
         )
         self.add_base_argument(
             '--train-path',
-            type=str,
+            type=lambda x: x.replace('\\', '/'),
             nargs='+',
             help='training dataset path',
         )
         self.add_base_argument(
             '--val-path',
-            type=str,
+            type=lambda x: x.replace('\\', '/'),
             nargs='+',
             help='validation dataset path',
         )
