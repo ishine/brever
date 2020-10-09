@@ -36,8 +36,11 @@ def group_by_dimension(models, values, dimension):
     # first make groups
     if dimension is None:
         groups = []
+        group_outer_values = []
         for model, val in zip(models, values):
             groups.append([{'model': model, 'val': val}])
+            if val not in group_outer_values:
+                group_outer_values.append(val)
     else:
         group_outer_values = []
         groups = []
@@ -55,7 +58,7 @@ def group_by_dimension(models, values, dimension):
             if group_inner_val not in group_inner_values:
                 group_inner_values.append(group_inner_val)
     if dimension is None:
-        return groups
+        return groups, group_outer_values
     # then match order across groups
     # first sort the list of values
     for dim in group_inner_values[0].keys():
@@ -71,7 +74,7 @@ def group_by_dimension(models, values, dimension):
                 index = group_inner_vals_local.index(group_inner_val)
                 group_sorted.append(group[index])
         groups[i] = group_sorted
-    return groups
+    return groups, group_outer_values
 
 
 def load_pesq_and_mse(groups):
@@ -145,19 +148,13 @@ def main(models, dimensions, group_by, no_sort, filter_):
         dimensions.append(group_by)
 
     models, values = check_models(models, dimensions)
-    groups = group_by_dimension(models, values, group_by)
+    groups, group_values = group_by_dimension(models, values, group_by)
     load_pesq_and_mse(groups)
     if not no_sort:
         groups = sort_groups_by_mean_pesq(groups)
-
-    try:
-        i_values_sorted = np.argsort(values)
-    except TypeError:
-        i_values_sorted = np.arange(len(values))
-
-    print(f'Comparing {len(models)} models:')
-    for i in i_values_sorted:
-        print(f'Model {models[i]} with dimension value {values[i]}')
+    else:
+        i_sorted = np.argsort([str(val) for val in group_values])
+        groups = [groups[i] for i in i_sorted]
 
     snrs = [0, 3, 6, 9, 12, 15]
     room_names = ['A', 'B', 'C', 'D']
