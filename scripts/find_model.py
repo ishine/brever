@@ -28,5 +28,5 @@ def main(**kwargs):
 
 if __name__ == '__main__':
     parser = ModelFilterArgParser(description='find models')
-    args = parser.parse_args()
-    main(**vars(args))
+    filter_args, _ = parser.parse_args()
+    main(**vars(filter_args))

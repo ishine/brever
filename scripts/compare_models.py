@@ -225,20 +225,16 @@ if __name__ == '__main__':
     parser = ModelFilterArgParser(description='compare models')
     parser.add_argument('input', nargs='+',
                         help='list of models to compare')
-    parser.add_argument('--dims', nargs='+',
+    parser.add_argument('--dims', nargs='+', required=True,
+                        type=lambda x: x.replace('-', '_'),
                         help='parameter dimensions to compare')
     parser.add_argument('--group-by',
+                        type=lambda x: x.replace('-', '_'),
                         help='parameter dimension to group by')
     parser.add_argument('--no-sort', action='store_true',
                         help='disable sorting by mean score')
-    args = parser.parse_args()
-
-    filter_ = vars(args).copy()
-    filter_.pop('input')
-    filter_.pop('dims')
-    filter_.pop('group_by')
-    filter_.pop('no_sort')
+    filter_args, args = parser.parse_args()
 
     if len(args.input) == 1:
         args.input = glob(args.input[0])
-    main(args.input, args.dims, args.group_by, args.no_sort, filter_)
+    main(args.input, args.dims, args.group_by, args.no_sort, vars(filter_args))

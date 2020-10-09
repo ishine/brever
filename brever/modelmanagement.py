@@ -175,3 +175,14 @@ class ModelFilterArgParser(argparse.ArgumentParser):
         self.add_argument('--val-path',
                           nargs='+',
                           help='validation dataset path')
+        self.base_args_name = [action.dest for action in self._actions]
+
+    def parse_args(self):
+        base_args = super().parse_args()
+        extra_args = super().parse_args()
+        for arg_name in vars(base_args).copy().keys():
+            if arg_name in self.base_args_name:
+                vars(extra_args).pop(arg_name)
+            else:
+                vars(base_args).pop(arg_name)
+        return base_args, extra_args
