@@ -8,6 +8,7 @@ MODEL:
   DROPOUT:
     'ON': true
     RATE: 0.2
+    INPUT: false
   EARLYSTOP:
     DELTA: 0
     PATIENCE: 20

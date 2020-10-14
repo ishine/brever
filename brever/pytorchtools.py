@@ -198,9 +198,12 @@ class DummyH5Dataset(torch.utils.data.Dataset):
 
 class Feedforward(torch.nn.Module):
     def __init__(self, input_size, output_size, n_layers, dropout_toggle,
-                 dropout_rate, batchnorm_toggle, batchnorm_momentum):
+                 dropout_rate, dropout_input, batchnorm_toggle,
+                 batchnorm_momentum):
         super(Feedforward, self).__init__()
         self.operations = torch.nn.ModuleList()
+        if dropout_input:
+            self.operations.append(torch.nn.Dropout(dropout_rate))
         for i in range(n_layers):
             self.operations.append(torch.nn.Linear(input_size, input_size))
             if batchnorm_toggle:
