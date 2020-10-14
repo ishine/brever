@@ -59,7 +59,7 @@ if __name__ == '__main__':
                         help='batchnorm toggle', nargs='+')
     parser.add_argument('--dropout', type=lambda x: bool(int(x)),
                         help='dropout toggle', nargs='+')
-    parser.add_argument('--droupout-input', type=lambda x: bool(int(x)),
+    parser.add_argument('--dropout-input', type=lambda x: bool(int(x)),
                         help='dropout input layer toggle', nargs='+')
     parser.add_argument('--batchsize', type=int,
                         help='mini-batch size', nargs='+')
