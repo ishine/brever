@@ -182,6 +182,7 @@ def main(model_dir, force):
         n_layers=config.MODEL.NLAYERS,
         dropout_toggle=config.MODEL.DROPOUT.ON,
         dropout_rate=config.MODEL.DROPOUT.RATE,
+        dropout_input=config.MODEL.DROPOUT.INPUT,
         batchnorm_toggle=config.MODEL.BATCHNORM.ON,
         batchnorm_momentum=config.MODEL.BATCHNORM.MOMENTUM,
     )
