@@ -122,6 +122,7 @@ arg_to_keys_map = {
     'stacks': ['POST', 'STACK'],
     'batchnorm': ['MODEL', 'BATCHNORM', 'ON'],
     'dropout': ['MODEL', 'DROPOUT', 'ON'],
+    'dropout_input': ['MODEL', 'DROPOUT', 'INPUT'],
     'batchsize': ['MODEL', 'BATCHSIZE'],
     'features': ['POST', 'FEATURES'],
     'train_path': ['POST', 'PATH', 'TRAIN'],
