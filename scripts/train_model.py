@@ -139,6 +139,7 @@ def main(model_dir, force):
         decimation=config.POST.DECIMATION,
         feature_indices=train_feature_indices,
         file_indices=train_file_indices,
+        n_dct=config.POST.NDCT,
     )
     val_dataset = H5Dataset(
         filepath=val_dataset_path,
@@ -147,6 +148,7 @@ def main(model_dir, force):
         decimation=config.POST.DECIMATION,
         feature_indices=val_feature_indices,
         file_indices=val_file_indices,
+        n_dct=config.POST.NDCT,
     )
     logging.info(f'Number of features: {train_dataset.n_features}')
 

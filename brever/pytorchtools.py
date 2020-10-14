@@ -4,6 +4,8 @@ import h5py
 import os
 import logging
 
+from .utils import dct_compress
+
 
 def get_mean_and_std(dataloader, load):
     if load:
@@ -97,24 +99,28 @@ class TensorStandardizer:
 
 class H5Dataset(torch.utils.data.Dataset):
     def __init__(self, filepath, load=False, transform=None, stack=0,
-                 decimation=1, feature_indices=None, file_indices=None):
+                 decimation=1, feature_indices=None, file_indices=None,
+                 n_dct=0):
         self.filepath = filepath
         self.datasets = None
         self.load = load
         self.transform = transform
         self.stack = stack
         self.decimation = decimation
+        self.n_dct = n_dct
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
             self.n_samples = len(f['features'])//decimation
             if feature_indices is None:
-                self.n_features = f['features'].shape[1]
-                self.n_features *= (stack+1)
-                self.feature_indices = [(0, self.n_features)]
+                self._n_current_features = f['features'].shape[1]
+                self.feature_indices = [(0, self._n_current_features)]
             else:
-                self.n_features = sum(j-i for i, j in feature_indices)
-                self.n_features *= (stack+1)
+                self._n_current_features = sum(j-i for i, j in feature_indices)
                 self.feature_indices = feature_indices
+            if n_dct == 0:
+                self.n_features = self._n_current_features*(stack+1)
+            else:
+                self.n_features = self._n_current_features + n_dct
             self.n_labels = f['labels'].shape[1]
             if self.load:
                 self.datasets = (f['features'][:], f['labels'][:])
@@ -131,15 +137,18 @@ class H5Dataset(torch.utils.data.Dataset):
                 self.datasets = (f['features'], f['labels'])
         if isinstance(index, int):
             x = np.empty(self.n_features)
-            count = 0
             # decimate
             index *= self.decimation
             # frame at current time index
+            count = 0
             for i, j in self.feature_indices:
-                x[count:count+j-i] = self.datasets[0][index, i:j]
-                count += j-i
+                i_ = count
+                j_ = count+j-i
+                x[i_:j_] = self.datasets[0][index, i:j]
+                count = j_
             # frames at previous time indexes
             if self.stack > 0:
+                x_context = np.empty(self._n_current_features*self.stack)
                 # first check if a file starts during delay window
                 index_min = index-self.stack
                 for i_file, _ in self.file_indices:
@@ -150,15 +159,22 @@ class H5Dataset(torch.utils.data.Dataset):
                     elif i_file > index:
                         break
                 # then add context stacking
+                count_context = 0
                 for k in range(self.stack):
                     # if context overlaps previous file then replicate
                     index_lag = max(index-k-1, index_min)
                     for i, j in self.feature_indices:
-                        x[count:count+j-i] = self.datasets[0][index_lag, i:j]
-                        count += j-i
-            y = self.datasets[1][index]
+                        i_ = count_context
+                        j_ = count_context+j-i
+                        x_context[i_:j_] = self.datasets[0][index_lag, i:j]
+                        count_context = j_
+                # perform dct
+                if self.n_dct != 0:
+                    x_context = dct_compress(x_context, self.n_dct)
+                x[count:] = x_context
             if self.transform:
                 x = self.transform(x)
+            y = self.datasets[1][index]
         elif isinstance(index, slice):
             indexes = list(range(self.n_samples))[index]
             x = np.empty((len(indexes), self.n_features))

@@ -31,6 +31,7 @@ POST:
     TRAIN: data/processed/training/
     VAL: data/processed/validation/
   STACK: 0
+  NDCT: 0
 PRE:
   FEATURES: !!set
     ild: null

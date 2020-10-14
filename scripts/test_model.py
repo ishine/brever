@@ -61,6 +61,7 @@ def main(model_dir, force):
         decimation=config.POST.DECIMATION,
         feature_indices=feature_indices,
         file_indices=file_indices,
+        n_dct=config.POST.NDCT,
     )
     train_dataloader = torch.utils.data.DataLoader(
         dataset=train_dataset,
@@ -135,6 +136,7 @@ def main(model_dir, force):
                 # decimation=config.POST.DECIMATION,
                 feature_indices=feature_indices,
                 file_indices=file_indices,
+                n_dct=config.POST.NDCT,
             )
             test_dataloader = torch.utils.data.DataLoader(
                 dataset=test_dataset,
