@@ -46,7 +46,7 @@ def group_by_dimension(models, values, dimension):
         groups = []
         group_inner_values = []
         for model, val in zip(models, values):
-            group_outer_val = val[dimension]
+            group_outer_val = {dimension: val[dimension]}
             if group_outer_val not in group_outer_values:
                 group_outer_values.append(group_outer_val)
                 groups.append([{'model': model, 'val': val}])
@@ -153,8 +153,10 @@ def main(models, dimensions, group_by, no_sort, filter_):
     if not no_sort:
         groups = sort_groups_by_mean_pesq(groups)
     else:
-        i_sorted = np.argsort([str(val) for val in group_values])
-        groups = [groups[i] for i in i_sorted]
+        for dim in group_values[0].keys():
+            group_vals_sorted = sorted(group_values, key=lambda x: x[dim])
+            i_sorted = [group_values.index(val) for val in group_vals_sorted]
+            groups = [groups[i] for i in i_sorted]
 
     snrs = [0, 3, 6, 9, 12, 15]
     room_names = ['A', 'B', 'C', 'D']
