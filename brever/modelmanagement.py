@@ -229,6 +229,18 @@ class ModelFilterArgParser(ExtendableArgParser):
             nargs='+',
             help='validation dataset path',
         )
+        self.add_base_argument(
+            '--dropout-input',
+            type=lambda x: bool(int(x)),
+            nargs='+',
+            help='dropout input layer toggle',
+        )
+        self.add_base_argument(
+            '--n-dct',
+            type=int,
+            nargs='+',
+            help='number of dct coefficients',
+        )
 
 
 class DatasetInitArgParser(ExtendableArgParser):
