@@ -323,7 +323,6 @@ def fft_freqs(fs=16e3, n_fft=512, onesided=True):
 
 
 def dct_compress(x, N):
-    assert x.ndim == 1
     L = len(x)
     dct_matrix = np.cos(np.pi*np.outer(np.arange(N), np.arange(L)+0.5)/L)
     y = dct_matrix@x

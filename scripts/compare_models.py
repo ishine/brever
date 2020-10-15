@@ -124,7 +124,7 @@ class LegendFormatter:
         lbbox = self.lh.get_window_extent()
         fig_width = self.figure.get_figwidth()*self.figure.dpi
         ncol = int(fig_width//(lbbox.width/self.lh._ncol))
-        ncol = ncol//2+1
+        ncol = min(ncol, len(self.lh.legendHandles))
         if ncol != self.lh._ncol:
             self.lh.remove()
             self.lh = self.figure.legend(loc=9, ncol=ncol)

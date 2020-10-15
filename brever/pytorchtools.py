@@ -100,13 +100,14 @@ class TensorStandardizer:
 class H5Dataset(torch.utils.data.Dataset):
     def __init__(self, filepath, load=False, transform=None, stack=0,
                  decimation=1, feature_indices=None, file_indices=None,
-                 n_dct=0):
+                 dct=False, n_dct=5):
         self.filepath = filepath
         self.datasets = None
         self.load = load
         self.transform = transform
         self.stack = stack
         self.decimation = decimation
+        self.dct = dct
         self.n_dct = n_dct
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
@@ -117,10 +118,9 @@ class H5Dataset(torch.utils.data.Dataset):
             else:
                 self._n_current_features = sum(j-i for i, j in feature_indices)
                 self.feature_indices = feature_indices
-            if n_dct == 0 or stack == 0:
-                self.n_features = self._n_current_features*(stack+1)
-            else:
-                self.n_features = self._n_current_features + n_dct
+            if dct:
+                stack = min(n_dct, stack)
+            self.n_features = self._n_current_features*(stack + 1)
             self.n_labels = f['labels'].shape[1]
             if self.load:
                 self.datasets = (f['features'][:], f['labels'][:])
@@ -148,7 +148,7 @@ class H5Dataset(torch.utils.data.Dataset):
                 count = j_
             # frames at previous time indexes
             if self.stack > 0:
-                x_context = np.empty(self._n_current_features*self.stack)
+                x_context = np.empty((self.stack, self._n_current_features))
                 # first check if a file starts during delay window
                 index_min = index-self.stack
                 for i_file, _ in self.file_indices:
@@ -159,19 +159,19 @@ class H5Dataset(torch.utils.data.Dataset):
                     elif i_file > index:
                         break
                 # then add context stacking
-                count_context = 0
                 for k in range(self.stack):
                     # if context overlaps previous file then replicate
                     index_lag = max(index-k-1, index_min)
+                    count_context_k = 0
                     for i, j in self.feature_indices:
-                        i_ = count_context
-                        j_ = count_context+j-i
-                        x_context[i_:j_] = self.datasets[0][index_lag, i:j]
-                        count_context = j_
+                        i_ = count_context_k
+                        j_ = count_context_k+j-i
+                        x_context[k, i_:j_] = self.datasets[0][index_lag, i:j]
+                        count_context_k = j_
                 # perform dct
-                if self.n_dct != 0:
+                if self.dct and self.n_dct < self.stack:
                     x_context = dct_compress(x_context, self.n_dct)
-                x[count:] = x_context
+                x[count:] = x_context.flatten()
             if self.transform:
                 x = self.transform(x)
             y = self.datasets[1][index]

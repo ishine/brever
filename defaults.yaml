@@ -31,7 +31,9 @@ POST:
     TRAIN: data/processed/training/
     VAL: data/processed/validation/
   STACK: 0
-  NDCT: 0
+  DCT:
+    NCOEFF: 5
+    'ON': false
 PRE:
   FEATURES: !!set
     ild: null
@@ -55,11 +57,11 @@ PRE:
   MIXTURES:
     DECAY:
       COLOR: white
-      'ON': false
+      'ON': true
     DIFFUSE:
       COLOR: white
       LTASEQ: true
-      'ON': true
+      'ON': false
     FILELIMITS:
       NOISE:
       - 0.0
@@ -84,7 +86,7 @@ PRE:
           MIN: 5
           STEP: 1
         RT60:
-          MAX: 2.0
+          MAX: 5.0
           MIN: 0.0
           STEP: 0.1
       RMSDB:
