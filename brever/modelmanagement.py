@@ -127,7 +127,8 @@ arg_to_keys_map = {
     'features': ['POST', 'FEATURES'],
     'train_path': ['POST', 'PATH', 'TRAIN'],
     'val_path': ['POST', 'PATH', 'VAL'],
-    'n_dct': ['POST', 'NDCT'],
+    'dct': ['POST', 'DCT', 'ON'],
+    'n_dct': ['POST', 'DCT', 'NCOEFF'],
     'cuda': ['MODEL', 'CUDA'],
 }
 

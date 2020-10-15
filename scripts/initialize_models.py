@@ -69,6 +69,8 @@ if __name__ == '__main__':
                         help='training dataset path', nargs='+')
     parser.add_argument('--val-path',
                         help='validation dataset path', nargs='+')
+    parser.add_argument('--dct', type=lambda x: bool(int(x)),
+                        help='dct context compression toggle', nargs='+')
     parser.add_argument('--n-dct', type=int,
                         help='number of coefficients for context', nargs='+')
     parser.add_argument('--cuda', type=lambda x: bool(int(x)),
