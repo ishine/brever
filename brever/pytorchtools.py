@@ -117,7 +117,7 @@ class H5Dataset(torch.utils.data.Dataset):
             else:
                 self._n_current_features = sum(j-i for i, j in feature_indices)
                 self.feature_indices = feature_indices
-            if n_dct == 0:
+            if n_dct == 0 or stack == 0:
                 self.n_features = self._n_current_features*(stack+1)
             else:
                 self.n_features = self._n_current_features + n_dct
