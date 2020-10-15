@@ -22,5 +22,5 @@ eval $(parse_yaml defaults.yaml)
 
 for input in "$@"
 do
-    bash jobs/send.sh jobs/job.sh 'python scripts/train_model.py '"$input$FORCE"'; python scripts/test_model.py '"$input$FORCE"'; matlab -nodisplay -nodesktop -nosplash -r "addpath matlab; addpath matlab/loizou; testModel '"$input $PRE_FS $PRE_MIXTURES_PADDING"'"'
+    bash jobs/send.sh jobs/job.sh 'python scripts/train_model.py '"$input$FORCE"'; python scripts/test_model.py '"$input$FORCE"'; matlab -nodisplay -nodesktop -nosplash -r "addpath matlab; addpath matlab/loizou; testModel '"$input $PRE_FS $PRE_MIXTURES_PADDING"'"; find '"$input"' -name "*.wav" -type f -delete'
 done
