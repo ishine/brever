@@ -326,4 +326,4 @@ def dct_compress(x, N):
     L = len(x)
     dct_matrix = np.cos(np.pi*np.outer(np.arange(N), np.arange(L)+0.5)/L)
     y = dct_matrix@x
-    return y
+    return y[1:]

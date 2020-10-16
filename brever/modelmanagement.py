@@ -242,6 +242,12 @@ class ModelFilterArgParser(ExtendableArgParser):
             nargs='+',
             help='number of dct coefficients',
         )
+        self.add_base_argument(
+            '--dct',
+            type=int,
+            nargs='+',
+            help='dct toggle',
+        )
 
 
 class DatasetInitArgParser(ExtendableArgParser):

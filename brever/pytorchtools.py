@@ -101,6 +101,8 @@ class H5Dataset(torch.utils.data.Dataset):
     def __init__(self, filepath, load=False, transform=None, stack=0,
                  decimation=1, feature_indices=None, file_indices=None,
                  dct=False, n_dct=5):
+        if n_dct < 1:
+            raise ValueError('n_dct must be higher than 1')
         self.filepath = filepath
         self.datasets = None
         self.load = load
@@ -119,7 +121,7 @@ class H5Dataset(torch.utils.data.Dataset):
                 self._n_current_features = sum(j-i for i, j in feature_indices)
                 self.feature_indices = feature_indices
             if dct:
-                stack = min(n_dct, stack)
+                stack = min(n_dct-1, stack)
             self.n_features = self._n_current_features*(stack + 1)
             self.n_labels = f['labels'].shape[1]
             if self.load:
@@ -169,7 +171,7 @@ class H5Dataset(torch.utils.data.Dataset):
                         x_context[k, i_:j_] = self.datasets[0][index_lag, i:j]
                         count_context_k = j_
                 # perform dct
-                if self.dct and self.n_dct < self.stack:
+                if self.dct and self.n_dct-1 < self.stack:
                     x_context = dct_compress(x_context, self.n_dct)
                 x[count:] = x_context.flatten()
             if self.transform:
