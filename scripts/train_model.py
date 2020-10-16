@@ -150,7 +150,7 @@ def main(model_dir, force):
         feature_indices=val_feature_indices,
         file_indices=val_file_indices,
         dct=config.POST.DCT.ON,
-        n_dct=config.POST.NDCT,
+        n_dct=config.POST.DCT.NCOEFF,
     )
     logging.info(f'Number of features: {train_dataset.n_features}')
 
