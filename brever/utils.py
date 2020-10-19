@@ -324,6 +324,6 @@ def fft_freqs(fs=16e3, n_fft=512, onesided=True):
 
 def dct_compress(x, N):
     L = len(x)
-    dct_matrix = np.cos(np.pi*np.outer(np.arange(N), np.arange(L)+0.5)/L)
+    dct_matrix = np.cos(np.pi*np.outer(np.arange(1, N+1), np.arange(L)+0.5)/L)
     y = dct_matrix@x
-    return y[1:]
+    return y
