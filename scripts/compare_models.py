@@ -139,7 +139,7 @@ class LegendFormatter:
                 pass
 
 
-def main(models, dimensions, group_by, no_sort, filter_):
+def main(models, dimensions, group_by, no_sort, filter_, legend):
     models = paths_to_dirnames(models)
     possible_models = find_model(**filter_)
     models = [model for model in models if model in possible_models]
@@ -192,7 +192,10 @@ def main(models, dimensions, group_by, no_sort, filter_):
                         err = np.hstack((err, data.std()))
                         err[-1] = err[-1]/(data.size)**0.5
                     if axis == 0:
-                        label = f'{model["val"]}'
+                        if legend is None:
+                            label = f'{model["val"]}'
+                        else:
+                            label = legend[i]
                     else:
                         label = None
                     x = np.arange(len(mean)) + (model_count - (n-1)/2)*width
@@ -232,8 +235,11 @@ if __name__ == '__main__':
                         help='parameter dimension to group by')
     parser.add_argument('--no-sort', action='store_true',
                         help='disable sorting by mean score')
+    parser.add_argument('--legend', nargs='+',
+                        help='custom legend')
     filter_args, args = parser.parse_args()
 
     if len(args.input) == 1:
         args.input = glob(args.input[0])
-    main(args.input, args.dims, args.group_by, args.no_sort, vars(filter_args))
+    main(args.input, args.dims, args.group_by, args.no_sort, vars(filter_args),
+         args.legend)
