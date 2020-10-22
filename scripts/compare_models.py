@@ -11,6 +11,8 @@ from brever.modelmanagement import (get_dict_field, ModelFilterArgParser,
 
 
 def check_models(models, dims):
+    if dims is None:
+        return models, models
     values = []
     models_ = []
     for model in models:
@@ -227,7 +229,7 @@ if __name__ == '__main__':
     parser = ModelFilterArgParser(description='compare models')
     parser.add_argument('input', nargs='+',
                         help='list of models to compare')
-    parser.add_argument('--dims', nargs='+', required=True,
+    parser.add_argument('--dims', nargs='+',
                         type=lambda x: x.replace('-', '_'),
                         help='parameter dimensions to compare')
     parser.add_argument('--group-by',
