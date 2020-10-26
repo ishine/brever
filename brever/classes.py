@@ -171,7 +171,7 @@ class RandomMixtureMaker:
 
     def make(self):
         self.mixture = Mixture()
-        self.metadata = {'fs': self.fs}
+        self.metadata = {}
         room = self.get_random_room()
         decayer = self.get_random_decayer()
         self.add_random_target(room, decayer)
