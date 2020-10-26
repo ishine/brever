@@ -7,6 +7,7 @@ from .utils import pca, frame, rms
 from .filters import mel_filterbank, gammatone_filterbank
 from .mixture import Mixture, colored_noise, add_decay
 from .io import load_random_target, load_brir, load_brirs, load_random_noise
+from .config import defaults
 from . import features as features_module
 from . import labels as labels_module
 
@@ -170,7 +171,7 @@ class RandomMixtureMaker:
 
     def make(self):
         self.mixture = Mixture()
-        self.metadata = {}
+        self.metadata = {'fs': self.fs}
         room = self.get_random_room()
         decayer = self.get_random_decayer()
         self.add_random_target(room, decayer)
@@ -349,6 +350,96 @@ class Decayer:
                 self.color,
             )
         return brir
+
+
+class DefaultRandomMixtureMaker(RandomMixtureMaker):
+    def __init__(self):
+        config = defaults()
+        super().__init__(
+            fs=config.PRE.FS,
+            rooms=config.PRE.MIXTURES.RANDOM.ROOMS,
+            target_angles=range(
+                config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MIN,
+                config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MAX + 1,
+                config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.STEP,
+            ),
+            target_snrs=range(
+                config.PRE.MIXTURES.RANDOM.TARGET.SNR.MIN,
+                config.PRE.MIXTURES.RANDOM.TARGET.SNR.MAX + 1,
+            ),
+            directional_noise_numbers=range(
+                config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MIN,
+                config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MAX + 1,
+            ),
+            directional_noise_types=config.PRE.MIXTURES.RANDOM.SOURCES.TYPES,
+            directional_noise_angles=range(
+                config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MIN,
+                config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MAX + 1,
+                config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.STEP,
+            ),
+            directional_noise_snrs=range(
+                config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN,
+                config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MAX + 1,
+            ),
+            diffuse_noise_on=config.PRE.MIXTURES.DIFFUSE.ON,
+            diffuse_noise_color=config.PRE.MIXTURES.DIFFUSE.COLOR,
+            diffuse_noise_ltas_eq=config.PRE.MIXTURES.DIFFUSE.LTASEQ,
+            mixture_pad=config.PRE.MIXTURES.PADDING,
+            mixture_rb=config.PRE.MIXTURES.REFLECTIONBOUNDARY,
+            mixture_rms_jitter=range(
+                config.PRE.MIXTURES.RANDOM.RMSDB.MIN,
+                config.PRE.MIXTURES.RANDOM.RMSDB.MAX + 1,
+            ),
+            path_surrey=config.PRE.MIXTURES.PATH.SURREY,
+            path_timit=config.PRE.MIXTURES.PATH.TIMIT,
+            path_dcase=config.PRE.MIXTURES.PATH.DCASE,
+            filelims_directional_noise=config.PRE.MIXTURES.FILELIMITS.NOISE,
+            filelims_target=config.PRE.MIXTURES.FILELIMITS.TARGET,
+            decay_on=config.PRE.MIXTURES.DECAY.ON,
+            decay_color=config.PRE.MIXTURES.DECAY.COLOR,
+            decay_rt60s=np.arange(
+                config.PRE.MIXTURES.RANDOM.DECAY.RT60.MIN,
+                config.PRE.MIXTURES.RANDOM.DECAY.RT60.MAX,
+                config.PRE.MIXTURES.RANDOM.DECAY.RT60.STEP,
+                dtype=float,
+            ),
+            decay_drrs=np.arange(
+                config.PRE.MIXTURES.RANDOM.DECAY.DRR.MIN,
+                config.PRE.MIXTURES.RANDOM.DECAY.DRR.MAX,
+                config.PRE.MIXTURES.RANDOM.DECAY.DRR.STEP,
+                dtype=float,
+            ),
+            decay_delays=np.arange(
+                config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MIN,
+                config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MAX,
+                config.PRE.MIXTURES.RANDOM.DECAY.DELAY.STEP,
+                dtype=float,
+            ),
+        )
+
+
+class DefaultFilterbank(Filterbank):
+    def __init__(self):
+        config = defaults()
+        super().__init__(
+            kind=config.PRE.FILTERBANK.KIND,
+            n_filters=config.PRE.FILTERBANK.NFILTERS,
+            f_min=config.PRE.FILTERBANK.FMIN,
+            f_max=config.PRE.FILTERBANK.FMAX,
+            fs=config.PRE.FS,
+            order=config.PRE.FILTERBANK.ORDER,
+        )
+
+
+class DefaultFramer(Framer):
+    def __init__(self):
+        config = defaults()
+        super().__init__(
+            frame_length=config.PRE.FRAMER.FRAMELENGTH,
+            hop_length=config.PRE.FRAMER.HOPLENGTH,
+            window=config.PRE.FRAMER.WINDOW,
+            center=config.PRE.FRAMER.CENTER,
+        )
 
 
 def choice(sequence):
