@@ -7,7 +7,9 @@ import logging
 from .utils import dct_compress
 
 
-def get_mean_and_std(dataloader, load):
+def get_mean_and_std(dataloader, load, selected_features,
+                     selected_features_indices,
+                     same_standardization_features):
     if load:
         mean = dataloader.dataset[:][0].mean(axis=0)
         std = dataloader.dataset[:][0].std(axis=0)
@@ -22,6 +24,28 @@ def get_mean_and_std(dataloader, load):
         var /= len(dataloader)
         std = var**0.5
         mean, std = mean.numpy(), std.numpy()
+    if isinstance(selected_features, set):
+        selected_features = sorted(selected_features)
+    for feature in same_standardization_features:
+        if feature not in selected_features:
+            raise ValueError(f'Same standardization feature {feature} is not '
+                             'in the list of selected features '
+                             f'{selected_features}')
+    i_start = 0
+    for feature, indices in zip(selected_features, selected_features_indices):
+        i_start_dataset, i_end_dataset = indices
+        if feature in same_standardization_features:
+            i_end = i_start + i_end_dataset - i_start_dataset
+            feature_mean = mean[i_start:i_end].mean()
+            feature_std = np.sqrt(
+                np.mean(std[i_start:i_end]**2)
+                + np.mean(mean[i_start:i_end]**2)
+                - feature_mean**2
+            )
+            mean[i_start:i_end] = feature_mean
+            std[i_start:i_end] = feature_std
+        else:
+            i_start += i_end_dataset - i_start_dataset
     return mean, std
 
 

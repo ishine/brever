@@ -231,10 +231,10 @@ class ModelFilterArgParser(ExtendableArgParser):
             help='validation dataset path',
         )
         self.add_base_argument(
-            '--dropout-input',
-            type=lambda x: bool(int(x)),
+            '--dct',
+            type=int,
             nargs='+',
-            help='dropout input layer toggle',
+            help='dct toggle',
         )
         self.add_base_argument(
             '--n-dct',
@@ -243,10 +243,16 @@ class ModelFilterArgParser(ExtendableArgParser):
             help='number of dct coefficients',
         )
         self.add_base_argument(
-            '--dct',
-            type=int,
+            '--cuda',
+            type=lambda x: bool(int(x)),
             nargs='+',
-            help='dct toggle',
+            help='cuda toggle',
+        )
+        self.add_base_argument(
+            '--dropout-input',
+            type=lambda x: bool(int(x)),
+            nargs='+',
+            help='dropout input layer toggle',
         )
 
 

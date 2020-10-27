@@ -1,13 +1,13 @@
 import os
 import shutil
-import argparse
 import itertools
 
 import yaml
 
 from brever.config import defaults
 from brever.modelmanagement import (get_unique_id, set_dict_field, flatten,
-                                    unflatten, arg_to_keys_map)
+                                    unflatten, arg_to_keys_map,
+                                    ModelFilterArgParser)
 
 
 def main(args):
@@ -50,30 +50,6 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='initialize models')
-    parser.add_argument('--layers', type=int,
-                        help='number of layers', nargs='+')
-    parser.add_argument('--stacks', type=int,
-                        help='number of extra stacks', nargs='+')
-    parser.add_argument('--batchnorm', type=lambda x: bool(int(x)),
-                        help='batchnorm toggle', nargs='+')
-    parser.add_argument('--dropout', type=lambda x: bool(int(x)),
-                        help='dropout toggle', nargs='+')
-    parser.add_argument('--dropout-input', type=lambda x: bool(int(x)),
-                        help='dropout input layer toggle', nargs='+')
-    parser.add_argument('--batchsize', type=int,
-                        help='mini-batch size', nargs='+')
-    parser.add_argument('--features', type=lambda x: set(x.split(' ')),
-                        help='feature set', nargs='+')
-    parser.add_argument('--train-path',
-                        help='training dataset path', nargs='+')
-    parser.add_argument('--val-path',
-                        help='validation dataset path', nargs='+')
-    parser.add_argument('--dct', type=lambda x: bool(int(x)),
-                        help='dct context compression toggle', nargs='+')
-    parser.add_argument('--n-dct', type=int,
-                        help='number of coefficients for context', nargs='+')
-    parser.add_argument('--cuda', type=lambda x: bool(int(x)),
-                        help='cuda toggle', nargs='+')
-    args = parser.parse_args()
+    parser = ModelFilterArgParser(description='initialize models')
+    args, _ = parser.parse_args()
     main(args)

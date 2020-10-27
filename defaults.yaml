@@ -25,6 +25,7 @@ POST:
   FEATURES: !!set
     mfcc: null
   GLOBALSTANDARDIZATION: true
+  SAMESTANDARDIZATION: !!set {}
   LOAD: true
   PATH:
     TEST: data/processed/testing
