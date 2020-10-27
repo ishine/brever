@@ -130,6 +130,7 @@ arg_to_keys_map = {
     'dct': ['POST', 'DCT', 'ON'],
     'n_dct': ['POST', 'DCT', 'NCOEFF'],
     'cuda': ['MODEL', 'CUDA'],
+    'same_stats_features': ['POST', 'SAMESTANDARDIZATION'],
 }
 
 
@@ -253,6 +254,12 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=lambda x: bool(int(x)),
             nargs='+',
             help='dropout input layer toggle',
+        )
+        self.add_base_argument(
+            '--same-stats-features',
+            type=lambda x: set(x.split(' ')),
+            nargs='+',
+            help='features to uniformly standardize',
         )
 
 
