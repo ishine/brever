@@ -233,7 +233,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         )
         self.add_base_argument(
             '--dct',
-            type=int,
+            type=lambda x: bool(int(x)),
             nargs='+',
             help='dct toggle',
         )
