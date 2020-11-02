@@ -180,6 +180,13 @@ class ExtendableArgParser(argparse.ArgumentParser):
         return base_args, extra_args
 
 
+def arg_set_type(x):
+    output = set(x.split(' '))
+    if '' in output:
+        output.remove('')
+    return output
+
+
 class ModelFilterArgParser(ExtendableArgParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -215,7 +222,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         )
         self.add_base_argument(
             '--features',
-            type=lambda x: set(x.split(' ')),
+            type=arg_set_type,
             nargs='+',
             help='feature set',
         )
@@ -257,7 +264,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         )
         self.add_base_argument(
             '--same-stats-features',
-            type=lambda x: set(x.split(' ')),
+            type=arg_set_type,
             nargs='+',
             help='features to uniformly standardize',
         )
