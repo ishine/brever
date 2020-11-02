@@ -141,7 +141,7 @@ class LegendFormatter:
                 pass
 
 
-def main(models, dimensions, group_by, no_sort, filter_, legend):
+def main(models, dimensions, group_by, no_sort, filter_, legend, top):
     models = paths_to_dirnames(models)
     possible_models = find_model(**filter_)
     models = [model for model in models if model in possible_models]
@@ -156,14 +156,20 @@ def main(models, dimensions, group_by, no_sort, filter_, legend):
         groups = sort_groups_by_mean_pesq(groups)
     else:
         for dim in group_values[0].keys():
-            group_vals_sorted = sorted(group_values, key=lambda x: x[dim])
+            try:
+                group_vals_sorted = sorted(group_values, key=lambda x: x[dim])
+            except TypeError:
+                group_vals_sorted = sorted(group_values, key=lambda x: str(x[dim]))
             i_sorted = [group_values.index(val) for val in group_vals_sorted]
             groups = [groups[i] for i in i_sorted]
+
+    if top is not None:
+        groups = groups[-top:]
 
     snrs = [0, 3, 6, 9, 12, 15]
     room_names = ['A', 'B', 'C', 'D']
 
-    n = len(models)
+    n = sum(len(group) for group in groups)
     width = 1/(n+1)
 
     for ylabel, metric in zip(
@@ -239,9 +245,14 @@ if __name__ == '__main__':
                         help='disable sorting by mean score')
     parser.add_argument('--legend', nargs='+',
                         help='custom legend')
+    parser.add_argument('--top', type=int,
+                        help='only plot top best models')
     filter_args, args = parser.parse_args()
+
+    if filter_args.same_stats_features == [{''}]:
+        filter_args.same_stats_features == [set()]
 
     if len(args.input) == 1:
         args.input = glob(args.input[0])
     main(args.input, args.dims, args.group_by, args.no_sort, vars(filter_args),
-         args.legend)
+         args.legend, args.top)
