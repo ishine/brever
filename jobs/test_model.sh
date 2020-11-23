@@ -22,5 +22,10 @@ eval $(parse_yaml defaults.yaml)
 
 for input in "$@"
 do
-    bash jobs/send.sh jobs/job.sh 'python scripts/test_model.py '"$input$FORCE"'; matlab -nodisplay -nodesktop -nosplash -r "addpath matlab; addpath matlab/loizou; testModel '"$input $PRE_FS $PRE_MIXTURES_PADDING"'"; find '"$input"' -name "*.wav" -type f -delete'
+    if [ -f $input/pesq_scores.mat ] && [ "$FORCE" == "" ]
+    then
+        echo "model already tested: $input "
+    else
+        bash jobs/send.sh jobs/job.sh 'python scripts/test_model.py '"$input$FORCE"'; matlab -nodisplay -nodesktop -nosplash -r "addpath matlab; addpath matlab/loizou; testModel '"$input $PRE_FS $PRE_MIXTURES_PADDING"'"; find '"$input"' -name "*.wav" -type f -delete'
+    fi
 done

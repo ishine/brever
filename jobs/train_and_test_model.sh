@@ -22,8 +22,10 @@ eval $(parse_yaml defaults.yaml)
 
 for input in "$@"
 do
-    if [ ! -f $input/config_full.yaml ]
+    if [ -f $input/config_full.yaml ] && [ "$FORCE" == "" ]
     then
+        echo "model already trained: $input "
+    else
         bash jobs/send.sh jobs/job.sh 'python scripts/train_model.py '"$input$FORCE"'; python scripts/test_model.py '"$input$FORCE"'; matlab -nodisplay -nodesktop -nosplash -r "addpath matlab; addpath matlab/loizou; testModel '"$input $PRE_FS $PRE_MIXTURES_PADDING"'"; find '"$input"' -name "*.wav" -type f -delete'
     fi
 done
