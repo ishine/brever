@@ -24,8 +24,9 @@ POST:
   DECIMATION: 2
   FEATURES: !!set
     mfcc: null
-  GLOBALSTANDARDIZATION: true
-  SAMESTANDARDIZATION: !!set {}
+  STANDARDIZATION:
+    FILEBASED: false
+    UNIFORMFEATURES: !!set {}
   LOAD: true
   PATH:
     TEST: data/processed/testing

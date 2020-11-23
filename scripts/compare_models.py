@@ -249,8 +249,8 @@ if __name__ == '__main__':
                         help='only plot top best models')
     filter_args, args = parser.parse_args()
 
-    if filter_args.same_stats_features == [{''}]:
-        filter_args.same_stats_features == [set()]
+    if filter_args.uni_norm_features == [{''}]:
+        filter_args.uni_norm_features == [set()]
 
     if len(args.input) == 1:
         args.input = glob(args.input[0])

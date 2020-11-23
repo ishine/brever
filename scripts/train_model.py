@@ -2,7 +2,6 @@ import os
 import argparse
 import logging
 import time
-import pprint
 import json
 from glob import glob
 import sys
@@ -15,7 +14,6 @@ import torch
 from brever.config import defaults
 from brever.pytorchtools import (EarlyStopping, TensorStandardizer, H5Dataset,
                                  Feedforward, get_mean_and_std, evaluate)
-from brever.modelmanagement import get_feature_indices, get_file_indices
 
 
 def clear_logger():
@@ -87,6 +85,7 @@ def plot_losses(train_losses, val_losses, output_dir):
 def main(model_dir, force):
     logging.info(f'Processing {model_dir}')
 
+    # load config file
     config_file = os.path.join(model_dir, 'config.yaml')
     with open(config_file, 'r') as f:
         data = yaml.safe_load(f)
@@ -94,9 +93,9 @@ def main(model_dir, force):
     config.update(data)
 
     # check if model is already trained using directory contents
-    train_losses_path = os.path.join(model_dir, 'train_losses.npy')
-    val_losses_path = os.path.join(model_dir, 'val_losses.npy')
-    if os.path.exists(train_losses_path) and os.path.exists(val_losses_path):
+    train_loss_path = os.path.join(model_dir, 'train_losses.npy')
+    val_loss_path = os.path.join(model_dir, 'val_losses.npy')
+    if os.path.exists(train_loss_path) and os.path.exists(val_loss_path):
         if not force:
             logging.info('Model is already trained')
             return
@@ -106,7 +105,7 @@ def main(model_dir, force):
     set_logger(model_dir)
 
     # print model info
-    logging.info(pprint.pformat({
+    logging.info(yaml.dump({
         'POST': config.POST.to_dict(),
         'MODEL': config.MODEL.to_dict(),
     }))
@@ -117,43 +116,28 @@ def main(model_dir, force):
     # seed for reproducibility
     torch.manual_seed(0)
 
-    # get features indices from feature extractor instance
-    train_feature_indices = get_feature_indices(config.POST.PATH.TRAIN,
-                                                config.POST.FEATURES)
-    val_feature_indices = get_feature_indices(config.POST.PATH.VAL,
-                                              config.POST.FEATURES)
-
-    # get files indices from mixture info file
-    train_file_indices = get_file_indices(config.POST.PATH.TRAIN)
-    val_file_indices = get_file_indices(config.POST.PATH.VAL)
-
-    # load datasets and dataloaders
-    logging.info('Initializating dataloaders')
-    train_dataset_path = os.path.join(config.POST.PATH.TRAIN, 'dataset.hdf5')
-    val_dataset_path = os.path.join(config.POST.PATH.VAL, 'dataset.hdf5')
-
+    # initialize datasets
     train_dataset = H5Dataset(
-        filepath=train_dataset_path,
+        dirpath=config.POST.PATH.TRAIN,
+        features=config.POST.FEATURES,
         load=config.POST.LOAD,
         stack=config.POST.STACK,
         decimation=config.POST.DECIMATION,
-        feature_indices=train_feature_indices,
-        file_indices=train_file_indices,
         dct=config.POST.DCT.ON,
         n_dct=config.POST.DCT.NCOEFF,
     )
     val_dataset = H5Dataset(
-        filepath=val_dataset_path,
+        dirpath=config.POST.PATH.VAL,
+        features=config.POST.FEATURES,
         load=config.POST.LOAD,
         stack=config.POST.STACK,
         decimation=config.POST.DECIMATION,
-        feature_indices=val_feature_indices,
-        file_indices=val_file_indices,
         dct=config.POST.DCT.ON,
         n_dct=config.POST.DCT.NCOEFF,
     )
     logging.info(f'Number of features: {train_dataset.n_features}')
 
+    # initialize dataloaders
     train_dataloader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=config.MODEL.BATCHSIZE,
@@ -170,14 +154,14 @@ def main(model_dir, force):
     )
 
     # set normalization transform
-    if config.POST.GLOBALSTANDARDIZATION:
+    if config.POST.STANDARDIZATION.FILEBASED:
+        pass
+    else:
         logging.info('Calculating mean and std')
         mean, std = get_mean_and_std(
+            train_dataset,
             train_dataloader,
-            config.POST.LOAD,
-            config.POST.FEATURES,
-            train_feature_indices,
-            config.POST.SAMESTANDARDIZATION,
+            config.POST.STANDARDIZATION.UNIFORMFEATURES,
         )
         to_save = np.vstack((mean, std))
         stat_path = os.path.join(model_dir, 'statistics.npy')
@@ -186,16 +170,20 @@ def main(model_dir, force):
         val_dataset.transform = TensorStandardizer(mean, std)
 
     # initialize network
-    model = Feedforward(
-        input_size=train_dataset.n_features,
-        output_size=train_dataset.n_labels,
-        n_layers=config.MODEL.NLAYERS,
-        dropout_toggle=config.MODEL.DROPOUT.ON,
-        dropout_rate=config.MODEL.DROPOUT.RATE,
-        dropout_input=config.MODEL.DROPOUT.INPUT,
-        batchnorm_toggle=config.MODEL.BATCHNORM.ON,
-        batchnorm_momentum=config.MODEL.BATCHNORM.MOMENTUM,
-    )
+    model_args = {
+        'input_size': train_dataset.n_features,
+        'output_size': train_dataset.n_labels,
+        'n_layers': config.MODEL.NLAYERS,
+        'dropout_toggle': config.MODEL.DROPOUT.ON,
+        'dropout_rate': config.MODEL.DROPOUT.RATE,
+        'dropout_input': config.MODEL.DROPOUT.INPUT,
+        'batchnorm_toggle': config.MODEL.BATCHNORM.ON,
+        'batchnorm_momentum': config.MODEL.BATCHNORM.MOMENTUM,
+    }
+    model = Feedforward(**model_args)
+    model_args_path = os.path.join(model_dir, 'model_args.yaml')
+    with open(model_args_path, 'w') as f:
+        yaml.dump(model_args, f)
     if config.MODEL.CUDA:
         model = model.cuda()
 
@@ -207,7 +195,7 @@ def main(model_dir, force):
         weight_decay=config.MODEL.WEIGHTDECAY,
     )
 
-    # initialize early stopping object
+    # initialize early stopper
     early_stopping = EarlyStopping(
         patience=config.MODEL.EARLYSTOP.PATIENCE,
         verbose=config.MODEL.EARLYSTOP.VERBOSE,
@@ -230,7 +218,7 @@ def main(model_dir, force):
             cuda=config.MODEL.CUDA,
         )
 
-        # validate
+        # evaluate
         train_loss = evaluate(
             model=model,
             criterion=criterion,
@@ -269,22 +257,22 @@ def main(model_dir, force):
     plot_losses(train_losses, val_losses, model_dir)
 
     # save errors
-    np.save(train_losses_path, train_losses)
-    np.save(val_losses_path, val_losses)
+    np.save(train_loss_path, train_losses)
+    np.save(val_loss_path, val_losses)
 
-    # write full config
+    # write full config file
     full_config_file = os.path.join(model_dir, 'config_full.yaml')
     with open(full_config_file, 'w') as f:
         yaml.dump(config.to_dict(), f)
 
-    # close log file handler and rename model
+    # close log file handler
     clear_logger()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='train a model')
     parser.add_argument('input', nargs='+',
-                        help='input model directory')
+                        help='input model directories')
     parser.add_argument('-f', '--force', action='store_true',
                         help='train even if already trained')
     args = parser.parse_args()
@@ -294,7 +282,10 @@ if __name__ == '__main__':
         stream=sys.stdout,
     )
 
-    if len(args.input) == 1:
-        args.input = glob(args.input[0])
-    for dataset_dir in args.input:
-        main(dataset_dir, args.force)
+    model_dirs = []
+    for input_ in args.input:
+        if not glob(input_):
+            logging.info(f'Model not found: {input_}')
+        model_dirs += glob(input_)
+    for model_dir in model_dirs:
+        main(model_dir, args.force)

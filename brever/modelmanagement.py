@@ -68,32 +68,6 @@ def unflatten(keys, values):
     return output
 
 
-def get_feature_indices(train_path, features):
-    if isinstance(features, set):
-        features = sorted(features)
-    pipes_path = os.path.join(train_path, 'pipes.pkl')
-    with open(pipes_path, 'rb') as f:
-        featureExtractor = pickle.load(f)['featureExtractor']
-    names = featureExtractor.features
-    indices = featureExtractor.indices
-    indices_dict = {name: lims for name, lims in zip(names, indices)}
-    if 'itd_ic' in indices_dict.keys():
-        start, end = indices_dict.pop('itd_ic')
-        step = (end - start)//2
-        indices_dict['itd'] = (start, start+step)
-        indices_dict['ic'] = (start+step, end)
-    feature_indices = [indices_dict[feature] for feature in features]
-    return feature_indices
-
-
-def get_file_indices(train_path):
-    metadatas_path = os.path.join(train_path, 'mixture_info.json')
-    with open(metadatas_path, 'r') as f:
-        metadatas = json.load(f)
-        indices = [item['dataset_indices'] for item in metadatas]
-    return indices
-
-
 def set_dict_field(input_dict, key_list, value):
     dict_ = input_dict
     for key in key_list:
@@ -130,7 +104,7 @@ arg_to_keys_map = {
     'dct': ['POST', 'DCT', 'ON'],
     'n_dct': ['POST', 'DCT', 'NCOEFF'],
     'cuda': ['MODEL', 'CUDA'],
-    'same_stats_features': ['POST', 'SAMESTANDARDIZATION'],
+    'uni_norm_features': ['POST', 'STANDARDIZATION', 'UNIFORMFEATURES'],
 }
 
 
@@ -263,10 +237,10 @@ class ModelFilterArgParser(ExtendableArgParser):
             help='dropout input layer toggle',
         )
         self.add_base_argument(
-            '--same-stats-features',
+            '--uni-norm-features',
             type=arg_set_type,
             nargs='+',
-            help='features to uniformly standardize',
+            help='features to uniformly normalize',
         )
 
 

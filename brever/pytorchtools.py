@@ -1,16 +1,18 @@
+import os
+import logging
+import pickle
+import json
+
+import yaml
 import numpy as np
 import torch
 import h5py
-import os
-import logging
 
 from .utils import dct_compress
 
 
-def get_mean_and_std(dataloader, load, selected_features,
-                     selected_features_indices,
-                     same_standardization_features):
-    if load:
+def get_mean_and_std(dataset, dataloader, uniform_standardization_features):
+    if dataset.load:
         mean = dataloader.dataset[:][0].mean(axis=0)
         std = dataloader.dataset[:][0].std(axis=0)
     else:
@@ -24,17 +26,15 @@ def get_mean_and_std(dataloader, load, selected_features,
         var /= len(dataloader)
         std = var**0.5
         mean, std = mean.numpy(), std.numpy()
-    if isinstance(selected_features, set):
-        selected_features = sorted(selected_features)
-    for feature in same_standardization_features:
-        if feature not in selected_features:
-            raise ValueError(f'Same standardization feature {feature} is not '
-                             'in the list of selected features '
-                             f'{selected_features}')
+    for feature in uniform_standardization_features:
+        if feature not in dataset.features:
+            raise ValueError(f'Uniform standardization feature "{feature}"" '
+                             'is not in the list of selected features: '
+                             f'{dataset.features}')
     i_start = 0
-    for feature, indices in zip(selected_features, selected_features_indices):
+    for feature, indices in zip(dataset.features, dataset.feature_indices):
         i_start_dataset, i_end_dataset = indices
-        if feature in same_standardization_features:
+        if feature in uniform_standardization_features:
             i_end = i_start + i_end_dataset - i_start_dataset
             feature_mean = mean[i_start:i_end].mean()
             feature_std = np.sqrt(
@@ -122,24 +122,35 @@ class TensorStandardizer:
 
 
 class H5Dataset(torch.utils.data.Dataset):
-    def __init__(self, filepath, load=False, transform=None, stack=0,
-                 decimation=1, feature_indices=None, file_indices=None,
-                 dct=False, n_dct=5):
-        self.filepath = filepath
-        self.datasets = None
+    '''
+    Custom dataset class that loads HDF5 files created by create_dataset.py
+
+    Performs decimation, context stacking and feature selection
+
+    Inspired from an extensive discussion on the PyTorch forums about how to
+    efficiently implement HDF5 dataset classes:
+    https://discuss.pytorch.org/t/dataloader-when-num-worker-0-there-is-bug/25643/16,
+    '''
+    def __init__(self, dirpath, features, load=False, transform=None, stack=0,
+                 decimation=1, dct=False, n_dct=5):
+        self.dirpath = dirpath
+        self.features = sorted(features)
         self.load = load
         self.transform = transform
         self.stack = stack
         self.decimation = decimation
         self.dct = dct
         self.n_dct = n_dct
+        self.datasets = None
+        self.filepath = os.path.join(dirpath, 'dataset.hdf5')
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
             self.n_samples = len(f['features'])//decimation
-            if feature_indices is None:
+            if features is None:
                 self._n_current_features = f['features'].shape[1]
                 self.feature_indices = [(0, self._n_current_features)]
             else:
+                feature_indices = self.get_feature_indices()
                 self._n_current_features = sum(j-i for i, j in feature_indices)
                 self.feature_indices = feature_indices
             if dct:
@@ -148,9 +159,29 @@ class H5Dataset(torch.utils.data.Dataset):
             self.n_labels = f['labels'].shape[1]
             if self.load:
                 self.datasets = (f['features'][:], f['labels'][:])
-        if file_indices is None:
-            file_indices = [(0, self.n_samples)]
-        self.file_indices = file_indices
+        self.file_indices = self.get_file_indices()
+
+    def get_feature_indices(self):
+        pipes_path = os.path.join(self.dirpath, 'pipes.pkl')
+        with open(pipes_path, 'rb') as f:
+            featureExtractor = pickle.load(f)['featureExtractor']
+        names = featureExtractor.features
+        indices = featureExtractor.indices
+        indices_dict = {name: lims for name, lims in zip(names, indices)}
+        if 'itd_ic' in indices_dict.keys():
+            start, end = indices_dict.pop('itd_ic')
+            step = (end - start)//2
+            indices_dict['itd'] = (start, start+step)
+            indices_dict['ic'] = (start+step, end)
+        feature_indices = [indices_dict[feature] for feature in self.features]
+        return feature_indices
+
+    def get_file_indices(self):
+        metadatas_path = os.path.join(self.dirpath, 'mixture_info.json')
+        with open(metadatas_path, 'r') as f:
+            metadatas = json.load(f)
+            indices = [item['dataset_indices'] for item in metadatas]
+        return indices
 
     def __getitem__(self, index):
         if self.datasets is None:
@@ -214,28 +245,6 @@ class H5Dataset(torch.utils.data.Dataset):
         return self.n_samples
 
 
-class DummyH5Dataset(torch.utils.data.Dataset):
-    def __init__(self, filepath, load):
-        self.filepath = filepath
-        self.load = load
-        self.file = None
-        with h5py.File(filepath, 'r') as f:
-            self.n_samples = len(f['features'])
-            self.n_features = f['features'].shape[1]
-            self.n_labels = f['labels'].shape[1]
-
-    def __getitem__(self, index):
-        if self.file is None:
-            self.file = h5py.File(self.filepath, 'r')
-        return (
-            self.file['features'][index],
-            self.file['labels'][index],
-        )
-
-    def __len__(self):
-        return self.n_samples
-
-
 class Feedforward(torch.nn.Module):
     def __init__(self, input_size, output_size, n_layers, dropout_toggle,
                  dropout_rate, dropout_input, batchnorm_toggle,
@@ -255,6 +264,13 @@ class Feedforward(torch.nn.Module):
                 self.operations.append(torch.nn.Dropout(dropout_rate))
         self.operations.append(torch.nn.Linear(input_size, output_size))
         self.operations.append(torch.nn.Sigmoid())
+
+    @classmethod
+    def build(cls, args_path):
+        with open(args_path, 'r') as f:
+            arguments = yaml.safe_load(f)
+        model = cls(**arguments)
+        return model
 
     def forward(self, x):
         for operation in self.operations:

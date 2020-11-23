@@ -1,26 +1,18 @@
 import time
 import argparse
-import os
 
 import torch
 
 from brever.config import defaults
 from brever.pytorchtools import H5Dataset
-from brever.modelmanagement import get_feature_indices, get_file_indices
 
 
 def main(args):
-    dataset_path = os.path.join(args.input, 'dataset.hdf5')
-    feature_indices = get_feature_indices(args.input, args.features)
-    file_indices = get_file_indices(args.input)
-
     dataset = H5Dataset(
-        filepath=dataset_path,
+        firpath=args.input,
         load=args.load,
         stack=args.stacks,
         decimation=args.decimation,
-        feature_indices=feature_indices,
-        file_indices=file_indices,
     )
 
     dataloader = torch.utils.data.DataLoader(
