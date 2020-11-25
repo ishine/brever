@@ -10,7 +10,9 @@ import h5py
 import matplotlib.pyplot as plt
 
 from brever.config import defaults
-from brever.pytorchtools import Feedforward, H5Dataset, TensorStandardizer
+from brever.pytorchtools import (Feedforward, H5Dataset, TensorStandardizer,
+                                 get_files_mean_and_std,
+                                 StateTensorStandardizer)
 from brever.display import plot_spectrogram, share_clim
 
 
@@ -25,12 +27,6 @@ def main(args):
         data = yaml.safe_load(f)
     config = defaults()
     config.update(data)
-
-    # get mean and std
-    if config.POST.STANDARDIZATION.FILEBASED:
-        pass
-    else:
-        stat_path = os.path.join(args.input, 'statistics.npy')
 
     # initialize and load model
     model_args_path = os.path.join(args.input, 'model_args.yaml')
@@ -64,6 +60,7 @@ def main(args):
         decimation=1,  # there must not be decimation during testing
         dct=config.POST.DCT.ON,
         n_dct=config.POST.DCT.NCOEFF,
+        file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
     )
     test_dataloader = torch.utils.data.DataLoader(
         dataset=test_dataset,
@@ -75,7 +72,14 @@ def main(args):
 
     # set normalization
     if config.POST.STANDARDIZATION.FILEBASED:
-        pass
+        test_means, test_stds = get_files_mean_and_std(
+            test_dataset,
+            config.POST.STANDARDIZATION.UNIFORMFEATURES,
+        )
+        test_dataset.transform = StateTensorStandardizer(
+            test_means,
+            test_stds,
+        )
     else:
         stat_path = os.path.join(args.input, 'statistics.npy')
         mean, std = np.load(stat_path)
