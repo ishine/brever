@@ -105,6 +105,7 @@ arg_to_keys_map = {
     'n_dct': ['POST', 'DCT', 'NCOEFF'],
     'cuda': ['MODEL', 'CUDA'],
     'uni_norm_features': ['POST', 'STANDARDIZATION', 'UNIFORMFEATURES'],
+    'file_based_norm': ['POST', 'STANDARDIZATION', 'FILEBASED'],
 }
 
 
@@ -241,6 +242,12 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=arg_set_type,
             nargs='+',
             help='features to uniformly normalize',
+        )
+        self.add_base_argument(
+            '--file-based-norm',
+            type=lambda x: bool(int(x)),
+            nargs='+',
+            help='file-based normalization toggle',
         )
 
 

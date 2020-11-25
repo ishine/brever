@@ -12,8 +12,10 @@ import matplotlib.pyplot as plt
 import torch
 
 from brever.config import defaults
-from brever.pytorchtools import (EarlyStopping, TensorStandardizer, H5Dataset,
-                                 Feedforward, get_mean_and_std, evaluate)
+from brever.pytorchtools import (EarlyStopping, TensorStandardizer,
+                                 StateTensorStandardizer, H5Dataset,
+                                 Feedforward, evaluate, get_mean_and_std,
+                                 get_files_mean_and_std)
 
 
 def clear_logger():
@@ -125,6 +127,7 @@ def main(model_dir, force):
         decimation=config.POST.DECIMATION,
         dct=config.POST.DCT.ON,
         n_dct=config.POST.DCT.NCOEFF,
+        file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
     )
     val_dataset = H5Dataset(
         dirpath=config.POST.PATH.VAL,
@@ -134,6 +137,7 @@ def main(model_dir, force):
         decimation=config.POST.DECIMATION,
         dct=config.POST.DCT.ON,
         n_dct=config.POST.DCT.NCOEFF,
+        file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
     )
     logging.info(f'Number of features: {train_dataset.n_features}')
 
@@ -154,10 +158,25 @@ def main(model_dir, force):
     )
 
     # set normalization transform
+    logging.info('Calculating mean and std')
     if config.POST.STANDARDIZATION.FILEBASED:
-        pass
+        train_means, train_stds = get_files_mean_and_std(
+            train_dataset,
+            config.POST.STANDARDIZATION.UNIFORMFEATURES,
+        )
+        train_dataset.transform = StateTensorStandardizer(
+            train_means,
+            train_stds,
+        )
+        val_means, val_stds = get_files_mean_and_std(
+            val_dataset,
+            config.POST.STANDARDIZATION.UNIFORMFEATURES,
+        )
+        val_dataset.transform = StateTensorStandardizer(
+            val_means,
+            val_stds,
+        )
     else:
-        logging.info('Calculating mean and std')
         mean, std = get_mean_and_std(
             train_dataset,
             train_dataloader,

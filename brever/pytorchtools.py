@@ -11,10 +11,10 @@ import h5py
 from .utils import dct_compress
 
 
-def get_mean_and_std(dataset, dataloader, uniform_standardization_features):
+def get_mean_and_std(dataset, dataloader, uniform_stats_features):
     if dataset.load:
-        mean = dataloader.dataset[:][0].mean(axis=0)
-        std = dataloader.dataset[:][0].std(axis=0)
+        mean = dataset[:][0].mean(axis=0)
+        std = dataset[:][0].std(axis=0)
     else:
         mean = 0
         for data, _ in dataloader:
@@ -26,16 +26,38 @@ def get_mean_and_std(dataset, dataloader, uniform_standardization_features):
         var /= len(dataloader)
         std = var**0.5
         mean, std = mean.numpy(), std.numpy()
-    for feature in uniform_standardization_features:
+    for feature in uniform_stats_features:
         if feature not in dataset.features:
             raise ValueError(f'Uniform standardization feature "{feature}"" '
                              'is not in the list of selected features: '
                              f'{dataset.features}')
+    mean, std = unify_stats(mean, std, dataset, uniform_stats_features)
+    return mean, std
+
+
+def get_files_mean_and_std(dataset, uniform_stats_features):
+    means = []
+    stds = []
+    for i_start, i_end in dataset.file_indices:
+        i_start = i_start // dataset.decimation
+        i_end = i_end // dataset.decimation
+        features, _ = dataset[i_start:i_end]
+        mean = features.mean(axis=0)
+        std = features.std(axis=0)
+        mean, std = unify_stats(mean, std, dataset, uniform_stats_features)
+        means.append(mean)
+        stds.append(std)
+    return means, stds
+
+
+def unify_stats(mean, std, dataset, uniform_stats_features):
     i_start = 0
     for feature, indices in zip(dataset.features, dataset.feature_indices):
         i_start_dataset, i_end_dataset = indices
-        if feature in uniform_standardization_features:
-            i_end = i_start + i_end_dataset - i_start_dataset
+        # i_start is the starting feature index in the stats vector
+        # i_start_dataset is the starting feature index in the dataset
+        i_end = i_start + i_end_dataset - i_start_dataset
+        if feature in uniform_stats_features:
             feature_mean = mean[i_start:i_end].mean()
             feature_std = np.sqrt(
                 np.mean(std[i_start:i_end]**2)
@@ -44,8 +66,7 @@ def get_mean_and_std(dataset, dataloader, uniform_standardization_features):
             )
             mean[i_start:i_end] = feature_mean
             std[i_start:i_end] = feature_std
-        else:
-            i_start += i_end_dataset - i_start_dataset
+        i_start = i_end
     return mean, std
 
 
@@ -113,12 +134,27 @@ class EarlyStopping:
 
 
 class TensorStandardizer:
-    def __init__(self, mean=None, std=None):
+    def __init__(self, mean, std):
         self.mean = mean
         self.std = std
 
     def __call__(self, data):
         return (data - self.mean)/self.std
+
+
+class StateTensorStandardizer:
+    def __init__(self, means, stds, state=0):
+        self.means = means
+        self.stds = stds
+        self.state = 0
+
+    def set_state(self, state):
+        self.state = state
+
+    def __call__(self, data):
+        mean = self.means[self.state]
+        std = self.stds[self.state]
+        return (data - mean)/std
 
 
 class H5Dataset(torch.utils.data.Dataset):
@@ -132,7 +168,7 @@ class H5Dataset(torch.utils.data.Dataset):
     https://discuss.pytorch.org/t/dataloader-when-num-worker-0-there-is-bug/25643/16,
     '''
     def __init__(self, dirpath, features, load=False, transform=None, stack=0,
-                 decimation=1, dct=False, n_dct=5):
+                 decimation=1, dct=False, n_dct=5, file_based_stats=False):
         self.dirpath = dirpath
         self.features = sorted(features)
         self.load = load
@@ -141,6 +177,7 @@ class H5Dataset(torch.utils.data.Dataset):
         self.decimation = decimation
         self.dct = dct
         self.n_dct = n_dct
+        self.file_based_stats = file_based_stats
         self.datasets = None
         self.filepath = os.path.join(dirpath, 'dataset.hdf5')
         with h5py.File(self.filepath, 'r') as f:
@@ -183,6 +220,18 @@ class H5Dataset(torch.utils.data.Dataset):
             indices = [item['dataset_indices'] for item in metadatas]
         return indices
 
+    def get_file_number(self, index, decimate=True):
+        if decimate:
+            index *= self.decimation
+        broken = False
+        for j, (i_start, i_end) in enumerate(self.file_indices):
+            if i_start <= index < i_end:
+                broken = True
+                break
+        if not broken:
+            raise ValueError(f'Could not find file indices for index {index}')
+        return j
+
     def __getitem__(self, index):
         if self.datasets is None:
             f = h5py.File(self.filepath, 'r')
@@ -202,21 +251,16 @@ class H5Dataset(torch.utils.data.Dataset):
                 x[i_:j_] = self.datasets[0][index, i:j]
                 count = j_
             # frames at previous time indexes
+            if self.stack > 0 or (self.transform and self.file_based_stats):
+                file_num = self.get_file_number(index, decimate=False)
             if self.stack > 0:
                 x_context = np.empty((self.stack, self._n_current_features))
-                # first check if a file starts during delay window
-                index_min = index-self.stack
-                for i_file, _ in self.file_indices:
-                    if index_min < i_file <= index:
-                        index_min = i_file
-                        break
-                    # stop searching if current time index is reached
-                    elif i_file > index:
-                        break
+                # first find the starting index of the current file
+                i_file_start, _ = self.file_indices[file_num]
                 # then add context stacking
                 for k in range(self.stack):
                     # if context overlaps previous file then replicate
-                    index_lag = max(index-k-1, index_min)
+                    index_lag = max(index-k-1, i_file_start)
                     count_context_k = 0
                     for i, j in self.feature_indices:
                         i_ = count_context_k
@@ -228,6 +272,8 @@ class H5Dataset(torch.utils.data.Dataset):
                     x_context = dct_compress(x_context, self.n_dct)
                 x[count:] = x_context.flatten()
             if self.transform:
+                if self.file_based_stats:
+                    self.transform.set_state(file_num)
                 x = self.transform(x)
             y = self.datasets[1][index]
         elif isinstance(index, slice):
