@@ -15,7 +15,8 @@ import soundfile as sf
 from brever.config import defaults
 from brever.utils import wola
 from brever.pytorchtools import (Feedforward, H5Dataset, TensorStandardizer,
-                                 evaluate)
+                                 evaluate, get_files_mean_and_std,
+                                 StateTensorStandardizer)
 
 
 def main(model_dir, force):
@@ -108,7 +109,14 @@ def main(model_dir, force):
                 drop_last=True,
             )
             if config.POST.STANDARDIZATION.FILEBASED:
-                pass
+                test_means, test_stds = get_files_mean_and_std(
+                    test_dataset,
+                    config.POST.STANDARDIZATION.UNIFORMFEATURES,
+                )
+                test_dataset.transform = StateTensorStandardizer(
+                    test_means,
+                    test_stds,
+                )
             else:
                 test_dataset.transform = TensorStandardizer(mean, std)
             logging.info('Calculating MSE...')
