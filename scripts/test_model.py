@@ -63,6 +63,8 @@ def main(model_dir, force):
     model = Feedforward.build(model_args_path)
     state_file = os.path.join(model_dir, 'checkpoint.pt')
     model.load_state_dict(torch.load(state_file))
+    if config.MODEL.CUDA:
+        model = model.cuda()
 
     # initialize criterion
     criterion = getattr(torch.nn, config.MODEL.CRITERION)()

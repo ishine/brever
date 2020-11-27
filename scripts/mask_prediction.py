@@ -33,6 +33,8 @@ def main(args):
     model = Feedforward.build(model_args_path)
     state_file = os.path.join(args.input, 'checkpoint.pt')
     model.load_state_dict(torch.load(state_file, map_location='cpu'))
+    if config.MODEL.CUDA:
+        model = model.cuda()
 
     # get dataset path
     if args.dataset is None:
