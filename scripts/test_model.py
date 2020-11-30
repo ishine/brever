@@ -19,7 +19,7 @@ from brever.pytorchtools import (Feedforward, H5Dataset, TensorStandardizer,
                                  StateTensorStandardizer)
 
 
-def main(model_dir, force):
+def main(model_dir, force, no_cuda):
     logging.info(f'Processing {model_dir}')
 
     # check if model is already tested
@@ -62,8 +62,8 @@ def main(model_dir, force):
     model_args_path = os.path.join(model_dir, 'model_args.yaml')
     model = Feedforward.build(model_args_path)
     state_file = os.path.join(model_dir, 'checkpoint.pt')
-    model.load_state_dict(torch.load(state_file))
-    if config.MODEL.CUDA:
+    model.load_state_dict(torch.load(state_file, map_location='cpu'))
+    if config.MODEL.CUDA and not no_cuda:
         model = model.cuda()
 
     # initialize criterion
@@ -128,7 +128,7 @@ def main(model_dir, force):
                 criterion=criterion,
                 dataloader=test_dataloader,
                 load=config.POST.LOAD,
-                cuda=config.MODEL.CUDA,
+                cuda=config.MODEL.CUDA and not no_cuda,
             )
 
             # enhance mixtures for PESQ calculation
@@ -155,14 +155,14 @@ def main(model_dir, force):
                     # extract features
                     features, _ = test_dataset[i_start:i_end]
                     features = torch.from_numpy(features).float()
-                    if config.MODEL.CUDA:
+                    if config.MODEL.CUDA and not no_cuda:
                         features = features.cuda()
 
                     # make mask prediction
                     model.eval()
                     with torch.no_grad():
                         PRM = model(features)
-                        if config.MODEL.CUDA:
+                        if config.MODEL.CUDA and not no_cuda:
                             PRM = PRM.cpu()
                         PRM = PRM.numpy()
 
@@ -223,6 +223,8 @@ if __name__ == '__main__':
                         help='input model directories')
     parser.add_argument('-f', '--force', action='store_true',
                         help='test even if already tested')
+    parser.add_argument('--no-cuda', action='store_true',
+                        help='force testing on cpu')
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -237,4 +239,4 @@ if __name__ == '__main__':
             logging.info(f'Model not found: {input_}')
         model_dirs += glob(input_)
     for model_dir in model_dirs:
-        main(model_dir, args.force)
+        main(model_dir, args.force, args.no_cuda)
