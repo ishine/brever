@@ -327,3 +327,38 @@ def dct_compress(x, N):
     dct_matrix = np.cos(np.pi*np.outer(np.arange(1, N+1), np.arange(L)+0.5)/L)
     y = dct_matrix@x
     return y
+
+
+def segmental_scores(*args, frame_length=160, hop_length=160, DRdB=45):
+    if len(args) % 2 != 0:
+        raise ValueError(('odd number of arguments; arguments should come as '
+                          'a list of alternated reference and enhanced '
+                          'signals, e.g. segmental_scores(x_ref, x_hat, '
+                          'y_ref, y_hat, ...), and the first pair of signals '
+                          'should be the reference and enhanced target speech '
+                          'signals'))
+    if any(arg.ndim > 2 for arg in args):
+        raise ValueError('inputs must be at most 2-dimensional')
+    if any(arg.ndim == 0 for arg in args):
+        raise ValueError('got a 0-dimensional input')
+    args = list(args)
+    for i, arg in enumerate(args):
+        if arg.ndim == 2:
+            arg = arg.mean(axis=1)
+        arg = frame(arg, frame_length=frame_length, hop_length=hop_length,
+                    window='boxcar')
+        if i == 0:
+            activity = 10*np.log10(np.sum(arg**2, axis=1) + 1e-10)
+            activity = (activity - activity.max()) > -abs(DRdB)
+        args[i] = arg[activity, :]
+    output = []
+    for i in range(len(args)//2):
+        ref, hat = args[2*i], args[2*i+1]
+        if i == 0:
+            hat = ref - hat
+        score = np.mean(10*np.log10(
+            (np.sum(ref**2, axis=1) + 1e-10) /
+            (np.sum(hat**2, axis=1) + 1e-10)
+        ))
+        output.append(score)
+    return output

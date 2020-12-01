@@ -79,7 +79,7 @@ def group_by_dimension(models, values, dimension):
     return groups, group_outer_values
 
 
-def load_pesq_and_mse(groups):
+def load_scores(groups):
     for group in groups:
         for i in range(len(group)):
             model = group[i]['model']
@@ -87,8 +87,18 @@ def load_pesq_and_mse(groups):
             pesq = scipy.io.loadmat(pesq_filepath)['scores']
             mse_filepath = os.path.join('models', model, 'mse_scores.npy')
             mse = np.load(mse_filepath)
+            seg_filepath = os.path.join('models', model, 'seg_scores.npy')
+            seg = np.load(seg_filepath)
+            segSSNR = seg[:, :, :, 0]
+            segBR = seg[:, :, :, 1]
+            segNR = seg[:, :, :, 2]
+            segRR = seg[:, :, :, 3]
             group[i]['pesq'] = pesq
             group[i]['mse'] = mse
+            group[i]['segSSNR'] = segSSNR
+            group[i]['segBR'] = segBR
+            group[i]['segNR'] = segNR
+            group[i]['segRR'] = segRR
 
 
 def sort_groups_by_mean_pesq(groups):
@@ -151,7 +161,7 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top):
 
     models, values = check_models(models, dimensions)
     groups, group_values = group_by_dimension(models, values, group_by)
-    load_pesq_and_mse(groups)
+    load_scores(groups)
     if not no_sort:
         groups = sort_groups_by_mean_pesq(groups)
     else:
@@ -173,8 +183,8 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top):
     width = 1/(n+1)
 
     for ylabel, metric in zip(
-                ['MSE', r'$\Delta PESQ$'],
-                ['mse', 'pesq'],
+                ['MSE', r'$\Delta PESQ$', 'segSSNR', 'segBR', 'segNR', 'segRR'],
+                ['mse', 'pesq', 'segSSNR', 'segBR', 'segNR', 'segRR'],
             ):
         fig, axes = plt.subplots(1, 2, sharey=True)
         for axis, (ax, xticklabels, xlabel) in enumerate(zip(
@@ -192,7 +202,7 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top):
                         mean = data.mean(axis=axis)
                         mean = np.hstack((mean, data.mean()))
                         err = None
-                    elif metric == 'pesq':
+                    else:
                         mean = data.mean(axis=(axis, -1))
                         mean = np.hstack((mean, data.mean()))
                         err = data.std(axis=(axis, -1))

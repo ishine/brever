@@ -13,7 +13,7 @@ import h5py
 import soundfile as sf
 
 from brever.config import defaults
-from brever.utils import wola
+from brever.utils import wola, segmental_scores
 from brever.pytorchtools import (Feedforward, H5Dataset, TensorStandardizer,
                                  evaluate, get_files_mean_and_std,
                                  StateTensorStandardizer)
@@ -85,7 +85,8 @@ def main(model_dir, force, no_cuda):
         'surrey_room_c',
         'surrey_room_d',
     ]
-    MSE = np.zeros((len(snrs), len(room_aliases)))
+    MSE = np.empty((len(snrs), len(room_aliases)))
+    seg_scores = np.empty((len(snrs), len(room_aliases)), dtype=object)
     for i, snr in enumerate(snrs):
         for j, room_alias in enumerate(room_aliases):
             # build dataset directory name
@@ -134,23 +135,33 @@ def main(model_dir, force, no_cuda):
             # enhance mixtures for PESQ calculation
             with h5py.File(test_dataset.filepath, 'r') as f:
                 n = len(f['mixtures'])
+                seg_scores_i_j = np.zeros((n, 4))
                 for k in range(n):
                     logging.info(f'Enhancing mixture {k}/{n}...')
 
                     # load mixture
                     mixture = f['mixtures'][k].reshape(-1, 2)
                     foreground = f['foregrounds'][k].reshape(-1, 2)
+                    background = f['backgrounds'][k].reshape(-1, 2)
+                    noise = f['noises'][k].reshape(-1, 2)
+                    reverb = f['reverbs'][k].reshape(-1, 2)
                     i_start, i_end = test_dataset.file_indices[k]
 
                     # scale signal
                     scaler.fit(mixture)
                     mixture = scaler.scale(mixture)
                     foreground = scaler.scale(foreground)
+                    background = scaler.scale(background)
+                    noise = scaler.scale(noise)
+                    reverb = scaler.scale(reverb)
                     scaler.__init__(scaler.active)
 
                     # apply filterbank
                     mixture_filt = filterbank.filt(mixture)
                     foreground_filt = filterbank.filt(foreground)
+                    background_filt = filterbank.filt(background)
+                    noise_filt = filterbank.filt(noise)
+                    reverb_filt = filterbank.filt(reverb)
 
                     # extract features
                     features, _ = test_dataset[i_start:i_end]
@@ -166,11 +177,35 @@ def main(model_dir, force, no_cuda):
                             PRM = PRM.cpu()
                         PRM = PRM.numpy()
 
-                    # apply predicted mask
-                    PRM_ = wola(PRM, trim=len(mixture_filt))[:, :, np.newaxis]
-                    mixture_enhanced = filterbank.rfilt(mixture_filt*PRM_)
+                    # extrapolate predicted mask
+                    PRM = wola(PRM, trim=len(mixture_filt))[:, :, np.newaxis]
+
+                    # apply predicted mask and shadow filter
+                    mixture_enhanced = filterbank.rfilt(mixture_filt*PRM)
+                    foreground_enhanced = filterbank.rfilt(foreground_filt*PRM)
+                    background_enhanced = filterbank.rfilt(background_filt*PRM)
+                    noise_enhanced = filterbank.rfilt(noise_filt*PRM)
+                    reverb_enhanced = filterbank.rfilt(reverb_filt*PRM)
+
+                    # make reference signals
                     mixture_ref = filterbank.rfilt(mixture_filt)
                     foreground_ref = filterbank.rfilt(foreground_filt)
+                    background_ref = filterbank.rfilt(background_filt)
+                    noise_ref = filterbank.rfilt(noise_filt)
+                    reverb_ref = filterbank.rfilt(reverb_filt)
+
+                    # segmental SNRs
+                    segSSNR, segBR, segNR, segRR = segmental_scores(
+                        foreground_ref,
+                        foreground_enhanced,
+                        background_ref,
+                        background_enhanced,
+                        noise_ref,
+                        noise_enhanced,
+                        reverb_ref,
+                        reverb_enhanced,
+                    )
+                    seg_scores_i_j[k, :] = segSSNR, segBR, segNR, segRR
 
                     # write mixtures
                     gain = 1/mixture.max()
@@ -193,8 +228,12 @@ def main(model_dir, force, no_cuda):
                         config.PRE.FS,
                     )
 
-    # save MSE
+            seg_scores[i, j] = seg_scores_i_j
+    seg_scores = np.array(seg_scores.tolist())
+
+    # save MSE and segmental scores
     np.save(os.path.join(model_dir, 'mse_scores.npy'), MSE)
+    np.save(os.path.join(model_dir, 'seg_scores.npy'), seg_scores)
 
     # calculate PESQ on matlab
     try:

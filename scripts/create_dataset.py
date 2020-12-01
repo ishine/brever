@@ -154,6 +154,8 @@ def main(dataset_dir, force):
     mixtures = []
     foregrounds = []
     backgrounds = []
+    noises = []
+    reverbs = []
     metadatas = []
     i_start = 0
     total_time = 0
@@ -184,6 +186,8 @@ def main(dataset_dir, force):
             mixtures.append(mixture.flatten())
             foregrounds.append(foreground.flatten())
             backgrounds.append(background.flatten())
+            noises.append(mixtureObject.noise.flatten())
+            reverbs.append(mixtureObject.late_target.flatten())
         if i in examples_index:
             examples.append(mixture.flatten())
 
@@ -233,6 +237,10 @@ def main(dataset_dir, force):
             f.create_dataset('foregrounds', data=np.array(foregrounds, dtype=object),
                              dtype=h5py.vlen_dtype(float))
             f.create_dataset('backgrounds', data=np.array(backgrounds, dtype=object),
+                             dtype=h5py.vlen_dtype(float))
+            f.create_dataset('noises', data=np.array(noises, dtype=object),
+                             dtype=h5py.vlen_dtype(float))
+            f.create_dataset('reverbs', data=np.array(reverbs, dtype=object),
                              dtype=h5py.vlen_dtype(float))
 
     # save mixtures metadata
