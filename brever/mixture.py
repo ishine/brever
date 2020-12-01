@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.signal
 
-from .utils import zero_pad, fft_freqs, rms
+from .utils import pad, fft_freqs, rms
 
 
 def spatialize(x, brir):
@@ -223,15 +223,15 @@ class Mixture:
     def __len__(self):
         return len(self.early_target)
 
-    def add_target(self, x, brir, rb, pad, fs):
+    def add_target(self, x, brir, rb, t_pad, fs):
         brir_early, brir_late = split_brir(brir, rb, fs)
-        n_pad = round(pad*fs)
+        n_pad = round(t_pad*fs)
         self.target_indices = (n_pad, n_pad+len(x))
-        x = zero_pad(x, n_pad, 'both')
+        x = pad(x, n_pad, 'both')
         self.early_target = spatialize(x, brir_early)
         self.late_target = spatialize(x, brir_late)
-        self.early_target = zero_pad(self.early_target, n_pad, 'both')
-        self.late_target = zero_pad(self.late_target, n_pad, 'both')
+        self.early_target = pad(self.early_target, n_pad, 'both')
+        self.late_target = pad(self.late_target, n_pad, 'both')
 
     def add_directional_noises(self, xs, brirs):
         if len(xs) != len(brirs):
