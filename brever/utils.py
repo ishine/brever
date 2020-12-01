@@ -415,8 +415,8 @@ def segmental_scores(*args, frame_length=160, hop_length=160, DRdB=45):
 
     Calculates a segmental speech signal-to-noise ratio (segSSNR) score and as
     many segmental noise reduction (segNR) scores as extra pairs of signals
-    provided. A voice activity detection (VAD) is perform on the first argument
-    to filter the frames over which the scores are averaged.
+    provided. A voice activity detection (VAD) is performed on the first
+    argument to filter the frames over which the scores are averaged.
 
     Parameters
     ----------
