@@ -91,7 +91,7 @@ if __name__ == '__main__':
                         help='dataset alias')
     parser.add_argument('-f', '--force', action='store_true',
                         help='overwrite config file if already exists')
-    parser.add_argument('--dirpath-target', '--force', action='store_true',
+    parser.add_argument('--dirpath-target',
                         help='path to target speech database')
     args = parser.parse_args()
     main(args.alias, args.force, args.dirpath_target)
