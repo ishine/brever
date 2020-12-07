@@ -120,26 +120,31 @@ def paths_to_dirnames(paths):
 
 
 class LegendFormatter:
-    def __init__(self, figure):
+    def __init__(self, figure, lh=None):
         self.figure = figure
-        self.lh = figure.legend(loc=9)
-        self.showed = False
+        self.input_lh = lh
+        if self.input_lh is None:
+            self.lh = figure.legend(loc=9)
+        else:
+            self.lh = self.input_lh
         self.figure.canvas.mpl_connect('draw_event', self)
         self.figure.canvas.mpl_connect('resize_event', self)
 
     def __call__(self, event):
         if self.figure._cachedRenderer is None:
             return
-        if event.name == 'draw_event' and self.showed:
-            return
-        self.showed = True
         lbbox = self.lh.get_window_extent()
         fig_width = self.figure.get_figwidth()*self.figure.dpi
         ncol = int(fig_width//(lbbox.width/self.lh._ncol))
         ncol = min(ncol, len(self.lh.legendHandles))
         if ncol != self.lh._ncol:
             self.lh.remove()
-            self.lh = self.figure.legend(loc=9, ncol=ncol)
+            if self.input_lh is None:
+                self.lh = self.figure.legend(loc=9, ncol=ncol)
+            else:
+                handles = self.input_lh.legendHandles
+                labels = [text.get_text() for text in self.input_lh.texts]
+                self.lh = self.figure.legend(handles, labels, loc=9, ncol=ncol)
             self(event)
         else:
             fig_height = self.figure.get_figheight()*self.figure.dpi
@@ -181,7 +186,8 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top):
 
     n = sum(len(group) for group in groups)
     width = 1/(n+1)
-
+    color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    hatch_cycle = ['', '////', '\\\\\\', 'xxxx']
     for ylabel, metric in zip(
                 ['MSE', r'$\Delta PESQ$', 'segSSNR', 'segBR', 'segNR', 'segRR'],
                 ['mse', 'pesq', 'segSSNR', 'segBR', 'segNR', 'segRR'],
@@ -193,10 +199,10 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top):
                     ['Room', 'SNR (dB)'],
                 )):
             model_count = 0
-            color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
-            hatch_cycle = ['', '////', '\\\\\\', 'xxxx']
             for i, group in enumerate(groups):
+                color = color_cycle[i % len(color_cycle)]
                 for j, model in enumerate(group):
+                    hatch = hatch_cycle[j % len(hatch_cycle)]
                     data = model[metric]
                     if metric == 'mse':
                         mean = data.mean(axis=axis)
@@ -218,15 +224,8 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top):
                         label = None
                     x = np.arange(len(mean)) + (model_count - (n-1)/2)*width
                     x[-1] = x[-1] + 2*width
-                    ax.bar(
-                        x=x,
-                        height=mean,
-                        width=width,
-                        label=label,
-                        color=color_cycle[i % len(color_cycle)],
-                        hatch=hatch_cycle[j % len(hatch_cycle)],
-                        yerr=err,
-                    )
+                    ax.bar(x=x, height=mean, width=width, label=label,
+                           color=color, hatch=hatch, yerr=err)
                     model_count += 1
             xticks = np.arange(len(xticklabels) + 1, dtype=float)
             xticks[-1] = xticks[-1] + 2*width
@@ -235,8 +234,46 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top):
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
             ax.yaxis.set_tick_params(labelleft=True)
-
         LegendFormatter(fig)
+
+    symbols = ['o', 's', '^', 'v', '<', '>']
+    fig, axes = plt.subplots(1, 2)
+    fig_legend_handles = []
+    fig_legend_labels = []
+    for axis, (ax, labels) in enumerate(zip(
+                axes[::-1],
+                [room_names, snrs],
+            )):
+        ax_legend_handles = []
+        ax_legend_labels = []
+        for i, group in enumerate(groups):
+            color = color_cycle[i % len(color_cycle)]
+            for j, model in enumerate(group):
+                x = model['segBR'].mean(axis=(axis, -1))
+                y = model['segSSNR'].mean(axis=(axis, -1))
+                line, = ax.plot(x, y, linestyle='--',
+                                color=color)
+                if axis == 0:
+                    fig_legend_handles.append(line)
+                    fig_legend_labels.append(f'{model["val"]}')
+                for k, (x_, y_) in enumerate(zip(x, y)):
+                    ax.plot(x_, y_, marker=symbols[k], markersize=10,
+                            linestyle='', color=color)
+                    if i == j == 0:
+                        dummy_line, = ax.plot([], [], marker=symbols[k],
+                                              markersize=10, linestyle='',
+                                              color='k')
+                        ax_legend_handles.append(dummy_line)
+                        if axis == 0:
+                            label = f'room {labels[k]}'
+                        else:
+                            label = f'SNR = {labels[k]} dB'
+                        ax_legend_labels.append(label)
+        ax.legend(ax_legend_handles, ax_legend_labels)
+        ax.set_xlabel('segBR (dB)')
+        ax.set_ylabel('segSSNR (dB)')
+    lh = fig.legend(fig_legend_handles, fig_legend_labels)
+    LegendFormatter(fig, lh)
 
     plt.show()
 

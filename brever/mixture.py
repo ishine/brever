@@ -227,11 +227,11 @@ class Mixture:
         brir_early, brir_late = split_brir(brir, rb, fs)
         n_pad = round(t_pad*fs)
         self.target_indices = (n_pad, n_pad+len(x))
-        x = pad(x, n_pad, 'both')
+        x = pad(x, n_pad, where='both')
         self.early_target = spatialize(x, brir_early)
         self.late_target = spatialize(x, brir_late)
-        self.early_target = pad(self.early_target, n_pad, 'both')
-        self.late_target = pad(self.late_target, n_pad, 'both')
+        self.early_target = pad(self.early_target, n_pad, where='both')
+        self.late_target = pad(self.late_target, n_pad, where='both')
 
     def add_directional_noises(self, xs, brirs):
         if len(xs) != len(brirs):

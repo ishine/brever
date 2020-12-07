@@ -6,12 +6,8 @@ import numpy as np
 import soundfile as sf
 import scipy.signal
 
-from brever.config import defaults
 
-
-def main(plot):
-    config = defaults()
-    timit_dirpath = config.PRE.MIXTURES.PATH.TIMIT
+def main(timit_dirpath, plot):
     all_filepaths = []
     for root, dirs, files in os.walk(timit_dirpath):
         for file in files:
@@ -55,7 +51,9 @@ def main(plot):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='calculate timit ltas')
+    parser.add_argument('timit_dirpath',
+                        help='path to TIMIT folder in filesystem')
     parser.add_argument('--plot', action='store_true',
                         help='plot ltas and smoothing function')
     args = parser.parse_args()
-    main(args.plot)
+    main(args.timit_dirpath, args.plot)

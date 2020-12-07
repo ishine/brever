@@ -140,7 +140,7 @@ class RandomMixtureMaker:
                  directional_noise_numbers, directional_noise_types,
                  directional_noise_angles, directional_noise_snrs,
                  diffuse_noise_on, diffuse_noise_color, diffuse_noise_ltas_eq,
-                 mixture_pad, mixture_rb, mixture_rms_jitter, path_timit,
+                 mixture_pad, mixture_rb, mixture_rms_jitter, path_target,
                  path_surrey, path_dcase, filelims_target,
                  filelims_directional_noise, decay_on, decay_color,
                  decay_rt60s, decay_drrs, decay_delays):
@@ -158,7 +158,7 @@ class RandomMixtureMaker:
         self.mixture_pad = mixture_pad
         self.mixture_rb = mixture_rb
         self.mixture_rms_jitter = mixture_rms_jitter
-        self.path_timit = path_timit
+        self.path_target = path_target
         self.path_surrey = path_surrey
         self.path_dcase = path_dcase
         self.filelims_target = filelims_target
@@ -212,7 +212,7 @@ class RandomMixtureMaker:
         brir = self._load_brirs(room, angle)
         brir = decayer.run(brir)
         target, filename = load_random_target(
-            self.path_timit,
+            self.path_target,
             self.filelims_target,
             self.fs
         )
@@ -220,7 +220,7 @@ class RandomMixtureMaker:
             x=target,
             brir=brir,
             rb=self.mixture_rb,
-            pad=self.mixture_pad,
+            t_pad=self.mixture_pad,
             fs=self.fs,
         )
         self.metadata['target'] = {}
@@ -391,7 +391,7 @@ class DefaultRandomMixtureMaker(RandomMixtureMaker):
                 config.PRE.MIXTURES.RANDOM.RMSDB.MAX + 1,
             ),
             path_surrey=config.PRE.MIXTURES.PATH.SURREY,
-            path_timit=config.PRE.MIXTURES.PATH.TIMIT,
+            path_target=config.PRE.MIXTURES.PATH.TARGET,
             path_dcase=config.PRE.MIXTURES.PATH.DCASE,
             filelims_directional_noise=config.PRE.MIXTURES.FILELIMITS.NOISE,
             filelims_target=config.PRE.MIXTURES.FILELIMITS.TARGET,

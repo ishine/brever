@@ -438,7 +438,7 @@ def segmental_scores(*args, frame_length=160, hop_length=160, DRdB=45):
 
     Returns
     -------
-    scores : list
+    scores : list of float
         List of scores. The first element is a segmental speech signal-to-noise
         ratio (segSSNR) score, and the next scores if any are segmental noise
         reduction (segNR) scores. E.g. the output from `segmental_scores(s_ref,

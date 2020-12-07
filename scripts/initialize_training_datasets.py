@@ -1,5 +1,4 @@
 import os
-import argparse
 
 import yaml
 
@@ -42,6 +41,7 @@ def main(alias, params, force, n_train, n_val):
             'delay_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MIN'],
             'delay_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MAX'],
             'rooms': ['PRE', 'MIXTURES', 'RANDOM', 'ROOMS'],
+            'dirpath_target': ['PRE', 'MIXTURES', 'PATH', 'TARGET'],
         }
         for param, value in params.items():
             if value is not None:

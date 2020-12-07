@@ -89,7 +89,7 @@ def main(dataset_dir, force):
             config.PRE.MIXTURES.RANDOM.RMSDB.MAX + 1,
         ),
         path_surrey=config.PRE.MIXTURES.PATH.SURREY,
-        path_timit=config.PRE.MIXTURES.PATH.TIMIT,
+        path_target=config.PRE.MIXTURES.PATH.TARGET,
         path_dcase=config.PRE.MIXTURES.PATH.DCASE,
         filelims_directional_noise=config.PRE.MIXTURES.FILELIMITS.NOISE,
         filelims_target=config.PRE.MIXTURES.FILELIMITS.TARGET,

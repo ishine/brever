@@ -76,7 +76,7 @@ PRE:
     PATH:
       DCASE: data/external/DCASE/
       SURREY: data/external/SURREY/
-      TIMIT: data/external/TIMIT/TRAIN/
+      TARGET: data/external/TIMIT/TRAIN/
     RANDOM:
       DECAY:
         DELAY:
