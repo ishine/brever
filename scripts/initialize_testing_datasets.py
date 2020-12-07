@@ -7,7 +7,7 @@ import yaml
 from brever.modelmanagement import set_dict_field
 
 
-def main(force):
+def main(force, dirpath_target):
     base_config = {
         'PRE': {
             'MIXTURES': {
@@ -60,6 +60,14 @@ def main(force):
                 ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'MAX'],
                 snr,
             )
+
+            if dirpath_target is not None:
+                set_dict_field(
+                    config,
+                    ['PRE', 'MIXTURES', 'PATH', 'TARGET'],
+                    dirpath_target,
+                )
+
             letter = room_alias[-1].upper()
             dirname = f'testing_snr{snr}_room{letter}'
             dirpath = os.path.join('data', 'processed', dirname)
@@ -78,5 +86,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='initialize testing datasets')
     parser.add_argument('-f', '--force', action='store_true',
                         help='overwrite config file if already exists')
+    parser.add_argument('--dirpath-target', '--force', action='store_true',
+                        help='path to target speech database')
     args = parser.parse_args()
-    main(args.force)
+    main(args.force, args.dirpath_target)
