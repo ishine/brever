@@ -124,7 +124,10 @@ def flatten(input_dict, prefix=None):
                 else:
                     output_dict[f'{prefix}.{key}'] = value
         else:
-            output_dict[key] = value
+            if prefix is None:
+                output_dict[key] = value
+            else:
+                output_dict[f'{prefix}.{key}'] = value
     return output_dict
 
 
