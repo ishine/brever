@@ -123,7 +123,6 @@ def flatten(input_dict, prefix=None):
                     output_dict[key] = value
                 else:
                     output_dict[f'{prefix}.{key}'] = value
-                output_dict[key] = value
         else:
             output_dict[key] = value
     return output_dict
