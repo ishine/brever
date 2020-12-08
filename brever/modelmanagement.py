@@ -90,7 +90,7 @@ def get_unique_id(input_dict):
     return unique_id
 
 
-def flatten(input_dict):
+def flatten(input_dict, prefix=None):
     """
     Flatten a nested dictionary.
 
@@ -105,6 +105,10 @@ def flatten(input_dict):
     ----------
     input_dict : dict
         Input nested dictionary.
+    prefix : str
+        String to concatenate before each key. The string and the key are
+        delimited with a dot. Used for the recursion. Default is `None`, which
+        means no string is concatenated.
 
     Returns
     -------
@@ -115,6 +119,10 @@ def flatten(input_dict):
     for key, value in input_dict.items():
         if isinstance(value, dict):
             for key, value in flatten(value, prefix=key).items():
+                if prefix is None:
+                    output_dict[key] = value
+                else:
+                    output_dict[f'{prefix}.{key}'] = value
                 output_dict[key] = value
         else:
             output_dict[key] = value
