@@ -7,7 +7,7 @@ import yaml
 from brever.modelmanagement import set_dict_field
 
 
-def main(alias, force, dirpath_target):
+def main(alias, force, dirpath_target, n_test):
     base_config = {
         'PRE': {
             'MIXTURES': {
@@ -68,6 +68,13 @@ def main(alias, force, dirpath_target):
                     dirpath_target,
                 )
 
+            if n_test is not None:
+                set_dict_field(
+                    config,
+                    ['PRE', 'MIXTURES', 'NUMBER'],
+                    n_test,
+                )
+
             letter = room_alias[-1].upper()
             if alias == '':
                 dirname = f'testing_snr{snr}_room{letter}'
@@ -93,5 +100,7 @@ if __name__ == '__main__':
                         help='overwrite config file if already exists')
     parser.add_argument('--dirpath-target',
                         help='path to target speech database')
+    parser.add_argument('--n-test', type=int,
+                        help='number of testing mixtures, defaults to 25')
     args = parser.parse_args()
-    main(args.alias, args.force, args.dirpath_target)
+    main(args.alias, args.force, args.dirpath_target, args.n_test)
