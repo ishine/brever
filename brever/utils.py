@@ -39,7 +39,7 @@ def pad(x, n, axis=0, where='after'):
     axis : int, optional
         Axis along which to pad. Default is 0.
     where : {'after', 'before', 'both'}, optional
-        Where to pad the zeros. Default is 'after'.
+        Where to pad the zeros. Default is `'after'`.
 
     Returns
     -------
@@ -408,7 +408,8 @@ def dct_compress(x, n_coef):
     return DCT@x
 
 
-def segmental_scores(*args, frame_length=160, hop_length=160, DRdB=45):
+def segmental_scores(*args, frame_length=160, hop_length=160, DRdB=45,
+                     sdr='default'):
     """
     Segmental speech signal-to-noise ratio (segSSNR) and noise reduction
     (segNR) scores.
@@ -435,6 +436,17 @@ def segmental_scores(*args, frame_length=160, hop_length=160, DRdB=45):
         the short-term energy of the target signal reflects speech activity.
         This energy-based voice activity detector (VAD) is used to discard
         low-energy frames. Default is 45.
+    sdr : {'default', 'si', 'sd'}
+        Scaling mode when calculating the signal-to-distorsion (SDR). `'si'`
+        means scale-invariant, while `'sd'` means scale-dependent. Default is
+        `'default'`, which means the widely used definition of the SDR is used.
+        See [1]_ for the definition of each mode.
+
+    .. [1] J. L. Roux, S. Wisdom, H. Erdogan and J. R. Hershey, "SDR –
+           Half-baked or Well Done?," ICASSP 2019 - 2019 IEEE International
+           Conference on Acoustics, Speech and Signal Processing (ICASSP),
+           Brighton, United Kingdom, 2019, pp. 626-630, doi:
+           10.1109/ICASSP.2019.8683855.
 
     Returns
     -------
@@ -474,10 +486,26 @@ def segmental_scores(*args, frame_length=160, hop_length=160, DRdB=45):
     for i in range(len(args)//2):
         ref, hat = args[2*i], args[2*i+1]
         if i == 0:
-            hat = ref - hat
+            alpha = np.sum(ref*hat, axis=1)/np.sum(ref**2, axis=1)
+            alpha = alpha.reshape(-1, 1)
+            if sdr == 'default':
+                num = ref
+                den = ref-hat
+            elif sdr == 'si':
+                num = alpha*ref
+                den = alpha*ref-hat
+            elif sdr == 'sd':
+                num = alpha*ref
+                den = ref-hat
+            else:
+                raise ValueError("`sdr` must be 'default', 'si' or 'sd'")
+        else:
+            num = ref
+            den = hat
+            # TODO: extend the definitions of SI-SDR and SD-SDR to segNR
         score = np.mean(10*np.log10(
-            (np.sum(ref**2, axis=1) + 1e-10) /
-            (np.sum(hat**2, axis=1) + 1e-10)
+            (np.sum(num**2, axis=1) + 1e-10) /
+            (np.sum(den**2, axis=1) + 1e-10)
         ))
         scores.append(score)
     return scores
