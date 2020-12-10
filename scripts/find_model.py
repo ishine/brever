@@ -1,9 +1,10 @@
 import os
+import shutil
 
 from brever.modelmanagement import find_model, ModelFilterArgParser
 
 
-def main(**kwargs):
+def main(delete=False, **kwargs):
     models = find_model(**kwargs)
 
     trained = []
@@ -25,8 +26,20 @@ def main(**kwargs):
     for model_id in untrained:
         print(model_id)
 
+    if delete:
+        print(f'{len(models)} will be deleted.')
+        resp = input('Do you want to continue? y/n')
+        if resp == 'y':
+            for model_id in models:
+                model_dir = os.path.join('models', model_id)
+                shutil.rmtree(model_dir)
+        else:
+            print('No model was deleted')
+
 
 if __name__ == '__main__':
     parser = ModelFilterArgParser(description='find models')
-    filter_args, _ = parser.parse_args()
-    main(**vars(filter_args))
+    parser.add_argument('-d', '--delete', action='store_true',
+                        help='delete found models')
+    filter_args, extra_args = parser.parse_args()
+    main(delete=extra_args.delete, **vars(filter_args))
