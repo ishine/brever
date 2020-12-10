@@ -15,6 +15,7 @@ arg_to_keys_map = {
     'features': ['POST', 'FEATURES'],
     'train_path': ['POST', 'PATH', 'TRAIN'],
     'val_path': ['POST', 'PATH', 'VAL'],
+    'test_path': ['POST', 'PATH', 'TEST'],
     'dct': ['POST', 'DCT', 'ON'],
     'n_dct': ['POST', 'DCT', 'NCOEFF'],
     'cuda': ['MODEL', 'CUDA'],
@@ -425,6 +426,12 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=lambda x: x.replace('\\', '/'),
             nargs='+',
             help='validation dataset path',
+        )
+        self.add_base_argument(
+            '--test-path',
+            type=lambda x: x.replace('\\', '/'),
+            nargs='+',
+            help='testing dataset path',
         )
         self.add_base_argument(
             '--dct',
