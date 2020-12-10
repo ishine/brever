@@ -26,13 +26,14 @@ def main(delete=False, **kwargs):
     for model_id in untrained:
         print(model_id)
 
-    if delete:
+    if models and delete:
         print(f'{len(models)} will be deleted.')
         resp = input('Do you want to continue? y/n')
         if resp == 'y':
             for model_id in models:
                 model_dir = os.path.join('models', model_id)
                 shutil.rmtree(model_dir)
+                print(f'Deleted {model_dir}')
         else:
             print('No model was deleted')
 
