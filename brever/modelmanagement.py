@@ -26,20 +26,22 @@ arg_to_keys_map = {
 
 def sorted_dict(input_dict):
     """
-    Sorts a dictionary containing sets.
+    Sorts a dictionary by keys, and sorts the sets inside the dictionary.
 
-    Recursively sorts the sets inside a dictionary. The output is a copy of the
-    input dictionary with sets converted to sorted lists. This is done
-    recursively, which means it works for nested dictionaries.
+    Recursively sorts a dictionary by keys (dictionaries in Python are actually
+    ordered), and also converts the values of type `set` to sorted lists. This
+    is done recursively, which means it works for nested dictionaries.
 
-    This is useful to then obtain an unique hash ID from a dictionary that
-    contains sets. Depending on the hash ID generation function, the ID can be
+    This is useful to then obtain an unique hash ID from two equal
+    dictionaries. Depending on the hash ID generation function, the ID can be
     different from one execution to another, or from two equal dictionaries
-    containing sets defined in a different order. This is because sets are
-    randomly iterated through. As the order of elements in a set does not
-    matter, converting them to sorted lists is not a problem and will make the
-    hash ID consistent. This is opposed to lists, from which we want to obtain
-    different IDs if the lists have the same elements but in a different order.
+    defined in a different order, or containing sets defined in a different
+    order (sets are randomly iterated through). As the order of elements in a
+    set does not matter, converting them to sorted lists is not a problem and
+    will make the hash ID consistent. Note this behavior is unwanted for lists,
+    as we might want to obtain different IDs if the lists have the same
+    elements but in a different order. So the lists inside the dictionary are
+    not sorted.
 
     Parameters
     ----------
@@ -52,7 +54,7 @@ def sorted_dict(input_dict):
         Output dictionary with sets converted to sorted lists.
     """
     output_dict = {}
-    for key, value in input_dict.items():
+    for key, value in sorted(input_dict.items()):
         if isinstance(value, dict):
             output_dict[key] = sorted_dict(value)
         elif isinstance(value, set):

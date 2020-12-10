@@ -4,6 +4,12 @@ import os
 from brever.modelmanagement import get_unique_id, get_dict_field
 
 
+def format_slashes(x):
+    x = x.replace('\\', '/')
+    x = x.strip('/')
+    return x
+
+
 def main():
     for model_id in os.listdir('models'):
         model_dirpath = os.path.join('models', model_id)
@@ -13,9 +19,14 @@ def main():
 
         train_path = get_dict_field(config, ['POST', 'PATH', 'TRAIN'])
         val_path = get_dict_field(config, ['POST', 'PATH', 'VAL'])
+
         if train_path is not None and val_path is not None:
-            base_train_path = os.path.join(r'data', 'processed', 'training')
+            train_path = format_slashes(train_path)
+            val_path = format_slashes(val_path)
+            base_train_path = os.path.join('data', 'processed', 'training')
             base_val_path = os.path.join('data', 'processed', 'validation')
+            base_train_path = format_slashes(base_train_path)
+            base_val_path = format_slashes(base_val_path)
             if not train_path.startswith(base_train_path):
                 print(f'Model {model_id} has wrong train path! {train_path}')
             if not val_path.startswith(base_val_path):
