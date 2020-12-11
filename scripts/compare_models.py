@@ -120,7 +120,7 @@ def paths_to_dirnames(paths):
 
 
 class LegendFormatter:
-    def __init__(self, figure, lh=None):
+    def __init__(self, figure, lh=None, ncol=None):
         self.figure = figure
         self.input_lh = lh
         if self.input_lh is None:
@@ -129,6 +129,7 @@ class LegendFormatter:
             self.lh = self.input_lh
         self.figure.canvas.mpl_connect('draw_event', self)
         self.figure.canvas.mpl_connect('resize_event', self)
+        self.ncol = ncol
 
     def __call__(self, event):
         if self.figure._cachedRenderer is None:
@@ -137,6 +138,9 @@ class LegendFormatter:
         fig_width = self.figure.get_figwidth()*self.figure.dpi
         ncol = int(fig_width//(lbbox.width/self.lh._ncol))
         ncol = min(ncol, len(self.lh.legendHandles))
+        ncol = max(1, ncol)
+        if self.ncol is not None:
+            ncol = min(ncol, self.ncol)
         if ncol != self.lh._ncol:
             self.lh.remove()
             if self.input_lh is None:
@@ -156,13 +160,16 @@ class LegendFormatter:
                 pass
 
 
-def main(models, dimensions, group_by, no_sort, filter_, legend, top):
+def main(models, dimensions, group_by, no_sort, filter_, legend, top, ncol):
     models = paths_to_dirnames(models)
     possible_models = find_model(**filter_)
     models = [model for model in models if model in possible_models]
 
-    if group_by is not None and group_by not in dimensions:
-        dimensions.append(group_by)
+    if group_by is not None:
+        if dimensions is None:
+            dimensions = [group_by]
+        elif group_by not in dimensions:
+            dimensions.append(group_by)
 
     models, values = check_models(models, dimensions)
     groups, group_values = group_by_dimension(models, values, group_by)
@@ -219,7 +226,7 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top):
                         if legend is None:
                             label = f'{model["val"]}'
                         else:
-                            label = legend[i]
+                            label = legend[model_count]
                     else:
                         label = None
                     x = np.arange(len(mean)) + (model_count - (n-1)/2)*width
@@ -234,7 +241,7 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top):
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
             ax.yaxis.set_tick_params(labelleft=True)
-        LegendFormatter(fig)
+        LegendFormatter(fig, ncol=ncol)
 
     symbols = ['o', 's', '^', 'v', '<', '>']
     fig, axes = plt.subplots(1, 2)
@@ -273,7 +280,7 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top):
         ax.set_xlabel('segBR (dB)')
         ax.set_ylabel('segSSNR (dB)')
     lh = fig.legend(fig_legend_handles, fig_legend_labels)
-    LegendFormatter(fig, lh)
+    LegendFormatter(fig, lh=lh)
 
     plt.show()
 
@@ -292,6 +299,8 @@ if __name__ == '__main__':
                         help='disable sorting by mean score')
     parser.add_argument('--legend', nargs='+',
                         help='custom legend')
+    parser.add_argument('--ncol', type=int,
+                        help='number of legend columns')
     parser.add_argument('--top', type=int,
                         help='only plot top best models')
     filter_args, args = parser.parse_args()
@@ -302,4 +311,4 @@ if __name__ == '__main__':
     if len(args.input) == 1:
         args.input = glob(args.input[0])
     main(args.input, args.dims, args.group_by, args.no_sort, vars(filter_args),
-         args.legend, args.top)
+         args.legend, args.top, args.ncol)
