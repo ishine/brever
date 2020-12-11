@@ -279,10 +279,57 @@ def pdf(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None,
     energy = x**2  # get energy
     energy = energy.mean(axis=1)  # average each frame
     total_energy = energy.sum(axis=1, keepdims=True)  # energy across bands
-    pdf = energy/(total_energy + 1e-10)
+    pdf = energy/(total_energy + 1e-10)  # normalization
     if log:
         pdf = np.log(pdf + 1e-10)
     return pdf
+
+
+def pdfcc(x, n_pdfcc=13, dct_type=2, norm='ortho', filtered=False,
+          filt_kwargs=None, framed=False, frame_kwargs=None):
+    '''
+    DCT-compressed PDF feature. Calculated exactly like the MFCC, but the
+    energy is normalized before applying the log and DCT transforms such that
+    it lies between 0 and 1. Deltas and double deltas are returned.
+
+    Parameters:
+        x:
+            Input signal.
+        n_pdfcc:
+            Number of PDFCCs to return, DC term not included.
+        dct_type:
+            Discrete cosine transform type.
+        norm:
+            If dct_type is 2 or 3, setting norm='ortho' uses an ortho-normal
+            DCT basis.
+        filtered:
+            If True, the input signals are assumed to be already filtered. They
+            should then have size n_samples*n_filters*2.
+        filt_kwargs
+            Keyword arguments passed to filters.filt if filtered is
+            False.
+        framed:
+            If True, the input signals are assumed to be already framed. They
+            should then have size n_frames*frame_length*n_filters*2.
+        frame_kwargs:
+            Keyword arguments passed to utils.frame if framed is False.
+
+    Returns:
+        pdfcc:
+            Mel-frequency cepstral coefficients. Size n_frames*(n_pdfcc*3).
+    '''
+    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+    x = x.mean(axis=-1)  # average channels
+    energy = x**2  # get energy
+    energy = energy.mean(axis=1)  # average each frame
+    total_energy = energy.sum(axis=1, keepdims=True)  # energy across bands
+    energy = energy/(total_energy + 1e-10)  # normalization
+    log_energy = np.log(energy + 1e-10)
+    pdfcc = scipy.fftpack.dct(log_energy, axis=1, type=dct_type, norm=norm)
+    pdfcc = pdfcc[:, 1:n_pdfcc+1]
+    dpdfcc = np.diff(pdfcc, axis=0, prepend=pdfcc[0, None])
+    ddpdfcc = np.diff(dpdfcc, axis=0, prepend=dpdfcc[0, None])
+    return np.hstack((pdfcc, dpdfcc, ddpdfcc))
 
 
 def logpdf(x, filtered=False, filt_kwargs=None, framed=False,
