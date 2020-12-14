@@ -10,6 +10,7 @@ arg_to_keys_map = {
     'stacks': ['POST', 'STACK'],
     'batchnorm': ['MODEL', 'BATCHNORM', 'ON'],
     'dropout': ['MODEL', 'DROPOUT', 'ON'],
+    'dropout_rate': ['MODEL', 'DROPOUT', 'RATE'],
     'dropout_input': ['MODEL', 'DROPOUT', 'INPUT'],
     'batchsize': ['MODEL', 'BATCHSIZE'],
     'features': ['POST', 'FEATURES'],
@@ -406,6 +407,18 @@ class ModelFilterArgParser(ExtendableArgParser):
             help='dropout toggle',
         )
         self.add_base_argument(
+            '--dropout-rate',
+            type=float,
+            nargs='+',
+            help='dropout rate (between 0.0 and 1.0)',
+        )
+        self.add_base_argument(
+            '--dropout-input',
+            type=lambda x: bool(int(x)),
+            nargs='+',
+            help='dropout input layer toggle',
+        )
+        self.add_base_argument(
             '--batchsize',
             type=int,
             nargs='+',
@@ -452,12 +465,6 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=lambda x: bool(int(x)),
             nargs='+',
             help='cuda toggle',
-        )
-        self.add_base_argument(
-            '--dropout-input',
-            type=lambda x: bool(int(x)),
-            nargs='+',
-            help='dropout input layer toggle',
         )
         self.add_base_argument(
             '--uni-norm-features',
