@@ -384,9 +384,9 @@ def fft_freqs(fs=16e3, n_fft=512, onesided=True):
     return freqs
 
 
-def dct_compress(x, n_coef):
+def dct(x, n_coef):
     """
-    Discrete cosine transform (DCT) compression.
+    Type-II discrete cosine transform (DCT) compression.
 
     Performs discrete cosine transform (DCT) compression of 2-D input data
     along first axis. The 0-th order term (DC component) is not returned.
@@ -403,8 +403,10 @@ def dct_compress(x, n_coef):
     y : array_like
         Output DCT-compressed array. Shape `(n_coef, n_features)`.
     """
-    L = len(x)
-    DCT = np.cos(np.pi * np.outer(np.arange(n_coef)+1, np.arange(L)+0.5) / L)
+    N = len(x)
+    n = np.arange(N) + 0.5
+    k = np.arange(n_coef) + 1  # DC term discarded
+    DCT = np.cos(np.pi*np.outer(k, n)/N)
     return DCT@x
 
 

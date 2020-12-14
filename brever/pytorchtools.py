@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import h5py
 
-from .utils import dct_compress
+from .utils import dct
 
 
 def get_mean_and_std(dataset, dataloader, uniform_stats_features):
@@ -168,14 +168,15 @@ class H5Dataset(torch.utils.data.Dataset):
     https://discuss.pytorch.org/t/dataloader-when-num-worker-0-there-is-bug/25643/16,
     '''
     def __init__(self, dirpath, features, load=False, transform=None, stack=0,
-                 decimation=1, dct=False, n_dct=5, file_based_stats=False):
+                 decimation=1, dct_toggle=False, n_dct=5,
+                 file_based_stats=False):
         self.dirpath = dirpath
         self.features = sorted(features)
         self.load = load
         self.transform = transform
         self.stack = stack
         self.decimation = decimation
-        self.dct = dct
+        self.dct_toggle = dct_toggle
         self.n_dct = n_dct
         self.file_based_stats = file_based_stats
         self.datasets = None
@@ -190,8 +191,8 @@ class H5Dataset(torch.utils.data.Dataset):
                 feature_indices = self.get_feature_indices()
                 self._n_current_features = sum(j-i for i, j in feature_indices)
                 self.feature_indices = feature_indices
-            if dct:
-                stack = min(n_dct, stack)
+            if dct_toggle:
+                stack = n_dct
             self.n_features = self._n_current_features*(stack + 1)
             self.n_labels = f['labels'].shape[1]
             if self.load:
@@ -254,7 +255,7 @@ class H5Dataset(torch.utils.data.Dataset):
             if self.stack > 0 or (self.transform and self.file_based_stats):
                 file_num = self.get_file_number(index, decimate=False)
             if self.stack > 0:
-                x_context = np.empty((self.stack, self._n_current_features))
+                x_context = np.zeros((self.stack, self._n_current_features))
                 # first find the starting index of the current file
                 i_file_start, _ = self.file_indices[file_num]
                 # then add context stacking
@@ -268,8 +269,8 @@ class H5Dataset(torch.utils.data.Dataset):
                         x_context[k, i_:j_] = self.datasets[0][index_lag, i:j]
                         count_context_k = j_
                 # perform dct
-                if self.dct and self.n_dct < self.stack:
-                    x_context = dct_compress(x_context, self.n_dct)
+                if self.dct_toggle:
+                    x_context = dct(x_context, self.n_dct)
                 x[count:] = x_context.flatten()
             if self.transform:
                 if self.file_based_stats:

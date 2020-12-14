@@ -101,7 +101,7 @@ def main(model_dir, force, no_cuda):
                 load=config.POST.LOAD,
                 stack=config.POST.STACK,
                 decimation=1,  # there must not be decimation during testing
-                dct=config.POST.DCT.ON,
+                dct_toggle=config.POST.DCT.ON,
                 n_dct=config.POST.DCT.NCOEFF,
                 file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
             )

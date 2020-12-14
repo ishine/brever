@@ -125,7 +125,7 @@ def main(model_dir, force):
         load=config.POST.LOAD,
         stack=config.POST.STACK,
         decimation=config.POST.DECIMATION,
-        dct=config.POST.DCT.ON,
+        dct_toggle=config.POST.DCT.ON,
         n_dct=config.POST.DCT.NCOEFF,
         file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
     )
@@ -135,7 +135,7 @@ def main(model_dir, force):
         load=config.POST.LOAD,
         stack=config.POST.STACK,
         decimation=config.POST.DECIMATION,
-        dct=config.POST.DCT.ON,
+        dct_toggle=config.POST.DCT.ON,
         n_dct=config.POST.DCT.NCOEFF,
         file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
     )
