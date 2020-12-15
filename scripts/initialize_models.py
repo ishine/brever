@@ -7,7 +7,35 @@ import yaml
 from brever.config import defaults
 from brever.modelmanagement import (get_unique_id, set_dict_field, flatten,
                                     unflatten, arg_to_keys_map,
-                                    ModelFilterArgParser)
+                                    ModelFilterArgParser, get_dict_field)
+
+
+def check_if_train_and_val_path_exist(configs):
+    defaults_ = defaults().to_dict()
+    def_train_path = get_dict_field(defaults_, arg_to_keys_map['train_path'])
+    def_val_path = get_dict_field(defaults_, arg_to_keys_map['val_path'])
+    for config in configs:
+        train_path = get_dict_field(config, arg_to_keys_map['train_path'])
+        val_path = get_dict_field(config, arg_to_keys_map['val_path'])
+        if train_path is None and not os.path.exists(def_train_path):
+            print('No train path specified, and the default train path does not exist')
+            resp = input(f'Do you wish to continue? y/n')
+        elif not os.path.exists(train_path):
+            print('The specified train path does not exist')
+            resp = input(f'Do you wish to continue? y/n')
+        elif val_path is None and not os.path.exists(def_val_path):
+            print('No val path specified, and the default val path does not exist')
+            resp = input(f'Do you wish to continue? y/n')
+        elif not os.path.exists(val_path):
+            print('The specified val path does not exist')
+            resp = input(f'Do you wish to continue? y/n')
+        else:
+            continue
+        if resp == 'y':
+            return True
+        else:
+            return False
+    return True
 
 
 def main(args):
@@ -20,6 +48,11 @@ def main(args):
     to_combine = flatten(to_combine)
     keys, values = zip(*to_combine.items())
     configs = unflatten(keys, itertools.product(*values))
+
+    result = check_if_train_and_val_path_exist(configs)
+    if not result:
+        print('Aborting')
+        return
 
     new_configs = []
     for config in configs:
