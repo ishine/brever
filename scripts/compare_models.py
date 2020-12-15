@@ -204,9 +204,11 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top, ncol,
     elif dimensions is not None:
         for dim in group_values[0].keys():
             try:
-                group_vals_sorted = sorted(group_values, key=lambda x: x[dim])
+                group_vals_sorted = sorted(group_values,
+                                           key=lambda x: x[dim])
             except TypeError:
-                group_vals_sorted = sorted(group_values, key=lambda x: str(x[dim]))
+                group_vals_sorted = sorted(group_values,
+                                           key=lambda x: str(x[dim]))
             i_sorted = [group_values.index(val) for val in group_vals_sorted]
             groups = [groups[i] for i in i_sorted]
 
@@ -221,8 +223,8 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top, ncol,
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
     hatch_cycle = ['', '////', '\\\\\\', 'xxxx']
     for ylabel, metric in zip(
-                ['MSE', r'$\Delta PESQ$', 'segSSNR', 'segBR', 'segNR', 'segRR'],
-                ['mse', 'pesq', 'segSSNR', 'segBR', 'segNR', 'segRR'],
+            ['MSE', r'$\Delta PESQ$', 'segSSNR', 'segBR', 'segNR', 'segRR'],
+            ['mse', 'pesq', 'segSSNR', 'segBR', 'segNR', 'segRR'],
             ):
         fig, axes = plt.subplots(1, 2, sharey=True)
         for axis, (ax, xticklabels, xlabel) in enumerate(zip(

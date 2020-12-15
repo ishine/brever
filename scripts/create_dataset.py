@@ -232,16 +232,31 @@ def main(dataset_dir, force):
         f.create_dataset('features', data=features)
         f.create_dataset('labels', data=labels)
         if config.PRE.MIXTURES.SAVE:
-            f.create_dataset('mixtures', data=np.array(mixtures, dtype=object),
-                             dtype=h5py.vlen_dtype(float))
-            f.create_dataset('foregrounds', data=np.array(foregrounds, dtype=object),
-                             dtype=h5py.vlen_dtype(float))
-            f.create_dataset('backgrounds', data=np.array(backgrounds, dtype=object),
-                             dtype=h5py.vlen_dtype(float))
-            f.create_dataset('noises', data=np.array(noises, dtype=object),
-                             dtype=h5py.vlen_dtype(float))
-            f.create_dataset('reverbs', data=np.array(reverbs, dtype=object),
-                             dtype=h5py.vlen_dtype(float))
+            f.create_dataset(
+                'mixtures',
+                data=np.array(mixtures, dtype=object),
+                dtype=h5py.vlen_dtype(float),
+            )
+            f.create_dataset(
+                'foregrounds',
+                data=np.array(foregrounds, dtype=object),
+                dtype=h5py.vlen_dtype(float),
+            )
+            f.create_dataset(
+                'backgrounds',
+                data=np.array(backgrounds, dtype=object),
+                dtype=h5py.vlen_dtype(float),
+                )
+            f.create_dataset(
+                'noises',
+                data=np.array(noises, dtype=object),
+                dtype=h5py.vlen_dtype(float),
+            )
+            f.create_dataset(
+                'reverbs',
+                data=np.array(reverbs, dtype=object),
+                dtype=h5py.vlen_dtype(float),
+            )
 
     # save mixtures metadata
     metadatas_output_path = os.path.join(dataset_dir, 'mixture_info.json')

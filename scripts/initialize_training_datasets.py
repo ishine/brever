@@ -5,6 +5,22 @@ import yaml
 from brever.modelmanagement import set_dict_field, DatasetInitArgParser
 
 
+arg_to_keys_map = {
+    'decay': ['PRE', 'MIXTURES', 'DECAY', 'ON'],
+    'decay_color': ['PRE', 'MIXTURES', 'DECAY', 'COLOR'],
+    'diffuse': ['PRE', 'MIXTURES', 'DIFFUSE', 'ON'],
+    'diffuse_color': ['PRE', 'MIXTURES', 'DIFFUSE', 'COLOR'],
+    'drr_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'MIN'],
+    'drr_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'MAX'],
+    'rt60_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MIN'],
+    'rt60_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MAX'],
+    'delay_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MIN'],
+    'delay_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MAX'],
+    'rooms': ['PRE', 'MIXTURES', 'RANDOM', 'ROOMS'],
+    'dirpath_target': ['PRE', 'MIXTURES', 'PATH', 'TARGET'],
+}
+
+
 def main(alias, params, force, n_train, n_val):
     if n_train is None:
         n_train = 1000
@@ -29,20 +45,6 @@ def main(alias, params, force, n_train, n_val):
             }
         }
 
-        arg_to_keys_map = {
-            'decay': ['PRE', 'MIXTURES', 'DECAY', 'ON'],
-            'decay_color': ['PRE', 'MIXTURES', 'DECAY', 'COLOR'],
-            'diffuse': ['PRE', 'MIXTURES', 'DIFFUSE', 'ON'],
-            'diffuse_color': ['PRE', 'MIXTURES', 'DIFFUSE', 'COLOR'],
-            'drr_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'MIN'],
-            'drr_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'MAX'],
-            'rt60_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MIN'],
-            'rt60_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MAX'],
-            'delay_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MIN'],
-            'delay_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MAX'],
-            'rooms': ['PRE', 'MIXTURES', 'RANDOM', 'ROOMS'],
-            'dirpath_target': ['PRE', 'MIXTURES', 'PATH', 'TARGET'],
-        }
         for param, value in params.items():
             if value is not None:
                 key_list = arg_to_keys_map[param]

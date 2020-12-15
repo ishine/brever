@@ -18,13 +18,13 @@ def check_if_train_and_val_path_exist(configs):
         train_path = get_config_field(config, 'train_path')
         val_path = get_config_field(config, 'val_path')
         if train_path is None and not os.path.exists(def_train_path):
-            print('No train path specified, and the default train path does not exist')
+            print('No train path specified, and default path does not exist')
             resp = input(f'Do you wish to continue? y/n')
         elif not os.path.exists(train_path):
             print('The specified train path does not exist')
             resp = input(f'Do you wish to continue? y/n')
         elif val_path is None and not os.path.exists(def_val_path):
-            print('No val path specified, and the default val path does not exist')
+            print('No val path specified, and default path does not exist')
             resp = input(f'Do you wish to continue? y/n')
         elif not os.path.exists(val_path):
             print('The specified val path does not exist')
