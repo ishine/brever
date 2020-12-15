@@ -8,6 +8,7 @@ import scipy.io
 
 from brever.modelmanagement import (get_dict_field, ModelFilterArgParser,
                                     find_model, arg_to_keys_map)
+from brever.config import defaults
 
 
 def check_models(models, dims):
@@ -34,9 +35,9 @@ def check_models(models, dims):
     return models_, values
 
 
-def group_by_dimension(models, values, dimension):
+def group_by_dimension(models, values, dimensions):
     # first make groups
-    if dimension is None:
+    if dimensions is None:
         groups = []
         group_outer_values = []
         for model, val in zip(models, values):
@@ -48,7 +49,9 @@ def group_by_dimension(models, values, dimension):
         groups = []
         group_inner_values = []
         for model, val in zip(models, values):
-            group_outer_val = {dimension: val[dimension]}
+            group_outer_val = {}
+            for dimension in dimensions:
+                group_outer_val[dimension] = val[dimension]
             if group_outer_val not in group_outer_values:
                 group_outer_values.append(group_outer_val)
                 groups.append([{'model': model, 'val': val}])
@@ -56,10 +59,11 @@ def group_by_dimension(models, values, dimension):
                 index = group_outer_values.index(group_outer_val)
                 groups[index].append({'model': model, 'val': val})
             group_inner_val = val.copy()
-            group_inner_val.pop(dimension)
+            for dimension in dimensions:
+                group_inner_val.pop(dimension)
             if group_inner_val not in group_inner_values:
                 group_inner_values.append(group_inner_val)
-    if dimension is None:
+    if dimensions is None:
         return groups, group_outer_values
     # then match order across groups
     # first sort the list of values
@@ -70,7 +74,8 @@ def group_by_dimension(models, values, dimension):
         group_sorted = []
         group_inner_vals_local = [model['val'].copy() for model in group]
         for val in group_inner_vals_local:
-            val.pop(dimension)
+            for dimension in dimensions:
+                val.pop(dimension)
         for group_inner_val in group_inner_values:
             if group_inner_val in group_inner_vals_local:
                 index = group_inner_vals_local.index(group_inner_val)
@@ -119,6 +124,26 @@ def paths_to_dirnames(paths):
     return dirnames
 
 
+def set_default_parameters(filter_, dimensions, group_by):
+    default_config = defaults().to_dict()
+    for key, value in filter_.items():
+        if (value is None and (dimensions is None or key not in dimensions)
+                and (group_by is None or key not in group_by)):
+            new_value = [get_dict_field(default_config, arg_to_keys_map[key])]
+            filter_[key] = new_value
+
+
+def merge_lists(dimensions, group_by):
+    if group_by is not None:
+        if dimensions is None:
+            dimensions = group_by.copy()
+        else:
+            for dimension in group_by:
+                if dimensions not in group_by:
+                    dimensions.append(dimension)
+    return dimensions
+
+
 class LegendFormatter:
     def __init__(self, figure, lh=None, ncol=None):
         self.figure = figure
@@ -160,23 +185,23 @@ class LegendFormatter:
                 pass
 
 
-def main(models, dimensions, group_by, no_sort, filter_, legend, top, ncol):
+def main(models, dimensions, group_by, no_sort, filter_, legend, top, ncol,
+         default):
+    if default:
+        set_default_parameters(filter_, dimensions, group_by)
+
     models = paths_to_dirnames(models)
     possible_models = find_model(**filter_)
     models = [model for model in models if model in possible_models]
 
-    if group_by is not None:
-        if dimensions is None:
-            dimensions = [group_by]
-        elif group_by not in dimensions:
-            dimensions.append(group_by)
+    dimensions = merge_lists(dimensions, group_by)
 
     models, values = check_models(models, dimensions)
     groups, group_values = group_by_dimension(models, values, group_by)
     load_scores(groups)
     if not no_sort:
         groups = sort_groups_by_mean_pesq(groups)
-    else:
+    elif dimensions is not None:
         for dim in group_values[0].keys():
             try:
                 group_vals_sorted = sorted(group_values, key=lambda x: x[dim])
@@ -292,7 +317,7 @@ if __name__ == '__main__':
     parser.add_argument('--dims', nargs='+',
                         type=lambda x: x.replace('-', '_'),
                         help='parameter dimensions to compare')
-    parser.add_argument('--group-by',
+    parser.add_argument('--group-by', nargs='+',
                         type=lambda x: x.replace('-', '_'),
                         help='parameter dimension to group by')
     parser.add_argument('--no-sort', action='store_true',
@@ -303,12 +328,14 @@ if __name__ == '__main__':
                         help='number of legend columns')
     parser.add_argument('--top', type=int,
                         help='only plot top best models')
+    parser.add_argument('--default', action='store_true',
+                        help='use default parameters to filter models')
     filter_args, args = parser.parse_args()
 
-    if filter_args.uni_norm_features == [{''}]:
-        filter_args.uni_norm_features == [set()]
-
-    if len(args.input) == 1:
-        args.input = glob(args.input[0])
-    main(args.input, args.dims, args.group_by, args.no_sort, vars(filter_args),
-         args.legend, args.top, args.ncol)
+    model_dirs = []
+    for input_ in args.input:
+        if not glob(input_):
+            print(f'Model not found: {input_}')
+        model_dirs += glob(input_)
+    main(model_dirs, args.dims, args.group_by, args.no_sort, vars(filter_args),
+         args.legend, args.top, args.ncol, args.default)
