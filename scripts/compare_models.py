@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 import yaml
 import scipy.io
 
-from brever.modelmanagement import (get_dict_field, ModelFilterArgParser,
-                                    find_model, arg_to_keys_map)
+from brever.modelmanagement import (get_config_field, ModelFilterArgParser,
+                                    find_model)
 from brever.config import defaults
 
 
@@ -25,7 +25,7 @@ def check_models(models, dims):
         if not (os.path.exists(pesq_file) and os.path.exists(mse_file)):
             print(f'Model {model} is not evaluated!')
             continue
-        val = {dim: get_dict_field(config, arg_to_keys_map[dim])
+        val = {dim: get_config_field(config, dim)
                for dim in dims}
         if val not in values:
             values.append(val)
@@ -129,7 +129,7 @@ def set_default_parameters(filter_, dimensions, group_by):
     for key, value in filter_.items():
         if (value is None and (dimensions is None or key not in dimensions)
                 and (group_by is None or key not in group_by)):
-            new_value = [get_dict_field(default_config, arg_to_keys_map[key])]
+            new_value = [get_config_field(default_config, key)]
             filter_[key] = new_value
 
 

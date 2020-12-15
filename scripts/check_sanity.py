@@ -1,7 +1,7 @@
 import yaml
 import os
 
-from brever.modelmanagement import get_unique_id, get_dict_field
+from brever.modelmanagement import get_unique_id, get_config_field
 
 
 def format_slashes(x):
@@ -17,8 +17,8 @@ def main():
         with open(config_filepath, 'r') as f:
             config = yaml.safe_load(f)
 
-        train_path = get_dict_field(config, ['POST', 'PATH', 'TRAIN'])
-        val_path = get_dict_field(config, ['POST', 'PATH', 'VAL'])
+        train_path = get_config_field(config, 'train_path')
+        val_path = get_config_field(config, 'val_path')
 
         if train_path is not None and val_path is not None:
             train_path = format_slashes(train_path)

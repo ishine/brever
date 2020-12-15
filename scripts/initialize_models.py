@@ -5,18 +5,18 @@ import itertools
 import yaml
 
 from brever.config import defaults
-from brever.modelmanagement import (get_unique_id, set_dict_field, flatten,
+from brever.modelmanagement import (get_unique_id, set_config_field, flatten,
                                     unflatten, arg_to_keys_map,
-                                    ModelFilterArgParser, get_dict_field)
+                                    ModelFilterArgParser, get_config_field)
 
 
 def check_if_train_and_val_path_exist(configs):
     defaults_ = defaults().to_dict()
-    def_train_path = get_dict_field(defaults_, arg_to_keys_map['train_path'])
-    def_val_path = get_dict_field(defaults_, arg_to_keys_map['val_path'])
+    def_train_path = get_config_field(defaults_, 'train_path')
+    def_val_path = get_config_field(defaults_, 'val_path')
     for config in configs:
-        train_path = get_dict_field(config, arg_to_keys_map['train_path'])
-        val_path = get_dict_field(config, arg_to_keys_map['val_path'])
+        train_path = get_config_field(config, 'train_path')
+        val_path = get_config_field(config, 'val_path')
         if train_path is None and not os.path.exists(def_train_path):
             print('No train path specified, and the default train path does not exist')
             resp = input(f'Do you wish to continue? y/n')
@@ -40,10 +40,10 @@ def check_if_train_and_val_path_exist(configs):
 
 def main(args):
     to_combine = {}
-    for attr, key_list in arg_to_keys_map.items():
-        value = args.__getattribute__(attr)
+    for key in arg_to_keys_map.keys():
+        value = args.__getattribute__(key)
         if value is not None:
-            set_dict_field(to_combine, key_list, value)
+            set_config_field(to_combine, key, value)
 
     to_combine = flatten(to_combine)
     keys, values = zip(*to_combine.items())

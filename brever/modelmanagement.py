@@ -236,6 +236,59 @@ def get_dict_field(input_dict, key_list, default=None):
         return default
 
 
+def set_config_field(input_config_dict, argument_tag, value):
+    """
+    Set a configuration dictionary value.
+
+    Sets a field in a configuration dictionary given an argument. The list of
+    available arguments are available in `~.modelmanagement.arg_to_keys_map`.
+    A configuration dictionary can be obtained from e.g.
+    `~.config.AttrDict.to_dict`. If while navigating the dictionary, the
+    current key does not exist, then a new inner dictionary is created.
+
+    Parameters
+    ----------
+    input_config_dict : dict
+        Input configuration dictionary.
+    argument_tag : str
+        Argument tag. The list of available arguments and their corresponding
+        path in the configuration dictionary are available in
+        `~.modelmanagement.arg_to_keys_map`.
+    value : any type
+        Value to assign.
+    """
+    set_dict_field(input_config_dict, arg_to_keys_map[argument_tag], value)
+
+
+def get_config_field(input_config_dict, argument_tag, default=None):
+    """
+    Get a configuration dictionary value.
+
+    Gets a field in a configuration dictionary given a list of keys to use to
+    reach the field. A configuration dictionary can be obtained from e.g.
+    `~.config.AttrDict.to_dict`.
+
+    Parameters
+    ----------
+    input_config_dict : dict
+        Input configuration dictionary.
+    argument_tag : str
+        Argument tag. The list of available arguments and their corresponding
+        path in the configuration dictionary are available in
+        `~.modelmanagement.arg_to_keys_map`.
+    default : any type, optional
+        The default value to return if the value associated with
+        `argument_tag` does not exist. Default is `None`.
+
+    Returns
+    -------
+    value : any type
+        Value found in `input_config_dict` associated with `argument_tag`.
+    """
+    return get_dict_field(input_config_dict, arg_to_keys_map[argument_tag],
+                          default)
+
+
 def find_model(**kwargs):
     """
     Find a model in the project model directory.
