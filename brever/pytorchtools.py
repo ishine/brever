@@ -167,11 +167,14 @@ class H5Dataset(torch.utils.data.Dataset):
     efficiently implement HDF5 dataset classes:
     https://discuss.pytorch.org/t/dataloader-when-num-worker-0-there-is-bug/25643/16,
     '''
-    def __init__(self, dirpath, features, load=False, transform=None, stack=0,
-                 decimation=1, dct_toggle=False, n_dct=5,
+    def __init__(self, dirpath, features=None, load=False, transform=None,
+                 stack=0, decimation=1, dct_toggle=False, n_dct=5,
                  file_based_stats=False):
         self.dirpath = dirpath
-        self.features = sorted(features)
+        if features is None:
+            self.features = None
+        else:
+            self.features = sorted(features)
         self.load = load
         self.transform = transform
         self.stack = stack

@@ -1,29 +1,11 @@
 import argparse
-import os
 from glob import glob
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import h5py
 import numpy as np
 
-from brever.modelmanagement import get_feature_indices
-
-
-def get_feature_data(dataset_dir, feature):
-    feature_indices = get_feature_indices(dataset_dir, [feature])
-    i_start, i_end = feature_indices[0]
-    dataset_path = os.path.join(dataset_dir, 'dataset.hdf5')
-    with h5py.File(dataset_path, 'r') as f:
-        data = f['features'][:, i_start:i_end]
-    return data
-
-
-def get_label_data(dataset_dir):
-    dataset_path = os.path.join(dataset_dir, 'dataset.hdf5')
-    with h5py.File(dataset_path, 'r') as f:
-        data = f['labels'][:]
-    return data
+from brever.pytorchtools import H5Dataset
 
 
 def get_data(dataset_dir, feature):
@@ -32,9 +14,11 @@ def get_data(dataset_dir, feature):
         data = np.vstack(data)
     else:
         if feature == 'label':
-            data = get_label_data(dataset_dir)
+            h5dataset = H5Dataset(dataset_dir, None, load=True)
+            _, data = h5dataset[:]
         else:
-            data = get_feature_data(dataset_dir, feature)
+            h5dataset = H5Dataset(dataset_dir, [feature], load=True)
+            data, _ = h5dataset[:]
     return data
 
 
