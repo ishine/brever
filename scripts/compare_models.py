@@ -185,8 +185,8 @@ class LegendFormatter:
                 pass
 
 
-def main(models, dimensions, group_by, no_sort, filter_, legend, top, ncol,
-         default):
+def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
+         default, only_pesq, figsize):
     if default:
         set_default_parameters(filter_, dimensions, group_by)
 
@@ -199,9 +199,9 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top, ncol,
     models, values = check_models(models, dimensions)
     groups, group_values = group_by_dimension(models, values, group_by)
     load_scores(groups)
-    if not no_sort:
+    if sort_by == 'pesq':
         groups = sort_groups_by_mean_pesq(groups)
-    elif dimensions is not None:
+    elif sort_by == 'dims' and dimensions is not None:
         for dim in group_values[0].keys():
             try:
                 group_vals_sorted = sorted(group_values,
@@ -226,7 +226,9 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top, ncol,
             ['MSE', r'$\Delta PESQ$', 'segSSNR', 'segBR', 'segNR', 'segRR'],
             ['mse', 'pesq', 'segSSNR', 'segBR', 'segNR', 'segRR'],
             ):
-        fig, axes = plt.subplots(1, 2, sharey=True)
+        if only_pesq and metric != 'pesq':
+            continue
+        fig, axes = plt.subplots(1, 2, sharey=True, figsize=figsize)
         for axis, (ax, xticklabels, xlabel) in enumerate(zip(
                     axes[::-1],
                     [room_names, snrs],
@@ -270,44 +272,45 @@ def main(models, dimensions, group_by, no_sort, filter_, legend, top, ncol,
             ax.yaxis.set_tick_params(labelleft=True)
         LegendFormatter(fig, ncol=ncol)
 
-    symbols = ['o', 's', '^', 'v', '<', '>']
-    fig, axes = plt.subplots(1, 2)
-    fig_legend_handles = []
-    fig_legend_labels = []
-    for axis, (ax, labels) in enumerate(zip(
-                axes[::-1],
-                [room_names, snrs],
-            )):
-        ax_legend_handles = []
-        ax_legend_labels = []
-        for i, group in enumerate(groups):
-            color = color_cycle[i % len(color_cycle)]
-            for j, model in enumerate(group):
-                x = model['segBR'].mean(axis=(axis, -1))
-                y = model['segSSNR'].mean(axis=(axis, -1))
-                line, = ax.plot(x, y, linestyle='--',
-                                color=color)
-                if axis == 0:
-                    fig_legend_handles.append(line)
-                    fig_legend_labels.append(f'{model["val"]}')
-                for k, (x_, y_) in enumerate(zip(x, y)):
-                    ax.plot(x_, y_, marker=symbols[k], markersize=10,
-                            linestyle='', color=color)
-                    if i == j == 0:
-                        dummy_line, = ax.plot([], [], marker=symbols[k],
-                                              markersize=10, linestyle='',
-                                              color='k')
-                        ax_legend_handles.append(dummy_line)
-                        if axis == 0:
-                            label = f'room {labels[k]}'
-                        else:
-                            label = f'SNR = {labels[k]} dB'
-                        ax_legend_labels.append(label)
-        ax.legend(ax_legend_handles, ax_legend_labels)
-        ax.set_xlabel('segBR (dB)')
-        ax.set_ylabel('segSSNR (dB)')
-    lh = fig.legend(fig_legend_handles, fig_legend_labels)
-    LegendFormatter(fig, lh=lh)
+    if not only_pesq:
+        symbols = ['o', 's', '^', 'v', '<', '>']
+        fig, axes = plt.subplots(1, 2)
+        fig_legend_handles = []
+        fig_legend_labels = []
+        for axis, (ax, labels) in enumerate(zip(
+                    axes[::-1],
+                    [room_names, snrs],
+                )):
+            ax_legend_handles = []
+            ax_legend_labels = []
+            for i, group in enumerate(groups):
+                color = color_cycle[i % len(color_cycle)]
+                for j, model in enumerate(group):
+                    x = model['segBR'].mean(axis=(axis, -1))
+                    y = model['segSSNR'].mean(axis=(axis, -1))
+                    line, = ax.plot(x, y, linestyle='--',
+                                    color=color)
+                    if axis == 0:
+                        fig_legend_handles.append(line)
+                        fig_legend_labels.append(f'{model["val"]}')
+                    for k, (x_, y_) in enumerate(zip(x, y)):
+                        ax.plot(x_, y_, marker=symbols[k], markersize=10,
+                                linestyle='', color=color)
+                        if i == j == 0:
+                            dummy_line, = ax.plot([], [], marker=symbols[k],
+                                                  markersize=10, linestyle='',
+                                                  color='k')
+                            ax_legend_handles.append(dummy_line)
+                            if axis == 0:
+                                label = f'room {labels[k]}'
+                            else:
+                                label = f'SNR = {labels[k]} dB'
+                            ax_legend_labels.append(label)
+            ax.legend(ax_legend_handles, ax_legend_labels)
+            ax.set_xlabel('segBR (dB)')
+            ax.set_ylabel('segSSNR (dB)')
+        lh = fig.legend(fig_legend_handles, fig_legend_labels)
+        LegendFormatter(fig, lh=lh)
 
     plt.show()
 
@@ -322,8 +325,8 @@ if __name__ == '__main__':
     parser.add_argument('--group-by', nargs='+',
                         type=lambda x: x.replace('-', '_'),
                         help='parameter dimension to group by')
-    parser.add_argument('--no-sort', action='store_true',
-                        help='disable sorting by mean score')
+    parser.add_argument('--sort-by',
+                        help='how to sort the models')
     parser.add_argument('--legend', nargs='+',
                         help='custom legend')
     parser.add_argument('--ncol', type=int,
@@ -332,6 +335,10 @@ if __name__ == '__main__':
                         help='only plot top best models')
     parser.add_argument('--default', action='store_true',
                         help='use default parameters to filter models')
+    parser.add_argument('--only-pesq', action='store_true',
+                        help='plot only pesq scores')
+    parser.add_argument('--figsize', nargs=2, type=int,
+                        help='figure size')
     filter_args, args = parser.parse_args()
 
     model_dirs = []
@@ -339,5 +346,6 @@ if __name__ == '__main__':
         if not glob(input_):
             print(f'Model not found: {input_}')
         model_dirs += glob(input_)
-    main(model_dirs, args.dims, args.group_by, args.no_sort, vars(filter_args),
-         args.legend, args.top, args.ncol, args.default)
+    main(model_dirs, args.dims, args.group_by, args.sort_by, vars(filter_args),
+         args.legend, args.top, args.ncol, args.default, args.only_pesq,
+         args.figsize)
