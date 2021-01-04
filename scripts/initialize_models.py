@@ -10,24 +10,17 @@ from brever.modelmanagement import (get_unique_id, set_config_field, flatten,
                                     ModelFilterArgParser, get_config_field)
 
 
-def check_if_train_and_val_path_exist(configs):
+def check_if_path_exists(configs, path_type='train'):
     defaults_ = defaults().to_dict()
-    def_train_path = get_config_field(defaults_, 'train_path')
-    def_val_path = get_config_field(defaults_, 'val_path')
+    default_path = get_config_field(defaults_, f'{path_type}_path')
     for config in configs:
-        train_path = get_config_field(config, 'train_path')
-        val_path = get_config_field(config, 'val_path')
-        if train_path is None and not os.path.exists(def_train_path):
-            print('No train path specified, and default path does not exist')
+        path = get_config_field(config, f'{path_type}_path')
+        if path is None and not os.path.exists(default_path):
+            print((f'No {path_type} path specified, and default path does not '
+                   'exist'))
             resp = input(f'Do you wish to continue? y/n')
-        elif not os.path.exists(train_path):
-            print('The specified train path does not exist')
-            resp = input(f'Do you wish to continue? y/n')
-        elif val_path is None and not os.path.exists(def_val_path):
-            print('No val path specified, and default path does not exist')
-            resp = input(f'Do you wish to continue? y/n')
-        elif not os.path.exists(val_path):
-            print('The specified val path does not exist')
+        elif not os.path.exists(path):
+            print(f'The specified {path_type} path does not exist')
             resp = input(f'Do you wish to continue? y/n')
         else:
             continue
@@ -36,6 +29,30 @@ def check_if_train_and_val_path_exist(configs):
         else:
             return False
     return True
+
+
+def check_trailing_slashes(configs, path_type='train'):
+    for config in configs:
+        path = get_config_field(config, f'{path_type}_path')
+        if not path.endswith(('\\', '/')):
+            print(f'The specified {path_type} path has no trailing slashes')
+            resp = input(f'Do you wish to continue? y/n')
+        else:
+            continue
+        if resp == 'y':
+            return True
+        else:
+            return False
+    return True
+
+
+def check_paths(configs):
+    return (
+        check_if_path_exists(configs, 'train')
+        and check_if_path_exists(configs, 'val')
+        and check_trailing_slashes(configs, 'train')
+        and check_trailing_slashes(configs, 'val')
+    )
 
 
 def main(args):
@@ -49,7 +66,7 @@ def main(args):
     keys, values = zip(*to_combine.items())
     configs = unflatten(keys, itertools.product(*values))
 
-    result = check_if_train_and_val_path_exist(configs)
+    result = check_paths(configs)
     if not result:
         print('Aborting')
         return
