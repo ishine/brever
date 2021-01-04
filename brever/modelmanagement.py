@@ -491,13 +491,13 @@ class ModelFilterArgParser(ExtendableArgParser):
         )
         self.add_base_argument(
             '--val-path',
-            type=lambda x: x.replace('\\', '/'),
+            type=lambda x: x.replace('\\', '/').strip('/'),
             nargs='+',
             help='validation dataset path',
         )
         self.add_base_argument(
             '--test-path',
-            type=lambda x: x.replace('\\', '/'),
+            type=lambda x: x.replace('\\', '/').strip('/'),
             nargs='+',
             help='testing dataset path',
         )

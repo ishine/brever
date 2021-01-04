@@ -16,6 +16,7 @@ def check_models(models, dims):
         return models, models
     values = []
     models_ = []
+    configs_ = []
     for model in models:
         pesq_file = os.path.join('models', model, 'pesq_scores.mat')
         mse_file = os.path.join('models', model, 'mse_scores.npy')
@@ -30,8 +31,23 @@ def check_models(models, dims):
         if val not in values:
             values.append(val)
             models_.append(model)
+            configs_.append(config)
         else:
-            raise ValueError(f'Found more than one model for value {val}')
+            duplicate_config = configs_[values.index(val)]
+            duplicate_model = models_[values.index(val)]
+            if duplicate_config == config:
+                print((f'Models {model} and {duplicate_model} both have the '
+                       f'following parameters: {val}. One model configuration '
+                       'is a subset of the other, meaning both models are '
+                       f'likely to be identical. Model {duplicate_model} will '
+                       'be skipped.'))
+            else:
+                raise ValueError((f'Models {model} and {duplicate_model} both '
+                                  f'have the following parameters: {val}. '
+                                  'The rest of the parameters differ. '
+                                  'Consider using the --default option to set '
+                                  'the rest of the parameters to their '
+                                  'default value.'))
     return models_, values
 
 
