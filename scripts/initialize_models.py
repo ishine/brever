@@ -34,7 +34,7 @@ def check_if_path_exists(configs, path_type='train'):
 def check_trailing_slashes(configs, path_type='train'):
     for config in configs:
         path = get_config_field(config, f'{path_type}_path')
-        if not path.endswith(('\\', '/')):
+        if path is not None and not path.endswith(('\\', '/')):
             print(f'The specified {path_type} path has no trailing slashes')
             resp = input(f'Do you wish to continue? y/n')
         else:

@@ -217,16 +217,25 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
     load_scores(groups)
     if sort_by == 'pesq':
         groups = sort_groups_by_mean_pesq(groups)
-    elif sort_by == 'dims' and dimensions is not None:
-        for dim in group_values[0].keys():
-            try:
-                group_vals_sorted = sorted(group_values,
-                                           key=lambda x: x[dim])
-            except TypeError:
-                group_vals_sorted = sorted(group_values,
-                                           key=lambda x: str(x[dim]))
-            i_sorted = [group_values.index(val) for val in group_vals_sorted]
-            groups = [groups[i] for i in i_sorted]
+    elif sort_by == 'dims':
+        if dimensions is not None:
+            group_values_copy = group_values.copy()
+            for dim in reversed(list(group_values[0].keys())):
+                print(dim)
+                try:
+                    group_vals_sorted = sorted(group_values_copy,
+                                               key=lambda x: x[dim])
+                except TypeError:
+                    group_vals_sorted = sorted(group_values_copy,
+                                               key=lambda x: str(x[dim]))
+                i_sorted = [group_values_copy.index(val)
+                            for val in group_vals_sorted]
+                groups = [groups[i] for i in i_sorted]
+                group_values_copy = [group_values_copy[i] for i in i_sorted]
+        else:
+            raise ValueError("Can't sort by dims when no dim is provided")
+    elif sort_by is not None:
+        raise ValueError('Unrecognized sort-by argument, must be pesq or dims')
 
     if top is not None:
         groups = groups[-top:]
