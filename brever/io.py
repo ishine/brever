@@ -212,7 +212,6 @@ def load_random_noise(dcase_dirpath, type_, n_samples, lims=None, fs=16e3):
         for file in files:
             if file.endswith(('.wav', '.WAV')) and file.startswith(prefix):
                 all_filepaths.append(os.path.join(root, file))
-    # TODO: type_ is actually not used to filter all_filepaths!!!
     if not all_filepaths:
         raise ValueError(f'No .wav file found in {dcase_dirpath}')
     if lims is not None:
@@ -235,4 +234,5 @@ def load_random_noise(dcase_dirpath, type_, n_samples, lims=None, fs=16e3):
         i_start = random.randint(0, len(x) - n_samples)
         i_end = i_start+n_samples
         x = x[i_start:i_end]
+
     return x, filepath, (i_start, i_end)

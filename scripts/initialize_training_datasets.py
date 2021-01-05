@@ -18,6 +18,7 @@ arg_to_keys_map = {
     'delay_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MAX'],
     'rooms': ['PRE', 'MIXTURES', 'RANDOM', 'ROOMS'],
     'dirpath_target': ['PRE', 'MIXTURES', 'PATH', 'TARGET'],
+    'noise_types': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'TYPES'],
 }
 
 

@@ -603,3 +603,8 @@ class DatasetInitArgParser(ExtendableArgParser):
             type=str,
             help='path to target speech database',
         )
+        self.add_base_argument(
+            '--noise-types',
+            type=arg_set_type,
+            help='noise types',
+        )
