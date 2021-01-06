@@ -202,7 +202,7 @@ class LegendFormatter:
 
 
 def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
-         default, only_pesq, figsize):
+         default, only_pesq, figsize, ymax):
     if default:
         set_default_parameters(filter_, dimensions, group_by)
 
@@ -221,7 +221,6 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
         if dimensions is not None:
             group_values_copy = group_values.copy()
             for dim in reversed(list(group_values[0].keys())):
-                print(dim)
                 try:
                     group_vals_sorted = sorted(group_values_copy,
                                                key=lambda x: x[dim])
@@ -295,11 +294,13 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
             ax.yaxis.set_tick_params(labelleft=True)
+            if metric == 'pesq' and ymax is not None:
+                ax.set_ylim(0, ymax)
         LegendFormatter(fig, ncol=ncol)
 
     if not only_pesq:
         symbols = ['o', 's', '^', 'v', '<', '>']
-        fig, axes = plt.subplots(1, 2)
+        fig, axes = plt.subplots(1, 2, sharey=True, sharex=True)
         fig_legend_handles = []
         fig_legend_labels = []
         for axis, (ax, labels) in enumerate(zip(
@@ -364,6 +365,8 @@ if __name__ == '__main__':
                         help='plot only pesq scores')
     parser.add_argument('--figsize', nargs=2, type=int,
                         help='figure size')
+    parser.add_argument('--ymax', type=float,
+                        help='pesq y axis upper limits')
     filter_args, args = parser.parse_args()
 
     model_dirs = []
@@ -373,4 +376,4 @@ if __name__ == '__main__':
         model_dirs += glob(input_)
     main(model_dirs, args.dims, args.group_by, args.sort_by, vars(filter_args),
          args.legend, args.top, args.ncol, args.default, args.only_pesq,
-         args.figsize)
+         args.figsize, args.ymax)
