@@ -141,19 +141,19 @@ brever
 
 ## Training a model
 
-Similarly, to train a model, first create a `config.yaml` file with the post-processing and model parameters you wish to overwrite and place inside a new folder under the `models/` directory. Then run:
+Similarly, to train a model, first create a `config.yaml` file with the post-processing and model parameters you wish to overwrite and place it inside a new folder under the `models/` directory. Then run:
 
 ```
 python scripts/train_model.py models/my_model/
 ```
 
-**Example**: If you wish to train a model with the training dataset `data/processed/my_train_dataset` and the validation dataset `data/processed/my_val_dataset`, then create the following `config.yaml` file:
+**Example**: If you wish to train a model with the training dataset `data/processed/my_train_dataset/` and the validation dataset `data/processed/my_val_dataset/`, then create the following `config.yaml` file:
 
 ```yaml
 POST:
   PATH:
-    TRAIN: data/processed/training/
-    VAL: data/processed/validation/
+    TRAIN: data/processed/my_train_dataset/
+    VAL: data/processed/my_val_dataset/
 ```
 
 Save it under `models/my_model/` such that your working tree looks like this:
@@ -227,7 +227,7 @@ python scripts/create_dataset.py data/processed/testing_alias_snr*
 
 ## Testing a model
 
-To test a freshly trained model, the `POST.PATH.TEST` field in the `config.yaml` file of the model should point to the start of the naming convention of the testing datasets. For example, to train a model on the testing datasets listed above, the `config.yaml` file of the model should contain this:
+To test a freshly trained model, the `POST.PATH.TEST` field in the `config.yaml` file of the model should point to the start of the naming convention of the testing datasets. For example, to test a model on the testing datasets listed above, the `config.yaml` file of the model should contain this:
 
 ```yaml
 POST:
