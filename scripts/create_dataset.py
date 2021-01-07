@@ -84,7 +84,8 @@ def main(dataset_dir, force):
         diffuse_noise_ltas_eq=config.PRE.MIXTURES.DIFFUSE.LTASEQ,
         mixture_pad=config.PRE.MIXTURES.PADDING,
         mixture_rb=config.PRE.MIXTURES.REFLECTIONBOUNDARY,
-        mixture_rms_jitter=range(
+        mixture_rms_jitter_on=config.PRE.MIXTURES.RANDOM.RMSDB.ON,
+        mixture_rms_jitters=range(
             config.PRE.MIXTURES.RANDOM.RMSDB.MIN,
             config.PRE.MIXTURES.RANDOM.RMSDB.MAX + 1,
         ),

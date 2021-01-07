@@ -95,6 +95,7 @@ PRE:
       RMSDB:
         MAX: 0
         MIN: -20
+        'ON': true
       ROOMS: !!set
         surrey_room_a: null
         surrey_room_b: null

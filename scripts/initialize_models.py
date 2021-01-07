@@ -6,8 +6,8 @@ import yaml
 
 from brever.config import defaults
 from brever.modelmanagement import (get_unique_id, set_config_field, flatten,
-                                    unflatten, arg_to_keys_map,
-                                    ModelFilterArgParser, get_config_field)
+                                    unflatten, ModelFilterArgParser,
+                                    get_config_field)
 
 
 def check_if_path_exists(configs, path_type='train'):
@@ -18,10 +18,10 @@ def check_if_path_exists(configs, path_type='train'):
         if path is None and not os.path.exists(default_path):
             print((f'No {path_type} path specified, and default path does not '
                    'exist'))
-            resp = input(f'Do you wish to continue? y/n')
+            resp = input('Do you wish to continue? y/n')
         elif not os.path.exists(path):
             print(f'The specified {path_type} path does not exist')
-            resp = input(f'Do you wish to continue? y/n')
+            resp = input('Do you wish to continue? y/n')
         else:
             continue
         if resp == 'y':
@@ -36,7 +36,7 @@ def check_trailing_slashes(configs, path_type='train'):
         path = get_config_field(config, f'{path_type}_path')
         if path is not None and not path.endswith(('\\', '/')):
             print(f'The specified {path_type} path has no trailing slashes')
-            resp = input(f'Do you wish to continue? y/n')
+            resp = input('Do you wish to continue? y/n')
         else:
             continue
         if resp == 'y':
@@ -57,7 +57,7 @@ def check_paths(configs):
 
 def main(args):
     to_combine = {}
-    for key in arg_to_keys_map.keys():
+    for key in ModelFilterArgParser.arg_to_keys_map.keys():
         value = args.__getattribute__(key)
         if value is not None:
             set_config_field(to_combine, key, value)

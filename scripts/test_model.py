@@ -69,14 +69,6 @@ def main(model_dir, force, no_cuda):
     # initialize criterion
     criterion = getattr(torch.nn, config.MODEL.CRITERION)()
 
-    # load pipes
-    logging.info('Loading pipes...')
-    pipes_file = os.path.join(config.POST.PATH.TRAIN, 'pipes.pkl')
-    with open(pipes_file, 'rb') as f:
-        pipes = pickle.load(f)
-    scaler = pipes['scaler']
-    filterbank = pipes['filterbank']
-
     # main loop
     snrs = [0, 3, 6, 9, 12, 15]
     room_aliases = [
@@ -93,6 +85,14 @@ def main(model_dir, force, no_cuda):
             suffix = f'snr{snr}_room{room_alias[-1].upper()}'
             test_dataset_dir = f'{config.POST.PATH.TEST}_{suffix}'
             logging.info(f'Processing {test_dataset_dir}:')
+
+            # load pipes
+            logging.info('Loading pipes...')
+            pipes_file = os.path.join(test_dataset_dir, 'pipes.pkl')
+            with open(pipes_file, 'rb') as f:
+                pipes = pickle.load(f)
+            scaler = pipes['scaler']
+            filterbank = pipes['filterbank']
 
             # initialize dataset and dataloader
             test_dataset = H5Dataset(

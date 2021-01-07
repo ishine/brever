@@ -140,10 +140,10 @@ class RandomMixtureMaker:
                  directional_noise_numbers, directional_noise_types,
                  directional_noise_angles, directional_noise_snrs,
                  diffuse_noise_on, diffuse_noise_color, diffuse_noise_ltas_eq,
-                 mixture_pad, mixture_rb, mixture_rms_jitter, path_target,
-                 path_surrey, path_dcase, filelims_target,
-                 filelims_directional_noise, decay_on, decay_color,
-                 decay_rt60s, decay_drrs, decay_delays):
+                 mixture_pad, mixture_rb, mixture_rms_jitter_on,
+                 mixture_rms_jitters, path_target, path_surrey, path_dcase,
+                 filelims_target, filelims_directional_noise, decay_on,
+                 decay_color, decay_rt60s, decay_drrs, decay_delays):
         self.fs = fs
         self.rooms = rooms
         self.target_angles = target_angles
@@ -157,7 +157,8 @@ class RandomMixtureMaker:
         self.diffuse_noise_ltas_eq = diffuse_noise_ltas_eq
         self.mixture_pad = mixture_pad
         self.mixture_rb = mixture_rb
-        self.mixture_rms_jitter = mixture_rms_jitter
+        self.mixture_rms_jitter_on = mixture_rms_jitter_on
+        self.mixture_rms_jitters = mixture_rms_jitters
         self.path_target = path_target
         self.path_surrey = path_surrey
         self.path_dcase = path_dcase
@@ -276,9 +277,10 @@ class RandomMixtureMaker:
         self.metadata['target']['snr'] = snr
 
     def set_random_rms(self):
-        rms_dB = choice(self.mixture_rms_jitter)
-        self.mixture.adjust_rms(rms_dB)
-        self.metadata['rms_dB'] = rms_dB
+        rms_dB = choice(self.mixture_rms_jitters)
+        if self.mixture_rms_jitter_on:
+            self.mixture.adjust_rms(rms_dB)
+            self.metadata['rms_dB'] = rms_dB
 
     def _load_brirs(self, room, angles=None):
         if angles is None or isinstance(angles, list):
@@ -386,7 +388,8 @@ class DefaultRandomMixtureMaker(RandomMixtureMaker):
             diffuse_noise_ltas_eq=config.PRE.MIXTURES.DIFFUSE.LTASEQ,
             mixture_pad=config.PRE.MIXTURES.PADDING,
             mixture_rb=config.PRE.MIXTURES.REFLECTIONBOUNDARY,
-            mixture_rms_jitter=range(
+            mixture_rms_jitter_on=config.PRE.MIXTURES.RANDOM.RMSDB.ON,
+            mixture_rms_jitters=range(
                 config.PRE.MIXTURES.RANDOM.RMSDB.MIN,
                 config.PRE.MIXTURES.RANDOM.RMSDB.MAX + 1,
             ),

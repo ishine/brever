@@ -5,26 +5,6 @@ import argparse
 import yaml
 
 
-arg_to_keys_map = {
-    'layers': ['MODEL', 'NLAYERS'],
-    'stacks': ['POST', 'STACK'],
-    'batchnorm': ['MODEL', 'BATCHNORM', 'ON'],
-    'dropout': ['MODEL', 'DROPOUT', 'ON'],
-    'dropout_rate': ['MODEL', 'DROPOUT', 'RATE'],
-    'dropout_input': ['MODEL', 'DROPOUT', 'INPUT'],
-    'batchsize': ['MODEL', 'BATCHSIZE'],
-    'features': ['POST', 'FEATURES'],
-    'train_path': ['POST', 'PATH', 'TRAIN'],
-    'val_path': ['POST', 'PATH', 'VAL'],
-    'test_path': ['POST', 'PATH', 'TEST'],
-    'dct': ['POST', 'DCT', 'ON'],
-    'n_dct': ['POST', 'DCT', 'NCOEFF'],
-    'cuda': ['MODEL', 'CUDA'],
-    'uni_norm_features': ['POST', 'STANDARDIZATION', 'UNIFORMFEATURES'],
-    'file_based_norm': ['POST', 'STANDARDIZATION', 'FILEBASED'],
-}
-
-
 def sorted_dict(input_dict):
     """
     Sorts a dictionary by keys, and sorts the sets inside the dictionary.
@@ -241,10 +221,11 @@ def set_config_field(input_config_dict, argument_tag, value):
     Set a configuration dictionary value.
 
     Sets a field in a configuration dictionary given an argument. The list of
-    available arguments are available in `~.modelmanagement.arg_to_keys_map`.
-    A configuration dictionary can be obtained from e.g.
-    `~.config.AttrDict.to_dict`. If while navigating the dictionary, the
-    current key does not exist, then a new inner dictionary is created.
+    available arguments are available in
+    `~.modelmanagement.ModelFilterArgParser.arg_to_keys_map`. A configuration
+    dictionary can be obtained from e.g. `~.config.AttrDict.to_dict`. If while
+    navigating the dictionary, the current key does not exist, then a new inner
+    dictionary is created.
 
     Parameters
     ----------
@@ -253,11 +234,12 @@ def set_config_field(input_config_dict, argument_tag, value):
     argument_tag : str
         Argument tag. The list of available arguments and their corresponding
         path in the configuration dictionary are available in
-        `~.modelmanagement.arg_to_keys_map`.
+        `~.modelmanagement.ModelFilterArgParser.arg_to_keys_map`.
     value : any type
         Value to assign.
     """
-    set_dict_field(input_config_dict, arg_to_keys_map[argument_tag], value)
+    set_dict_field(input_config_dict,
+                   ModelFilterArgParser.arg_to_keys_map[argument_tag], value)
 
 
 def get_config_field(input_config_dict, argument_tag, default=None):
@@ -275,7 +257,7 @@ def get_config_field(input_config_dict, argument_tag, default=None):
     argument_tag : str
         Argument tag. The list of available arguments and their corresponding
         path in the configuration dictionary are available in
-        `~.modelmanagement.arg_to_keys_map`.
+        `~.modelmanagement.ModelFilterArgParser.arg_to_keys_map`.
     default : any type, optional
         The default value to return if the value associated with
         `argument_tag` does not exist. Default is `None`.
@@ -285,7 +267,8 @@ def get_config_field(input_config_dict, argument_tag, default=None):
     value : any type
         Value found in `input_config_dict` associated with `argument_tag`.
     """
-    return get_dict_field(input_config_dict, arg_to_keys_map[argument_tag],
+    return get_dict_field(input_config_dict,
+                          ModelFilterArgParser.arg_to_keys_map[argument_tag],
                           default)
 
 
@@ -304,7 +287,8 @@ def find_model(**kwargs):
     ----------
     **kwargs :
         Parameters to filter the list of available models. The available
-        parameters are the keys of `~.modelmanagement.arg_to_keys_map`,
+        parameters are the keys of
+        `~.modelmanagement.ModelFilterArgParser.arg_to_keys_map`,
         and must be set to lists of values of the appropriate type.
 
     Returns
@@ -324,7 +308,7 @@ def find_model(**kwargs):
             config = yaml.safe_load(f)
         valid = True
         for key, value in kwargs.items():
-            keys = arg_to_keys_map[key]
+            keys = ModelFilterArgParser.arg_to_keys_map[key]
             if value is not None and get_dict_field(config, keys) not in value:
                 valid = False
                 break
@@ -426,13 +410,33 @@ class ModelFilterArgParser(ExtendableArgParser):
 
     Subclass of `~.modelmanagement.ExtendableArgParser` that is ready to take
     as arguments the available model parameters in
-    `~.modelmanagement.arg_to_keys_map`. This can be extended to accept
-    additional arguments for eventual further processing.
+    `~.modelmanagement.ModelFilterArgParser.arg_to_keys_map`. This can be
+    extended to accept additional arguments for eventual further processing.
 
     Typical usage example is to feed the base arguments to
     `~.modelmanagement.find_model` and then use the extra arguments for
     further processing of the found models, e.g. training or testing them.
     """
+
+    arg_to_keys_map = {
+        'layers': ['MODEL', 'NLAYERS'],
+        'stacks': ['POST', 'STACK'],
+        'batchnorm': ['MODEL', 'BATCHNORM', 'ON'],
+        'dropout': ['MODEL', 'DROPOUT', 'ON'],
+        'dropout_rate': ['MODEL', 'DROPOUT', 'RATE'],
+        'dropout_input': ['MODEL', 'DROPOUT', 'INPUT'],
+        'batchsize': ['MODEL', 'BATCHSIZE'],
+        'features': ['POST', 'FEATURES'],
+        'train_path': ['POST', 'PATH', 'TRAIN'],
+        'val_path': ['POST', 'PATH', 'VAL'],
+        'test_path': ['POST', 'PATH', 'TEST'],
+        'dct': ['POST', 'DCT', 'ON'],
+        'n_dct': ['POST', 'DCT', 'NCOEFF'],
+        'cuda': ['MODEL', 'CUDA'],
+        'uni_norm_features': ['POST', 'STANDARDIZATION', 'UNIFORMFEATURES'],
+        'file_based_norm': ['POST', 'STANDARDIZATION', 'FILEBASED'],
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.add_base_argument(
@@ -541,6 +545,25 @@ class DatasetInitArgParser(ExtendableArgParser):
     take as arguments parameters for dataset initialization. This can be
     extended to accept additional arguments for eventual further processing.
     """
+
+    arg_to_keys_map = {
+        'decay': ['PRE', 'MIXTURES', 'DECAY', 'ON'],
+        'decay_color': ['PRE', 'MIXTURES', 'DECAY', 'COLOR'],
+        'diffuse': ['PRE', 'MIXTURES', 'DIFFUSE', 'ON'],
+        'diffuse_color': ['PRE', 'MIXTURES', 'DIFFUSE', 'COLOR'],
+        'drr_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'MIN'],
+        'drr_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'MAX'],
+        'rt60_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MIN'],
+        'rt60_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MAX'],
+        'delay_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MIN'],
+        'delay_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MAX'],
+        'rooms': ['PRE', 'MIXTURES', 'RANDOM', 'ROOMS'],
+        'dirpath_target': ['PRE', 'MIXTURES', 'PATH', 'TARGET'],
+        'noise_types': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'TYPES'],
+        'random_rms': ['PRE', 'MIXTURES', 'RANDOM', 'RMSDB', 'ON'],
+        'scale_rms': ['PRE', 'MIXTURES', 'SCALERMS'],
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.add_base_argument(
@@ -607,4 +630,14 @@ class DatasetInitArgParser(ExtendableArgParser):
             '--noise-types',
             type=arg_set_type,
             help='noise types',
+        )
+        self.add_base_argument(
+            '--random-rms',
+            type=lambda x: bool(int(x)),
+            help='rms randomization toggle',
+        )
+        self.add_base_argument(
+            '--scale-rms',
+            type=lambda x: bool(int(x)),
+            help='rms scaling toggle',
         )
