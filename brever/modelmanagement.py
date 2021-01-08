@@ -562,6 +562,7 @@ class DatasetInitArgParser(ExtendableArgParser):
         'noise_types': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'TYPES'],
         'random_rms': ['PRE', 'MIXTURES', 'RANDOM', 'RMSDB', 'ON'],
         'scale_rms': ['PRE', 'MIXTURES', 'SCALERMS'],
+        'features': ['PRE', 'FEATURES'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -640,4 +641,9 @@ class DatasetInitArgParser(ExtendableArgParser):
             '--scale-rms',
             type=lambda x: bool(int(x)),
             help='rms scaling toggle',
+        )
+        self.add_base_argument(
+            '--features',
+            type=arg_set_type,
+            help='features to generate',
         )
