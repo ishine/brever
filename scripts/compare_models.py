@@ -239,6 +239,10 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
     if top is not None:
         groups = groups[-top:]
 
+    for group in groups:
+        for model in group:
+            print(model['model'])
+
     snrs = [0, 3, 6, 9, 12, 15]
     room_names = ['A', 'B', 'C', 'D']
 
