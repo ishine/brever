@@ -240,8 +240,9 @@ def mfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
     x = x.mean(axis=-1)  # average channels
     energy = x**2  # get energy
     energy = energy.mean(axis=1)  # average each frame
-    log_energy = np.log(energy + 1e-10)
-    mfcc = scipy.fftpack.dct(log_energy, axis=1, type=dct_type, norm=norm)
+    # energy_comp = np.log(energy + 1e-10)
+    energy_comp = energy**(1/3)
+    mfcc = scipy.fftpack.dct(energy_comp, axis=1, type=dct_type, norm=norm)
     mfcc = mfcc[:, 1:n_mfcc+1]
     dmfcc = np.diff(mfcc, axis=0, prepend=mfcc[0, None])
     ddmfcc = np.diff(dmfcc, axis=0, prepend=dmfcc[0, None])
