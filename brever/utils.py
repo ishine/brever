@@ -186,7 +186,7 @@ def standardize(x, axis=0):
     stds = x.std(axis=axis)
     means = np.expand_dims(means, axis=axis)
     stds = np.expand_dims(stds, axis=axis)
-    x_standard = (x - means)/(stds + 1e-10)
+    x_standard = (x - means)/(stds + np.nextafter(0, 1))
     return x_standard
 
 
@@ -481,7 +481,7 @@ def segmental_scores(*args, frame_length=160, hop_length=160, DRdB=45,
         arg = frame(arg, frame_length=frame_length, hop_length=hop_length,
                     window='boxcar')
         if i == 0:
-            activity = 10*np.log10(np.sum(arg**2, axis=1) + 1e-10)
+            activity = 10*np.log10(np.sum(arg**2, axis=1) + np.nextafter(0, 1))
             activity = (activity - activity.max()) > -abs(DRdB)
         args[i] = arg[activity, :]
     scores = []
@@ -506,8 +506,8 @@ def segmental_scores(*args, frame_length=160, hop_length=160, DRdB=45,
             den = hat
             # TODO: extend the definitions of SI-SDR and SD-SDR to segNR
         score = np.mean(10*np.log10(
-            (np.sum(num**2, axis=1) + 1e-10) /
-            (np.sum(den**2, axis=1) + 1e-10)
+            (np.sum(num**2, axis=1) + np.nextafter(0, 1)) /
+            (np.sum(den**2, axis=1) + np.nextafter(0, 1))
         ))
         scores.append(score)
     return scores

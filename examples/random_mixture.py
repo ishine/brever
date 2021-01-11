@@ -49,7 +49,7 @@ for i, attribute in enumerate(attributes):
     X = (x_framed**2).mean(axis=1)
 
     # convert to dB
-    X_dB = 20*np.log10(X + 1e-10)
+    X_dB = 20*np.log10(X + np.nextafter(0, 1))
 
     # plot spectrogram
     plot_spectrogram(

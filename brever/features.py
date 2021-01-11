@@ -107,7 +107,7 @@ def ild(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
             Interaural level difference. Size n_frames*n_filters.
     '''
     x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-    energy = np.sum(x**2, axis=1) + 1e-10
+    energy = np.sum(x**2, axis=1) + np.nextafter(0, 1)
     return 10*np.log10(energy[:, :, 1]/energy[:, :, 0])
 
 
@@ -204,8 +204,8 @@ def itd_ic(x, filtered=False, filt_kwargs=None, framed=False,
     return np.hstack((ITD, IC))
 
 
-def mfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
-         filt_kwargs=None, framed=False, frame_kwargs=None):
+def logmfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
+            filt_kwargs=None, framed=False, frame_kwargs=None):
     '''
     Mel-frequency cepstral coefficients. DC term is not returned. Deltas and
     double deltas are returned.
@@ -240,7 +240,50 @@ def mfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
     x = x.mean(axis=-1)  # average channels
     energy = x**2  # get energy
     energy = energy.mean(axis=1)  # average each frame
-    # energy_comp = np.log(energy + 1e-10)
+    energy_comp = np.log(energy + np.nextafter(0, 1))
+    mfcc = scipy.fftpack.dct(energy_comp, axis=1, type=dct_type, norm=norm)
+    mfcc = mfcc[:, 1:n_mfcc+1]
+    dmfcc = np.diff(mfcc, axis=0, prepend=mfcc[0, None])
+    ddmfcc = np.diff(dmfcc, axis=0, prepend=dmfcc[0, None])
+    return np.hstack((mfcc, dmfcc, ddmfcc))
+
+
+def cubicmfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
+              filt_kwargs=None, framed=False, frame_kwargs=None):
+    '''
+    Mel-frequency cepstral coefficients. DC term is not returned. Deltas and
+    double deltas are returned.
+
+    Parameters:
+        x:
+            Input signal.
+        n_mfcc:
+            Number of MFCCs to return, DC term not included.
+        dct_type:
+            Discrete cosine transform type.
+        norm:
+            If dct_type is 2 or 3, setting norm='ortho' uses an ortho-normal
+            DCT basis.
+        filtered:
+            If True, the input signals are assumed to be already filtered. They
+            should then have size n_samples*n_filters*2.
+        filt_kwargs
+            Keyword arguments passed to filters.filt if filtered is
+            False.
+        framed:
+            If True, the input signals are assumed to be already framed. They
+            should then have size n_frames*frame_length*n_filters*2.
+        frame_kwargs:
+            Keyword arguments passed to utils.frame if framed is False.
+
+    Returns:
+        mfcc:
+            Mel-frequency cepstral coefficients. Size n_frames*(n_mfcc*3).
+    '''
+    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+    x = x.mean(axis=-1)  # average channels
+    energy = x**2  # get energy
+    energy = energy.mean(axis=1)  # average each frame
     energy_comp = energy**(1/3)
     mfcc = scipy.fftpack.dct(energy_comp, axis=1, type=dct_type, norm=norm)
     mfcc = mfcc[:, 1:n_mfcc+1]
@@ -280,9 +323,9 @@ def pdf(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None,
     energy = x**2  # get energy
     energy = energy.mean(axis=1)  # average each frame
     total_energy = energy.sum(axis=1, keepdims=True)  # energy across bands
-    pdf = energy/(total_energy + 1e-10)  # normalization
+    pdf = energy/(total_energy + np.nextafter(0, 1))  # normalization
     if log:
-        pdf = np.log(pdf + 1e-10)
+        pdf = np.log(pdf + np.nextafter(0, 1))
     return pdf
 
 
@@ -324,8 +367,8 @@ def pdfcc(x, n_pdfcc=13, dct_type=2, norm='ortho', filtered=False,
     energy = x**2  # get energy
     energy = energy.mean(axis=1)  # average each frame
     total_energy = energy.sum(axis=1, keepdims=True)  # energy across bands
-    energy = energy/(total_energy + 1e-10)  # normalization
-    log_energy = np.log(energy + 1e-10)
+    energy = energy/(total_energy + np.nextafter(0, 1))  # normalization
+    log_energy = np.log(energy + np.nextafter(0, 1))
     pdfcc = scipy.fftpack.dct(log_energy, axis=1, type=dct_type, norm=norm)
     pdfcc = pdfcc[:, 1:n_pdfcc+1]
     dpdfcc = np.diff(pdfcc, axis=0, prepend=pdfcc[0, None])

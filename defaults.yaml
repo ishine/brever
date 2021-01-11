@@ -23,7 +23,7 @@ MODEL:
 POST:
   DECIMATION: 2
   FEATURES: !!set
-    mfcc: null
+    logmfcc: null
   STANDARDIZATION:
     FILEBASED: false
     UNIFORMFEATURES: !!set {}
@@ -38,12 +38,13 @@ POST:
     'ON': false
 PRE:
   FEATURES: !!set
-    ild: null
-    itd_ic: null
-    logpdf: null
-    mfcc: null
-    pdf: null
-    pdfcc: null
+    # ild: null
+    # itd_ic: null
+    # logpdf: null
+    logmfcc: null
+    cubicmfcc: null
+    # pdf: null
+    # pdfcc: null
   FILTERBANK:
     FMAX: 8000
     FMIN: 50

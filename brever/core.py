@@ -133,7 +133,7 @@ def spectrogram(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
     elif domain == 'power':
         S = np.abs(X)**2
     elif domain == 'dB':
-        S = 20*np.log10(np.abs(X) + 1e-10)
+        S = 20*np.log10(np.abs(X) + np.nextafter(0, 1))
     else:
         raise ValueError('domain should be either mag, power or dB')
     return S.squeeze()
@@ -207,11 +207,11 @@ def melspectrogram(x, n_fft=512, hop_length=256, frame_length=None,
     elif input_domain == 'mag' and output_domain == 'power':
         M = M**2
     elif input_domain == 'mag' and output_domain == 'dB':
-        M = 20*np.log10(np.abs(M) + 1e-10)
+        M = 20*np.log10(np.abs(M) + np.nextafter(0, 1))
     elif input_domain == 'power' and output_domain == 'mag':
         M = M**0.5
     elif input_domain == 'power' and output_domain == 'dB':
-        M = 10*np.log10(np.abs(M) + 1e-10)
+        M = 10*np.log10(np.abs(M) + np.nextafter(0, 1))
     elif input_domain == 'dB' and output_domain == 'mag':
         M = 10**(M/20)
     elif input_domain == 'dB' and output_domain == 'power':
@@ -260,5 +260,5 @@ def cochleagram(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, rectify=True,
         elif compression == 'cube':
             C = C**(1/3)
         elif compression == 'log':
-            C = np.log10(C + 1e-10)
+            C = np.log10(C + np.nextafter(0, 1))
     return C, fc
