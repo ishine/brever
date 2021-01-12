@@ -72,14 +72,21 @@ def main(args):
         return
 
     new_configs = []
+    skipped = 0
     for config in configs:
         unique_id = get_unique_id(config)
         if unique_id not in os.listdir('models'):
             defaults().update(config)  # throws an error if config is not valid
-            new_configs.append(config)
+            uni_features = get_config_field(config, 'uni_norm_features', None)
+            features = get_config_field(config, 'features', None)
+            if (uni_features is not None and features is not None
+                    and not uni_features.issubset(features)):
+                skipped += 1
+            else:
+                new_configs.append(config)
 
-    print(f'{len(configs)} config(s) attempted to be initialized.')
-    print(f'{len(configs)-len(new_configs)} already exist.')
+    print(f'{len(configs)-skipped} config(s) attempted to be initialized.')
+    print(f'{len(configs)-len(new_configs)-skipped} already exist.')
 
     if not new_configs:
         print(f'{len(new_configs)} will be initialized.')
