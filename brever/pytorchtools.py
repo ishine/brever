@@ -303,16 +303,24 @@ class Feedforward(torch.nn.Module):
         self.operations = torch.nn.ModuleList()
         if dropout_input:
             self.operations.append(torch.nn.Dropout(dropout_rate))
+        if dropout_toggle:
+            hidden_size = int(round(input_size/(1-dropout_rate)))
+        else:
+            hidden_size = input_size
         for i in range(n_layers):
-            self.operations.append(torch.nn.Linear(input_size, input_size))
+            if i == 0:
+                start_size = input_size
+            else:
+                start_size = hidden_size
+            self.operations.append(torch.nn.Linear(start_size, hidden_size))
             if batchnorm_toggle:
                 self.operations.append(
-                    torch.nn.BatchNorm1d(input_size,
+                    torch.nn.BatchNorm1d(hidden_size,
                                          momentum=batchnorm_momentum))
             self.operations.append(torch.nn.ReLU())
             if dropout_toggle:
                 self.operations.append(torch.nn.Dropout(dropout_rate))
-        self.operations.append(torch.nn.Linear(input_size, output_size))
+        self.operations.append(torch.nn.Linear(hidden_size, output_size))
         self.operations.append(torch.nn.Sigmoid())
 
     @classmethod
