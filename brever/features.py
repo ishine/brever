@@ -208,7 +208,7 @@ def logmfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
             filt_kwargs=None, framed=False, frame_kwargs=None):
     '''
     Mel-frequency cepstral coefficients. DC term is not returned. Deltas and
-    double deltas are returned.
+    double deltas are returned. Uses logarithmic compression.
 
     Parameters:
         x:
@@ -252,7 +252,7 @@ def cubicmfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
               filt_kwargs=None, framed=False, frame_kwargs=None):
     '''
     Mel-frequency cepstral coefficients. DC term is not returned. Deltas and
-    double deltas are returned.
+    double deltas are returned. Uses cubic compression.
 
     Parameters:
         x:
