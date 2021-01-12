@@ -6,7 +6,7 @@ MODEL:
   CRITERION: MSELoss
   CUDA: true
   DROPOUT:
-    'ON': true
+    'ON': false
     RATE: 0.2
     INPUT: false
   EARLYSTOP:
@@ -44,7 +44,7 @@ PRE:
     logmfcc: null
     cubicmfcc: null
     # pdf: null
-    # pdfcc: null
+    pdfcc: null
   FILTERBANK:
     FMAX: 8000
     FMIN: 50
