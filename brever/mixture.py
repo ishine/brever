@@ -5,19 +5,25 @@ from .utils import pad, fft_freqs, rms
 
 
 def spatialize(x, brir):
-    '''
-    Spatialize an input audio signal.
+    """
+    Signal spatialization.
 
-    Parameters:
-        x:
-            Monaural audio signal to spatialize.
-        brir:
-            Binaural room impulse response.
+    Spatializes a single channel input audio signal with the provided BRIR
+    using overlap-add convolution method. The last samples of the output
+    signal are discarded such that it matches the length of the input signal.
 
-    Returns:
-        x_binaural:
-            Binaural audio signal. Shape len(x)*2.
-    '''
+    Parameters
+    ----------
+    x : array_like
+        Monaural audio signal to spatialize.
+    brir : array_like
+        Binaural room impulse response. Shape `(len(brir), 2)`.
+
+    Returns
+    -------
+    y: array_like
+        Binaural audio signal. Shape `(len(x), 2)`.
+    """
     n = len(x)
     x_left = scipy.signal.oaconvolve(x, brir[:, 0], mode='full')[:n]
     x_right = scipy.signal.oaconvolve(x, brir[:, 1], mode='full')[:n]
@@ -25,20 +31,24 @@ def spatialize(x, brir):
 
 
 def colored_noise(color, n_samples):
-    '''
-    Generate 1/f**alpha colored noise.
+    """
+    Colored noise.
 
-    Parameters:
-        color:
-            Color of the noise. Can be 'brown', 'pink', 'white', 'blue' or
-            'violet'.
-        n_samples:
-            Number of samples to generate.
+    Generates noise with power spectral density following a `1/f**alpha`
+    distribution.
 
-    Returns:
-        x:
-            Colored noise. Length n_samples.
-    '''
+    Parameters
+    ----------
+    color : {'brown', 'pink', 'white', 'blue', 'violet'}
+        Color of the noise.
+    n_samples : int
+        Number of samples to generate.
+
+    Returns
+    -------
+    x: array_like
+        Colored noise. One-dimensional with length `n_samples`.
+    """
     colors = {
         'brown': 2,
         'pink': 1,
@@ -60,6 +70,30 @@ def colored_noise(color, n_samples):
 
 
 def match_ltas(x, ltas, n_fft=512, hop_length=256):
+    """
+    Long-term-average-spectrum (LTAS) matching.
+
+    Filters the input signal in the short-time Fourier transform (STFT) domain
+    such that it presents a specific long-term-average-spectrum (LTAS). The
+    considered LTAS is the average LTAS across channels
+
+    Parameters
+    ----------
+    x : array_like
+        Input signal. Shape `(n_samples, n_channels)`.
+    ltas : array_like
+        Desired long-term-average-spectrum (LTAS). One-dimensional with
+        length `n_fft`.
+    n_fft : int, optional
+        Number of FFT points. Default is 512.
+    hop_length : int, optional
+        Frame shift in samples. Default is 256.
+
+    Returns
+    -------
+    y : array_like
+        Output signal with LTAS equal to `ltas`.
+    """
     n = len(x)
     noverlap = n_fft-hop_length
     _, _, X = scipy.signal.stft(x, nperseg=n_fft, noverlap=noverlap, axis=0)
@@ -72,28 +106,33 @@ def match_ltas(x, ltas, n_fft=512, hop_length=256):
 
 
 def split_brir(brir, reflection_boundary=50e-3, fs=16e3, max_itd=1e-3):
-    '''
+    """
+    BRIR split.
+
     Splits a BRIR into a direct or early reflections component and a reverb or
-    late reflections component.
+    late reflections component according to a reflection boundary.
 
-    Parameters:
-        brir:
-            Input BRIR.
-        reflection_boundary:
-            Reflection boundary defining the limit between early and late
-            reflections.
-        fs:
-            Sampling frequency.
-        max_itd:
-            Maximum interaural time difference. Used to compare the locations
-            of the peak in each channel and correct if necessary.
+    Parameters
+    ----------
+    brir : array_like
+        Input BRIR. Shape `(len(brir), 2)`.
+    reflection_boundary : float, optional
+        Reflection boundary in seconds, This is the limit between early and
+        late reflections. Default is 50e-3.
+    fs : float or int, optional
+        Sampling frequency. Default is 16e3.
+    max_itd : float, optional
+        Maximum interaural time difference in seconds. Used to compare the
+        location of the highest peak in each channel and adjust if necessary.
+        Default is 1e-3.
 
-    Returns:
-        brir_early:
-            Early reflections part of input BRIR. Same length as brir.
-        brir_late:
-            Late reflections part of input BRIR. Same length as brir.
-    '''
+    Returns
+    -------
+    brir_early: array_like
+        Early reflections part of input BRIR. Same shape as `brir`.
+    brir_late: array_like
+        Late reflections part of input BRIR. Same shape as `brir`.
+    """
     peak_i = np.argmax(np.abs(brir), axis=0)
     peak_val = np.max(np.abs(brir), axis=0)
     max_delay = round(max_itd*fs)
@@ -113,25 +152,32 @@ def split_brir(brir, reflection_boundary=50e-3, fs=16e3, max_itd=1e-3):
 
 
 def adjust_snr(signal, noise, snr, slice_=None):
-    '''
-    Scales a noise signal given a target signal and a desired SNR.
+    """
+    SNR adjustement.
 
-    Parameters:
-        signal:
-            Target signal.
-        noise:
-            Noise signal.
-        snr:
-            Desired SNR.
-        slice_:
-            Slice of the input signal from which the SNR should be calculated.
-            If left as None, the energy of the entire signals are calculated.
+    Scales a noise signal given a target signal and a desired signal-to-noise
+    ratio (SNR). The average energy that is used to calculate the SNR is the
+    one of the monaural average signal across channels.
 
-    Returns:
-        noise_scaled:
-            Scaled noise. The SNR between the target signal and the new scaled
-            noise equals snr.
-    '''
+    Parameters
+    ----------
+    signal: array_like
+        Target signal. Shape `(n_samples, n_channels)`.
+    noise: array
+        Noise signal. Shape `(n_samples, n_channels)`.
+    snr:
+        Desired SNR.
+    slice_: slice, optional
+        Slice of the target and noise signals from which the SNR should be
+        calculated. Default is `None`, which means the energy of the entire
+        signals are calculated.
+
+    Returns
+    -------
+    noise_scaled: array_like
+        Scaled noise. The SNR between the target signal and the new scaled
+        noise is equal to `snr`.
+    """
     if slice_ is None:
         slice_ = np.s_[:]
     energy_signal = np.sum(signal[slice_].mean(axis=1)**2)
@@ -146,21 +192,29 @@ def adjust_snr(signal, noise, snr, slice_=None):
 
 
 def adjust_rms(signal, rms_dB):
-    '''
-    Scales a signal such that it presents a given RMS in dB.
+    """
+    RMS adjustment.
 
-    Parameters:
-        signal:
-            Input signal.
-        rms_dB:
-            Desired RMS in dB.
+    Scales a signal such that it presents a given root-mean-square (RMS) in dB.
+    Note that the reference value in the dB calculation is 1, meaning a
+    signal with an RMS of 0 dB has an absolute RMS of 1. In the case of white
+    noise, this leads to a signal with unit variance, with values likely to be
+    outside the [-1, 1] range and cause clipping.
 
-    Returns:
-        signal_scaled:
-            Scaled signal.
-        gain:
-            Gain used to scale the signal.
-    '''
+    Parameters
+    ----------
+    signal:
+        Input signal.
+    rms_dB:
+        Desired RMS in dB.
+
+    Returns
+    -------
+    signal_scaled:
+        Scaled signal.
+    gain:
+        Gain used to scale the signal.
+    """
     rms_max = rms(signal).max()
     gain = 10**(rms_dB/20)/rms_max
     signal_scaled = gain*signal
@@ -168,6 +222,36 @@ def adjust_rms(signal, rms_dB):
 
 
 def add_decay(brir, rt60, drr, delay, fs, color):
+    """
+    Decaying noise tail.
+
+    Adds a decaying noise tail to an anechoic BRIR to model room reverberation.
+    The output BRIR can then be used to artificially add room reverberation to
+    an anechoic signal.
+
+    Parameters
+    ----------
+    brir : array_like
+        Input BRIR. Shape `(len(brir), 2)`.
+    rt60 : float
+        Reverberation time in seconds.
+    drr : float
+        Direct-to-reverberant ratio (DRR) in dB.
+    delay : float
+        Delay in seconds between the highest peak of the input BRIR and the
+        start of the decaying noise tail. The peak of the BRIR is calculated
+        by taking the earliest of the highest peak in each channel.
+    fs : float or int
+        Sampling frequency.
+    color : {'brown', 'pink', 'white', 'blue', 'violet'}
+        Color of the decaying noise tail.
+
+    Returns
+    -------
+    output_brir :
+        BRIR with added decaying noise tail. It is usually longer than `brir`,
+        and the exact length depends on `rt60` and `delay`.
+    """
     if rt60 == 0:
         return brir
     n = max(int(round(2*(rt60+delay)*fs)), len(brir))
@@ -184,6 +268,19 @@ def add_decay(brir, rt60, drr, delay, fs, color):
 
 
 class Mixture:
+    """
+    Mixture object.
+
+    A convenience class for creating a mixture and accessing components of a
+    mixture. The different components (foreground, background, target and
+    noise) are calculated on the fly when accessed from the most elementary
+    components, namely the early speech, the late speech, the directional
+    noise, and the diffuse noise. This allows to reduce the amount of arrays
+    in memory.
+
+    E.g. when accessing the `background` attribute, the output is calculated as
+    the sum of the late speech, the diretional noise and the diffuse noise.
+    """
     def __init__(self):
         self.early_target = None
         self.late_target = None
