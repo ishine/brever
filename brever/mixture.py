@@ -167,7 +167,7 @@ def adjust_snr(signal, noise, snr, slice_=None):
         Noise signal. Shape `(n_samples, n_channels)`.
     snr:
         Desired SNR.
-    slice_: slice, optional
+    slice_: slice or None, optional
         Slice of the target and noise signals from which the SNR should be
         calculated. Default is `None`, which means the energy of the entire
         signals are calculated.
