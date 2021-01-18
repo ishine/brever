@@ -120,6 +120,12 @@ def load_scores(groups):
             group[i]['segBR'] = segBR
             group[i]['segNR'] = segNR
             group[i]['segRR'] = segRR
+            train_filepath = os.path.join('models', model, 'train_losses.npy')
+            train_curve = np.load(train_filepath)
+            val_filepath = os.path.join('models', model, 'val_losses.npy')
+            val_curve = np.load(val_filepath)
+            group[i]['train_curve'] = train_curve
+            group[i]['val_curve'] = val_curve
 
 
 def sort_groups_by_mean_pesq(groups):
@@ -202,7 +208,7 @@ class LegendFormatter:
 
 
 def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
-         default, only_pesq, figsize, ymax):
+         default, only_pesq, figsize, ymax, train_curve):
     if default:
         set_default_parameters(filter_, dimensions, group_by)
 
@@ -342,6 +348,19 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
         lh = fig.legend(fig_legend_handles, fig_legend_labels)
         LegendFormatter(fig, lh=lh)
 
+    if train_curve:
+        fig, ax = plt.subplots(1, 1)
+        for i, group in enumerate(groups):
+            color = color_cycle[i % len(color_cycle)]
+            for j, model in enumerate(group):
+                if legend is None:
+                    label = f'{model["val"]}'
+                else:
+                    label = legend[model_count]
+                ax.plot(model['train_curve'], label=label, color=color)
+                ax.plot(model['val_curve'], '--', color=color)
+        LegendFormatter(fig, ncol=ncol)
+
     plt.show()
 
 
@@ -371,6 +390,8 @@ if __name__ == '__main__':
                         help='figure size')
     parser.add_argument('--ymax', type=float,
                         help='pesq y axis upper limits')
+    parser.add_argument('--train-curve', action='store_true',
+                        help='plot training curves')
     filter_args, args = parser.parse_args()
 
     model_dirs = []
@@ -380,4 +401,4 @@ if __name__ == '__main__':
         model_dirs += glob(input_)
     main(model_dirs, args.dims, args.group_by, args.sort_by, vars(filter_args),
          args.legend, args.top, args.ncol, args.default, args.only_pesq,
-         args.figsize, args.ymax)
+         args.figsize, args.ymax, args.train_curve)
