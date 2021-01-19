@@ -45,6 +45,7 @@ PRE:
     cubicmfcc: null
     # pdf: null
     pdfcc: null
+    logfbe: null
   FILTERBANK:
     FMAX: 8000
     FMIN: 50

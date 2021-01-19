@@ -521,6 +521,93 @@ def logpdf(x, filtered=False, filt_kwargs=None, framed=False,
                frame_kwargs=frame_kwargs, log=True)
 
 
+def fbe(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None,
+        log=False):
+    """
+    Filterbank energies.
+
+    Calculates the energy in each time-frequency unit.
+
+    Parameters
+    ----------
+    x : array_like
+        Input signal.
+    filtered : bool, optional
+        If `True`, the input signal `x` is assumed to be already filtered. It
+        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
+        filtered using `~filters.filt` before calculation and should have
+        shape `(n_samples, 2)`. Default is False.
+    filt_kwargs : dict or None, optional
+        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
+        is `False`. Default is `None`, which means no keyword arguments are
+        passed.
+    framed : bool, optional
+        If `True`, the input signal `x` is assumed to be already framed. It
+        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
+        the input is framed before calculation and should have shape
+        `(n_samples, n_filters, 2)`. Default is False.
+    frame_kwargs : dict or None, optional
+        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
+        `False`. Default is `None`, which means no keyword arguments are
+        passed.
+    log : bool, optional
+        If `True`, logarithmic compression is applied to the output. Default is
+        `False`.
+
+    Returns
+    -------
+    fbe : array_like
+        Filterbank energies. Shape `(n_frames, n_filters)`.
+    """
+    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+    x = x.mean(axis=-1)  # average channels
+    energy = x**2  # get energy
+    fbe = energy.mean(axis=1)  # average each frame
+    if log:
+        fbe = np.log(fbe + np.nextafter(0, 1))
+    return fbe
+
+
+def logfbe(x, filtered=False, filt_kwargs=None, framed=False,
+           frame_kwargs=None):
+    """
+    Log-compressed filterbank energies.
+
+    Calculates a log-compressed version of the energy in each time-frequency
+    unit.
+
+    Parameters
+    ----------
+    x : array_like
+        Input signal.
+    filtered : bool, optional
+        If `True`, the input signal `x` is assumed to be already filtered. It
+        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
+        filtered using `~filters.filt` before calculation and should have
+        shape `(n_samples, 2)`. Default is False.
+    filt_kwargs : dict or None, optional
+        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
+        is `False`. Default is `None`, which means no keyword arguments are
+        passed.
+    framed : bool, optional
+        If `True`, the input signal `x` is assumed to be already framed. It
+        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
+        the input is framed before calculation and should have shape
+        `(n_samples, n_filters, 2)`. Default is False.
+    frame_kwargs : dict or None, optional
+        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
+        `False`. Default is `None`, which means no keyword arguments are
+        passed.
+
+    Returns
+    -------
+    logfbe : array_like
+        Log-compressed filterbank energies. Shape `(n_frames, n_filters)`.
+    """
+    return fbe(x, filtered=filtered, filt_kwargs=filt_kwargs, framed=framed,
+               frame_kwargs=frame_kwargs, log=True)
+
+
 def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
                  frame_kwargs=None):
     """
