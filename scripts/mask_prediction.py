@@ -23,7 +23,15 @@ def main(args):
     if args.seed is not None:
         random.seed(args.seed)
 
-    for model_dirpath in args.input:
+    # calculate subplot grid
+    n_rows = 1
+    n_cols = 1
+    n_models = len(args.input)
+    while n_rows*n_cols < n_models+1:
+        n_rows += 1
+    fig_run, axes_run = plt.subplots(n_rows, n_cols)
+
+    for i_model, model_dirpath in enumerate(args.input):
         # load model configuration
         config_file = os.path.join(model_dirpath, 'config.yaml')
         with open(config_file, 'r') as f:
@@ -210,6 +218,27 @@ def main(args):
                 f=f,
                 set_kw=set_kw,
             )
+
+        # plot on running fig
+        plot_spectrogram(
+            labels,
+            ax=axes_run.flatten()[0],
+            fs=config.PRE.FS,
+            hop_length=framer.hop_length,
+            f=filterbank.fc,
+            set_kw={'title': 'labels'},
+        )
+        model_id = os.path.basename(os.path.dirname(model_dirpath))
+        title = f'{model_id[:6]}..., dPESQ: {pesq:.2f}, MSE: {mse*1e3:.2f}e-3'
+        set_kw = {'title': title}
+        plot_spectrogram(
+            PRM,
+            ax=axes_run.flatten()[i_model+1],
+            fs=config.PRE.FS,
+            hop_length=framer.hop_length,
+            f=filterbank.fc,
+            set_kw=set_kw,
+        )
 
         # match signal spectrograms clims
         vars__ = ['mixture', 'foreground', 'background']
