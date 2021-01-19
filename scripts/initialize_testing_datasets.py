@@ -45,11 +45,6 @@ def main(alias, params, force, n_test):
                 }
             }
 
-            for param, value in params.items():
-                if value is not None:
-                    key_list = DatasetInitArgParser.arg_to_keys_map[param]
-                    set_dict_field(config, key_list, value)
-
             set_dict_field(
                 config,
                 ['PRE', 'MIXTURES', 'RANDOM', 'ROOMS'],
@@ -65,6 +60,11 @@ def main(alias, params, force, n_test):
                 ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'MAX'],
                 snr,
             )
+
+            for param, value in params.items():
+                if value is not None:
+                    key_list = DatasetInitArgParser.arg_to_keys_map[param]
+                    set_dict_field(config, key_list, value)
 
             letter = room_alias[-1].upper()
             if alias == '':
