@@ -84,7 +84,7 @@ def plot_losses(train_losses, val_losses, output_dir):
     fig.savefig(plot_output_path)
 
 
-def main(model_dir, force):
+def main(model_dir, force, no_cuda):
     logging.info(f'Processing {model_dir}')
 
     # load config file
@@ -203,7 +203,7 @@ def main(model_dir, force):
     model_args_path = os.path.join(model_dir, 'model_args.yaml')
     with open(model_args_path, 'w') as f:
         yaml.dump(model_args, f)
-    if config.MODEL.CUDA:
+    if config.MODEL.CUDA and not no_cuda:
         model = model.cuda()
 
     # initialize criterion and optimizer
@@ -234,7 +234,7 @@ def main(model_dir, force):
             criterion=criterion,
             optimizer=optimizer,
             train_dataloader=train_dataloader,
-            cuda=config.MODEL.CUDA,
+            cuda=config.MODEL.CUDA and not no_cuda,
         )
 
         # evaluate
@@ -243,14 +243,14 @@ def main(model_dir, force):
             criterion=criterion,
             dataloader=train_dataloader,
             load=config.POST.LOAD,
-            cuda=config.MODEL.CUDA,
+            cuda=config.MODEL.CUDA and not no_cuda,
         )
         val_loss = evaluate(
             model=model,
             criterion=criterion,
             dataloader=val_dataloader,
             load=config.POST.LOAD,
-            cuda=config.MODEL.CUDA,
+            cuda=config.MODEL.CUDA and not no_cuda,
         )
 
         # log and store errors
@@ -294,6 +294,8 @@ if __name__ == '__main__':
                         help='input model directories')
     parser.add_argument('-f', '--force', action='store_true',
                         help='train even if already trained')
+    parser.add_argument('--no-cuda', action='store_true',
+                        help='force training on cpu')
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -307,4 +309,4 @@ if __name__ == '__main__':
             logging.info(f'Model not found: {input_}')
         model_dirs += glob(input_)
     for model_dir in model_dirs:
-        main(model_dir, args.force)
+        main(model_dir, args.force, args.no_cuda)
