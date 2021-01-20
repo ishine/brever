@@ -227,12 +227,8 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
         if dimensions is not None:
             group_values_copy = group_values.copy()
             for dim in reversed(list(group_values[0].keys())):
-                try:
-                    group_vals_sorted = sorted(group_values_copy,
-                                               key=lambda x: x[dim])
-                except TypeError:
-                    group_vals_sorted = sorted(group_values_copy,
-                                               key=lambda x: str(x[dim]))
+                group_vals_sorted = sorted(group_values_copy,
+                                           key=lambda x: str(x[dim]))
                 i_sorted = [group_values_copy.index(val)
                             for val in group_vals_sorted]
                 groups = [groups[i] for i in i_sorted]
