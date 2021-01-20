@@ -404,6 +404,34 @@ def arg_set_type(input_str):
     return output_set
 
 
+def arg_filelims_type(input_str):
+    """
+    A convenience function that checks if the input limits are valid. Limits
+    should come as a string of two floats separated by a space. The two floats
+    must be different, ascending and between 0.0 and 1.0. Used to parse dataset
+    file limits arguments.
+
+    Parameters
+    ----------
+    input_str : input_str
+        Input string of two floats separated by a space.
+
+    Returns
+    -------
+    output_list: list of float
+        List of two floats.
+    """
+    output_list = input_str.split(' ')
+    while '' in output_list:
+        output_list.remove('')
+    assert len(output_list) == 2
+    output_list = [float(item) for item in output_list]
+    assert output_list[0] < output_list[1]
+    assert 0 <= output_list[0] <= 1
+    assert 0 <= output_list[1] <= 1
+    return output_list
+
+
 class ModelFilterArgParser(ExtendableArgParser):
     """
     Model filter argument parser.
@@ -562,6 +590,8 @@ class DatasetInitArgParser(ExtendableArgParser):
         'noise_types': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'TYPES'],
         'random_rms': ['PRE', 'MIXTURES', 'RANDOM', 'RMSDB', 'ON'],
         'scale_rms': ['PRE', 'MIXTURES', 'SCALERMS'],
+        'filelims_noise': ['PRE', 'MIXTURES', 'FILELIMITS', 'NOISE'],
+        'filelims_target': ['PRE', 'MIXTURES', 'FILELIMITS', 'TARGET'],
         'features': ['PRE', 'FEATURES'],
     }
 
@@ -641,6 +671,16 @@ class DatasetInitArgParser(ExtendableArgParser):
             '--scale-rms',
             type=lambda x: bool(int(x)),
             help='rms scaling toggle',
+        )
+        self.add_base_argument(
+            '--filelims-noise',
+            type=arg_filelims_type,
+            help='noise recordings file limits',
+        )
+        self.add_base_argument(
+            '--filelims-target',
+            type=arg_filelims_type,
+            help='speech recordings file limits',
         )
         self.add_base_argument(
             '--features',
