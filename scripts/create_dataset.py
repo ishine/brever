@@ -149,7 +149,7 @@ def main(dataset_dir, force):
         label=config.PRE.LABEL,
     )
 
-    # main loop
+    # main loop intialization
     features = []
     labels = []
     mixtures = []
@@ -165,6 +165,13 @@ def main(dataset_dir, force):
     examples = []
     examples_index = random.sample(range(config.PRE.MIXTURES.NUMBER),
                                    n_examples)
+
+    # SEED AGAIN FOR REPRODUCIBILITY BECAUSE RANDOMIZING THE EXAMPLE INDEXES
+    # LEADS TO DIFFERENT SEEDS COMING INTO THE RANDOMMIXTUREMAKER OBJECT FOR
+    # TWO IDENTICAL DATASETS WITH DIFFERENT NUMBER OF MIXTURES!!!
+    if config.PRE.SEED.ON:
+        random.seed(config.PRE.SEED.VALUE)
+
     examples_index.sort()
     for i in range(config.PRE.MIXTURES.NUMBER):
 
@@ -356,7 +363,10 @@ if __name__ == '__main__':
         stream=sys.stdout,
     )
 
-    if len(args.input) == 1:
-        args.input = glob(args.input[0])
-    for dataset_dir in args.input:
+    dataset_dirs = []
+    for input_ in args.input:
+        if not glob(input_):
+            logging.info(f'Dataset not found: {input_}')
+        dataset_dirs += glob(input_)
+    for dataset_dir in dataset_dirs:
         main(dataset_dir, args.force)
