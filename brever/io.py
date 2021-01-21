@@ -7,7 +7,7 @@ import soundfile as sf
 from resampy import resample
 
 
-def load_random_target(target_dirpath, lims=None, fs=16e3):
+def load_random_target(target_dirpath, lims=None, fs=16e3, randomizer=None):
     '''
     Load a random target signal from the target speech database.
 
@@ -23,6 +23,8 @@ def load_random_target(target_dirpath, lims=None, fs=16e3):
         fs:
             Sampling rating to resample the signal to. If it matches the
             original sampling rate, the signal is returned as is.
+        randomizer:
+            Custom random.Random instance. Useful for seeding.
 
     Returns:
         x:
@@ -43,11 +45,14 @@ def load_random_target(target_dirpath, lims=None, fs=16e3):
     state = random.getstate()
     random.seed(42)
     random.shuffle(all_filepaths)
-    n_files = len(all_filepaths)
-    i_min, i_max = round(n_files*lims[0]), round(n_files*lims[1])
-    all_filepaths = all_filepaths[i_min:i_max]
     random.setstate(state)
-    filepath = random.choice(all_filepaths)
+    if lims is not None:
+        n_files = len(all_filepaths)
+        i_min, i_max = round(n_files*lims[0]), round(n_files*lims[1])
+        all_filepaths = all_filepaths[i_min:i_max]
+    if randomizer is None:
+        randomizer = random
+    filepath = randomizer.choice(all_filepaths)
     x, fs_old = sf.read(filepath)
     if fs_old != fs:
         x = resample(x, fs_old, fs, axis=0)
@@ -162,7 +167,8 @@ def load_brirs(surrey_dirpath, room_alias, angles=None):
     return brirs, fss[0]
 
 
-def load_random_noise(dcase_dirpath, type_, n_samples, lims=None, fs=16e3):
+def load_random_noise(dcase_dirpath, type_, n_samples, lims=None, fs=16e3,
+                      randomizer=None):
     '''
     Load a random noise recording from the DCASE Challenge 2019 Task 1
     development set.
@@ -191,6 +197,8 @@ def load_random_noise(dcase_dirpath, type_, n_samples, lims=None, fs=16e3):
             left as None to chose from all the files.
         fs:
             Sampling frequency to which resample the noise signal to.
+        randomizer:
+            Custom random.Random instance. Useful for seeding.
 
     Returns:
         x:
@@ -214,11 +222,17 @@ def load_random_noise(dcase_dirpath, type_, n_samples, lims=None, fs=16e3):
                 all_filepaths.append(os.path.join(root, file))
     if not all_filepaths:
         raise ValueError(f'No .wav file found in {dcase_dirpath}')
+    state = random.getstate()
+    random.seed(42)
+    random.shuffle(all_filepaths)
+    random.setstate(state)
     if lims is not None:
         n_files = len(all_filepaths)
         i_min, i_max = round(lims[0]*n_files), round(lims[1]*n_files)
         all_filepaths = all_filepaths[i_min:i_max]
-    filepath = random.choice(all_filepaths)
+    if randomizer is None:
+        randomizer = random
+    filepath = randomizer.choice(all_filepaths)
     x, fs_old = sf.read(filepath)
     if x.ndim == 2:
         x = x[:, 0]

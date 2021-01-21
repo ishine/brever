@@ -65,17 +65,17 @@ def main(dataset_dir, force):
             config.PRE.MIXTURES.RANDOM.TARGET.SNR.MIN,
             config.PRE.MIXTURES.RANDOM.TARGET.SNR.MAX + 1,
         ),
-        directional_noise_numbers=range(
+        dir_noise_nums=range(
             config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MIN,
             config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MAX + 1,
         ),
-        directional_noise_types=config.PRE.MIXTURES.RANDOM.SOURCES.TYPES,
-        directional_noise_angles=range(
+        dir_noise_types=config.PRE.MIXTURES.RANDOM.SOURCES.TYPES,
+        dir_noise_angles=range(
             config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MIN,
             config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MAX + 1,
             config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.STEP,
         ),
-        directional_noise_snrs=range(
+        dir_noise_snrs=range(
             config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN,
             config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MAX + 1,
         ),
@@ -92,7 +92,7 @@ def main(dataset_dir, force):
         path_surrey=config.PRE.MIXTURES.PATH.SURREY,
         path_target=config.PRE.MIXTURES.PATH.TARGET,
         path_dcase=config.PRE.MIXTURES.PATH.DCASE,
-        filelims_directional_noise=config.PRE.MIXTURES.FILELIMITS.NOISE,
+        filelims_dir_noise=config.PRE.MIXTURES.FILELIMITS.NOISE,
         filelims_target=config.PRE.MIXTURES.FILELIMITS.TARGET,
         decay_on=config.PRE.MIXTURES.DECAY.ON,
         decay_color=config.PRE.MIXTURES.DECAY.COLOR,
@@ -114,6 +114,8 @@ def main(dataset_dir, force):
             config.PRE.MIXTURES.RANDOM.DECAY.DELAY.STEP,
             dtype=float,
         ),
+        seed_on=config.PRE.SEED.ON,
+        seed_value=config.PRE.SEED.VALUE,
     )
 
     # scaler

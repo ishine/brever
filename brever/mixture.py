@@ -284,7 +284,7 @@ class Mixture:
     def __init__(self):
         self.early_target = None
         self.late_target = None
-        self.directional_noise = None
+        self.dir_noise = None
         self.diffuse_noise = None
         self.target_indices = None
 
@@ -299,8 +299,8 @@ class Mixture:
     @property
     def noise(self):
         output = np.zeros(self.shape)
-        if self.directional_noise is not None:
-            output += self.directional_noise
+        if self.dir_noise is not None:
+            output += self.dir_noise
         if self.diffuse_noise is not None:
             output += self.diffuse_noise
         return output
@@ -330,12 +330,12 @@ class Mixture:
         self.early_target = pad(self.early_target, n_pad, where='both')
         self.late_target = pad(self.late_target, n_pad, where='both')
 
-    def add_directional_noises(self, xs, brirs):
+    def add_dir_noises(self, xs, brirs):
         if len(xs) != len(brirs):
             raise ValueError('xs and brirs must have same number of elements')
-        self.directional_noise = np.zeros(self.shape)
+        self.dir_noise = np.zeros(self.shape)
         for x, brir in zip(xs, brirs):
-            self.directional_noise += spatialize(x, brir)
+            self.dir_noise += spatialize(x, brir)
 
     def add_diffuse_noise(self, brirs, color, ltas_eq):
         self.diffuse_noise = np.zeros(self.shape)
@@ -348,7 +348,7 @@ class Mixture:
 
     def adjust_dir_to_diff_snr(self, snr):
         self.diffuse_noise, _ = adjust_snr(
-            self.directional_noise,
+            self.dir_noise,
             self.diffuse_noise,
             snr,
         )
@@ -360,8 +360,8 @@ class Mixture:
             snr,
             slice(*self.target_indices)
         )
-        if self.directional_noise is not None:
-            self.directional_noise *= gain
+        if self.dir_noise is not None:
+            self.dir_noise *= gain
         if self.diffuse_noise is not None:
             self.diffuse_noise *= gain
 
@@ -369,7 +369,7 @@ class Mixture:
         _, gain = adjust_rms(self.mixture, rms_dB)
         self.early_target *= gain
         self.late_target *= gain
-        if self.directional_noise is not None:
-            self.directional_noise *= gain
+        if self.dir_noise is not None:
+            self.dir_noise *= gain
         if self.diffuse_noise is not None:
             self.diffuse_noise *= gain

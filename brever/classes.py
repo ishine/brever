@@ -135,40 +135,95 @@ class LabelExtractor:
         return label_func(target, noise, filtered=True, framed=True)
 
 
+class RandomPool:
+    def __init__(self, pool, seed=None):
+        if isinstance(pool, set):
+            self.pool = sorted(pool)
+        else:
+            self.pool = pool
+        self.random = random.Random(seed)
+
+    def get(self):
+        return self.random.choice(self.pool)
+
+
+class MultiRandomPool:
+    def __init__(self, pool, k_max, seed=None):
+        if isinstance(pool, set):
+            self.pool = sorted(pool)
+        else:
+            self.pool = pool
+        if seed is None:
+            self.randoms = [random.Random() for i in range(k_max)]
+        else:
+            self.randoms = [random.Random(seed+i) for i in range(k_max)]
+        self.k_max = k_max
+
+    def get(self, k):
+        assert k <= self.k_max
+        output = [self.randoms[i].choice(self.pool) for i in range(self.k_max)]
+        return output[:k]
+
+
+class Seeder:
+    def __init__(self, seed_value, max_seed):
+        self.random = random.Random(seed_value)
+        self.max_seed = max_seed
+
+    def get(self):
+        return self.random.randrange(self.max_seed)
+
+
 class RandomMixtureMaker:
     def __init__(self, fs, rooms, target_angles, target_snrs,
-                 directional_noise_numbers, directional_noise_types,
-                 directional_noise_angles, directional_noise_snrs,
+                 dir_noise_nums, dir_noise_types,
+                 dir_noise_angles, dir_noise_snrs,
                  diffuse_noise_on, diffuse_noise_color, diffuse_noise_ltas_eq,
                  mixture_pad, mixture_rb, mixture_rms_jitter_on,
                  mixture_rms_jitters, path_target, path_surrey, path_dcase,
-                 filelims_target, filelims_directional_noise, decay_on,
-                 decay_color, decay_rt60s, decay_drrs, decay_delays):
+                 filelims_target, filelims_dir_noise, decay_on,
+                 decay_color, decay_rt60s, decay_drrs, decay_delays, seed_on,
+                 seed_value):
+
+        if not seed_on:
+            seed_value = None
+        seeder = Seeder(seed_value, 100)
+
         self.fs = fs
-        self.rooms = rooms
-        self.target_angles = target_angles
-        self.target_snrs = target_snrs
-        self.directional_noise_snrs = directional_noise_snrs
-        self.directional_noise_numbers = directional_noise_numbers
-        self.directional_noise_types = directional_noise_types
-        self.directional_noise_angles = directional_noise_angles
+        self.rooms = RandomPool(rooms, seeder.get())
+        self.target_angles = RandomPool(target_angles, seeder.get())
+        self.target_snrs = RandomPool(target_snrs, seeder.get())
+        self.dir_noise_snrs = RandomPool(dir_noise_snrs, seeder.get())
+        self.dir_noise_nums = RandomPool(dir_noise_nums, seeder.get())
+        self.dir_noise_types = MultiRandomPool(dir_noise_types,
+                                               max(dir_noise_nums),
+                                               seeder.get())
+        self.dir_noise_angles = MultiRandomPool(dir_noise_angles,
+                                                max(dir_noise_nums),
+                                                seeder.get())
         self.diffuse_noise_on = diffuse_noise_on
         self.diffuse_noise_color = diffuse_noise_color
         self.diffuse_noise_ltas_eq = diffuse_noise_ltas_eq
         self.mixture_pad = mixture_pad
         self.mixture_rb = mixture_rb
         self.mixture_rms_jitter_on = mixture_rms_jitter_on
-        self.mixture_rms_jitters = mixture_rms_jitters
+        self.mixture_rms_jitters = RandomPool(mixture_rms_jitters,
+                                              seeder.get())
         self.path_target = path_target
         self.path_surrey = path_surrey
         self.path_dcase = path_dcase
         self.filelims_target = filelims_target
-        self.filelims_directional_noise = filelims_directional_noise
+        self.filelims_dir_noise = filelims_dir_noise
         self.decay_on = decay_on
         self.decay_color = decay_color
-        self.decay_rt60s = decay_rt60s
-        self.decay_drrs = decay_drrs
-        self.decay_delays = decay_delays
+        self.decay_rt60s = RandomPool(decay_rt60s, seeder.get())
+        self.decay_drrs = RandomPool(decay_drrs, seeder.get())
+        self.decay_delays = RandomPool(decay_delays, seeder.get())
+
+        self.target_filename_randomizer = RandomPool([], seeder.get())
+        self.noise_filename_randomizer = MultiRandomPool([],
+                                                         max(dir_noise_nums),
+                                                         seeder.get())
 
     def make(self):
         self.mixture = Mixture()
@@ -176,7 +231,7 @@ class RandomMixtureMaker:
         room = self.get_random_room()
         decayer = self.get_random_decayer()
         self.add_random_target(room, decayer)
-        self.add_random_directional_noises(room, decayer)
+        self.add_random_dir_noises(room, decayer)
         self.add_random_diffuse_noise(room)
         self.set_random_dir_to_diff_snr()
         self.set_random_target_snr()
@@ -184,14 +239,14 @@ class RandomMixtureMaker:
         return self.mixture, self.metadata
 
     def get_random_room(self):
-        room = choice(self.rooms)
+        room = self.rooms.get()
         self.metadata['room'] = room
         return room
 
     def get_random_decayer(self):
-        rt60 = choice(self.decay_rt60s)
-        drr = choice(self.decay_drrs)
-        delay = choice(self.decay_delays)
+        rt60 = self.decay_rt60s.get()
+        drr = self.decay_drrs.get()
+        delay = self.decay_delays.get()
         decayer = Decayer(
             rt60,
             drr,
@@ -209,13 +264,14 @@ class RandomMixtureMaker:
         return decayer
 
     def add_random_target(self, room, decayer):
-        angle = choice(self.target_angles)
+        angle = self.target_angles.get()
         brir = self._load_brirs(room, angle)
         brir = decayer.run(brir)
         target, filename = load_random_target(
             self.path_target,
             self.filelims_target,
-            self.fs
+            self.fs,
+            randomizer=self.target_filename_randomizer.random,
         )
         self.mixture.add_target(
             x=target,
@@ -228,14 +284,18 @@ class RandomMixtureMaker:
         self.metadata['target']['angle'] = angle
         self.metadata['target']['filename'] = filename
 
-    def add_random_directional_noises(self, room, decayer):
-        number = choice(self.directional_noise_numbers)
-        types = choices(self.directional_noise_types, k=number)
-        angles = choices(self.directional_noise_angles, k=number)
-        noises, files, indices = self._load_noises(types, len(self.mixture))
+    def add_random_dir_noises(self, room, decayer):
+        number = self.dir_noise_nums.get()
+        types = self.dir_noise_types.get(number)
+        angles = self.dir_noise_angles.get(number)
+        noises, files, indices = self._load_noises(
+            types,
+            len(self.mixture),
+            randomizers=self.noise_filename_randomizer.randoms,
+        )
         brirs = self._load_brirs(room, angles)
         brirs = [decayer.run(brir) for brir in brirs]
-        self.mixture.add_directional_noises(noises, brirs)
+        self.mixture.add_dir_noises(noises, brirs)
         self.metadata['directional'] = {}
         self.metadata['directional']['number'] = number
         self.metadata['directional']['sources'] = []
@@ -261,7 +321,7 @@ class RandomMixtureMaker:
             self.metadata['diffuse']['ltas_eq'] = self.diffuse_noise_ltas_eq
 
     def set_random_dir_to_diff_snr(self):
-        snr = choice(self.directional_noise_snrs)
+        snr = self.dir_noise_snrs.get()
         if self.metadata['directional']['number'] == 0:
             return
         if self.diffuse_noise_on:
@@ -269,7 +329,7 @@ class RandomMixtureMaker:
             self.metadata['directional']['snr'] = snr
 
     def set_random_target_snr(self):
-        snr = choice(self.target_snrs)
+        snr = self.target_snrs.get()
         if self.metadata['directional']['number'] == 0:
             if not self.diffuse_noise_on:
                 return
@@ -277,7 +337,7 @@ class RandomMixtureMaker:
         self.metadata['target']['snr'] = snr
 
     def set_random_rms(self):
-        rms_dB = choice(self.mixture_rms_jitters)
+        rms_dB = self.mixture_rms_jitters.get()
         if self.mixture_rms_jitter_on:
             self.mixture.adjust_rms(rms_dB)
             self.metadata['rms_dB'] = rms_dB
@@ -302,15 +362,11 @@ class RandomMixtureMaker:
                                   % (room, angles, fs, self.fs)))
             return brir
 
-    def _load_noises(self, types, n_samples):
-        if isinstance(types, list):
-            if not types:
-                return [], [], []
-            zipped = [self._load_noises(type_, n_samples) for type_ in types]
-            xs, filepaths, indicess = zip(*zipped)
-            return xs, filepaths, indicess
-        else:
-            type_ = types
+    def _load_noises(self, types, n_samples, randomizers):
+        if not types:
+            return [], [], []
+        zipped = []
+        for type_, randomizer in zip(types, randomizers):
             if type_ is None:
                 x, filepath, indices = None, None, None
             elif type_.startswith('noise_'):
@@ -323,13 +379,16 @@ class RandomMixtureMaker:
                     self.path_dcase,
                     type_,
                     n_samples,
-                    self.filelims_directional_noise,
+                    self.filelims_dir_noise,
                     self.fs,
+                    randomizer=randomizer,
                 )
             else:
                 raise ValueError(('type_ must start with noise_ or '
                                   'dcase_, got %s' % type_))
-            return x, filepath, indices
+            zipped.append((x, filepath, indices))
+        xs, filepaths, indicess = zip(*zipped)
+        return xs, filepaths, indicess
 
 
 class Decayer:
@@ -369,17 +428,17 @@ class DefaultRandomMixtureMaker(RandomMixtureMaker):
                 config.PRE.MIXTURES.RANDOM.TARGET.SNR.MIN,
                 config.PRE.MIXTURES.RANDOM.TARGET.SNR.MAX + 1,
             ),
-            directional_noise_numbers=range(
+            dir_noise_nums=range(
                 config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MIN,
                 config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MAX + 1,
             ),
-            directional_noise_types=config.PRE.MIXTURES.RANDOM.SOURCES.TYPES,
-            directional_noise_angles=range(
+            dir_noise_types=config.PRE.MIXTURES.RANDOM.SOURCES.TYPES,
+            dir_noise_angles=range(
                 config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MIN,
                 config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MAX + 1,
                 config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.STEP,
             ),
-            directional_noise_snrs=range(
+            dir_noise_snrs=range(
                 config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN,
                 config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MAX + 1,
             ),
@@ -396,7 +455,7 @@ class DefaultRandomMixtureMaker(RandomMixtureMaker):
             path_surrey=config.PRE.MIXTURES.PATH.SURREY,
             path_target=config.PRE.MIXTURES.PATH.TARGET,
             path_dcase=config.PRE.MIXTURES.PATH.DCASE,
-            filelims_directional_noise=config.PRE.MIXTURES.FILELIMITS.NOISE,
+            filelims_dir_noise=config.PRE.MIXTURES.FILELIMITS.NOISE,
             filelims_target=config.PRE.MIXTURES.FILELIMITS.TARGET,
             decay_on=config.PRE.MIXTURES.DECAY.ON,
             decay_color=config.PRE.MIXTURES.DECAY.COLOR,
@@ -443,15 +502,3 @@ class DefaultFramer(Framer):
             window=config.PRE.FRAMER.WINDOW,
             center=config.PRE.FRAMER.CENTER,
         )
-
-
-def choice(sequence):
-    if isinstance(sequence, set):
-        return random.choice(sorted(sequence))
-    return random.choice(sequence)
-
-
-def choices(sequence, k):
-    if isinstance(sequence, set):
-        return random.choices(sorted(sequence), k=k)
-    return random.choices(sequence, k=k)
