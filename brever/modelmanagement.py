@@ -590,6 +590,8 @@ class DatasetInitArgParser(ExtendableArgParser):
         'noise_types': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'TYPES'],
         'random_rms': ['PRE', 'MIXTURES', 'RANDOM', 'RMSDB', 'ON'],
         'scale_rms': ['PRE', 'MIXTURES', 'SCALERMS'],
+        'n_sources_min': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'NUMBER', 'MIN'],
+        'n_sources_max': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'NUMBER', 'MAX'],
         'filelims_noise': ['PRE', 'MIXTURES', 'FILELIMITS', 'NOISE'],
         'filelims_target': ['PRE', 'MIXTURES', 'FILELIMITS', 'TARGET'],
         'features': ['PRE', 'FEATURES'],
@@ -671,6 +673,16 @@ class DatasetInitArgParser(ExtendableArgParser):
             '--scale-rms',
             type=lambda x: bool(int(x)),
             help='rms scaling toggle',
+        )
+        self.add_base_argument(
+            '--n-sources-min',
+            type=int,
+            help='minimum number of noise sources',
+        )
+        self.add_base_argument(
+            '--n-sources-max',
+            type=int,
+            help='maximum number of noise sources',
         )
         self.add_base_argument(
             '--filelims-noise',
