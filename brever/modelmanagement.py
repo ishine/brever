@@ -595,6 +595,8 @@ class DatasetInitArgParser(ExtendableArgParser):
         'filelims_noise': ['PRE', 'MIXTURES', 'FILELIMITS', 'NOISE'],
         'filelims_target': ['PRE', 'MIXTURES', 'FILELIMITS', 'TARGET'],
         'features': ['PRE', 'FEATURES'],
+        'seed': ['PRE', 'SEED', 'ON'],
+        'seed_value': ['PRE', 'SEED', 'VALUE'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -698,4 +700,14 @@ class DatasetInitArgParser(ExtendableArgParser):
             '--features',
             type=arg_set_type,
             help='features to generate',
+        )
+        self.add_base_argument(
+            '--seed',
+            type=lambda x: bool(int(x)),
+            help='seed toggle',
+        )
+        self.add_base_argument(
+            '--seed-value',
+            type=int,
+            help='seed value',
         )
