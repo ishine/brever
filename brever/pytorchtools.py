@@ -97,7 +97,7 @@ def evaluate(model, criterion, dataloader, load, cuda):
 
 class EarlyStopping:
     def __init__(self, patience=7, verbose=True, delta=0,
-                 checkpoint_dir=''):
+                 checkpoint_dir='', active=True):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
@@ -106,13 +106,14 @@ class EarlyStopping:
         self.val_loss_min = np.inf
         self.delta = delta
         self.checkpoint_path = os.path.join(checkpoint_dir, 'checkpoint.pt')
+        self.active = active
 
     def __call__(self, val_loss, model):
         score = -val_loss
         if self.best_score is None:
             self.best_score = score
             self.save_checkpoint(val_loss, model)
-        elif score < self.best_score + self.delta:
+        elif score < self.best_score + self.delta and self.active:
             self.counter += 1
             if self.verbose:
                 logging.info((f'EarlyStopping counter: {self.counter} out of '
