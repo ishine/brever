@@ -260,7 +260,7 @@ def main(model_dir, force, no_cuda):
         val_losses.append(val_loss)
 
         # check early stopping
-        if config.EARLYSTOP.ON:
+        if config.MODEL.EARLYSTOP.ON:
             early_stopping(val_loss, model)
             if early_stopping.early_stop:
                 logging.info('Early stopping!')
