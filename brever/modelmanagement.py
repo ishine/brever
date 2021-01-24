@@ -464,7 +464,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         'uni_norm_features': ['POST', 'STANDARDIZATION', 'UNIFORMFEATURES'],
         'file_based_norm': ['POST', 'STANDARDIZATION', 'FILEBASED'],
         'epochs': ['MODEL', 'EPOCHS'],
-        'epochs': ['MODEL', 'EARLYSTOP', 'ON'],
+        'earlystop': ['MODEL', 'EARLYSTOP', 'ON'],
     }
 
     def __init__(self, *args, **kwargs):
