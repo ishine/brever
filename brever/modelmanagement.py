@@ -463,6 +463,8 @@ class ModelFilterArgParser(ExtendableArgParser):
         'cuda': ['MODEL', 'CUDA'],
         'uni_norm_features': ['POST', 'STANDARDIZATION', 'UNIFORMFEATURES'],
         'file_based_norm': ['POST', 'STANDARDIZATION', 'FILEBASED'],
+        'epochs': ['MODEL', 'EPOCHS'],
+        'epochs': ['MODEL', 'EARLYSTOP', 'ON'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -562,6 +564,18 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=lambda x: bool(int(x)),
             nargs='+',
             help='file-based normalization toggle',
+        )
+        self.add_base_argument(
+            '--epochs',
+            type=int,
+            nargs='+',
+            help='number of epochs',
+        )
+        self.add_base_argument(
+            '--earlystop',
+            type=lambda x: bool(int(x)),
+            nargs='+',
+            help='early stopping toggle',
         )
 
 

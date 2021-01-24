@@ -260,12 +260,13 @@ def main(model_dir, force, no_cuda):
         val_losses.append(val_loss)
 
         # check early stopping
-        early_stopping(val_loss, model)
-        if early_stopping.early_stop:
-            logging.info('Early stopping!')
-            logging.info(f'Best validation loss: '
-                         f'{early_stopping.val_loss_min}')
-            break
+        if config.EARLYSTOP.ON:
+            early_stopping(val_loss, model)
+            if early_stopping.early_stop:
+                logging.info('Early stopping!')
+                logging.info(f'Best validation loss: '
+                             f'{early_stopping.val_loss_min}')
+                break
 
     # display total time spent
     total_time = time.time() - start_time

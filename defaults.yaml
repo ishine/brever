@@ -10,6 +10,7 @@ MODEL:
     RATE: 0.2
     INPUT: false
   EARLYSTOP:
+    'ON': true
     DELTA: 0
     PATIENCE: 20
     VERBOSE: true
