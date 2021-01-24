@@ -611,6 +611,8 @@ class DatasetInitArgParser(ExtendableArgParser):
         'features': ['PRE', 'FEATURES'],
         'seed': ['PRE', 'SEED', 'ON'],
         'seed_value': ['PRE', 'SEED', 'VALUE'],
+        'snr_min': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'MIN'],
+        'snr_max': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'MAX'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -724,4 +726,14 @@ class DatasetInitArgParser(ExtendableArgParser):
             '--seed-value',
             type=int,
             help='seed value',
+        )
+        self.add_base_argument(
+            '--snr-min',
+            type=int,
+            help='minimum target snr',
+        )
+        self.add_base_argument(
+            '--snr-max',
+            type=int,
+            help='maximum target snr',
         )
