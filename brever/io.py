@@ -42,10 +42,7 @@ def load_random_target(target_dirpath, lims=None, fs=16e3, randomizer=None):
                 all_filepaths.append(os.path.join(root, file))
     if not all_filepaths:
         raise ValueError(f'No audio file found in {target_dirpath}')
-    state = random.getstate()
-    random.seed(42)
-    random.shuffle(all_filepaths)
-    random.setstate(state)
+    random.Ramdom(0).shuffle(all_filepaths)
     if lims is not None:
         n_files = len(all_filepaths)
         i_min, i_max = round(n_files*lims[0]), round(n_files*lims[1])
@@ -222,10 +219,7 @@ def load_random_noise(dcase_dirpath, type_, n_samples, lims=None, fs=16e3,
                 all_filepaths.append(os.path.join(root, file))
     if not all_filepaths:
         raise ValueError(f'No .wav file found in {dcase_dirpath}')
-    state = random.getstate()
-    random.seed(42)
-    random.shuffle(all_filepaths)
-    random.setstate(state)
+    random.Ramdom(0).shuffle(all_filepaths)
     if lims is not None:
         n_files = len(all_filepaths)
         i_min, i_max = round(lims[0]*n_files), round(lims[1]*n_files)
@@ -239,13 +233,13 @@ def load_random_noise(dcase_dirpath, type_, n_samples, lims=None, fs=16e3,
     if fs_old != fs:
         x = resample(x, fs_old, fs)
     if len(x) < n_samples:
-        i_start = random.randint(0, n_samples)
+        i_start = randomizer.randint(0, n_samples)
         indices = np.arange(n_samples) + i_start
         indices = indices % len(x)
         x = x[indices]
         i_end = None
     else:
-        i_start = random.randint(0, len(x) - n_samples)
+        i_start = randomizer.randint(0, len(x) - n_samples)
         i_end = i_start+n_samples
         x = x[i_start:i_end]
 

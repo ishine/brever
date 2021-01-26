@@ -128,7 +128,7 @@ class EarlyStopping:
 class ProgressTracker:
     def __init__(self, strip=10, threshold=0.1):
         self.strip = strip
-        self.threshold = 0.1
+        self.threshold = threshold
         self.losses = np.empty(10)
         self.counter = 0
         self.stop = False
@@ -137,10 +137,11 @@ class ProgressTracker:
         self.losses = np.roll(self.losses, 1)
         self.losses[0] = loss
         self.counter += 1
-        progress = 1000*(self.losses.mean()/self.losses.min() - 1)
-        logging.info(f'Progress: {progress} per thousand')
-        if self.counter >= self.strip and progress < self.threshold:
-            self.stop = True
+        if self.counter >= self.strip:
+            progress = 1000*(self.losses.mean()/self.losses.min() - 1)
+            logging.info(f'Progress: {progress} per thousand')
+            if progress < self.threshold:
+                self.stop = True
 
 
 class TensorStandardizer:

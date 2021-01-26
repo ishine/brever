@@ -69,13 +69,14 @@ def train(model, criterion, optimizer, train_dataloader, cuda):
         optimizer.step()
 
 
-def plot_losses(train_losses, val_losses, output_dir):
+def plot_losses(train_losses, val_losses, test_losses, output_dir):
     plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True)
     plt.rc('grid', color='w', linestyle='solid')
     fig, ax = plt.subplots()
     ax.plot(train_losses)
     ax.plot(val_losses)
-    ax.legend(['training loss', 'validation loss'])
+    ax.plot(test_losses)
+    ax.legend(['training loss', 'validation loss', 'test loss'])
     ax.set_xlabel('epoch')
     ax.set_ylabel('error')
     ax.grid(True)
@@ -97,6 +98,7 @@ def main(model_dir, force, no_cuda):
     # check if model is already trained using directory contents
     train_loss_path = os.path.join(model_dir, 'train_losses.npy')
     val_loss_path = os.path.join(model_dir, 'val_losses.npy')
+    test_loss_path = os.path.join(model_dir, 'test_losses.npy')
     if os.path.exists(train_loss_path) and os.path.exists(val_loss_path):
         if not force:
             logging.info('Model is already trained')
@@ -188,6 +190,56 @@ def main(model_dir, force, no_cuda):
         train_dataset.transform = TensorStandardizer(mean, std)
         val_dataset.transform = TensorStandardizer(mean, std)
 
+    # initialize test dataset and dataloaders
+    snrs = [0, 3, 6, 9, 12, 15]
+    room_aliases = [
+        'surrey_room_a',
+        'surrey_room_b',
+        'surrey_room_c',
+        'surrey_room_d',
+    ]
+    test_dataloaders = []
+    for i, snr in enumerate(snrs):
+        for j, room_alias in enumerate(room_aliases):
+            # build dataset directory name
+            suffix = f'snr{snr}_room{room_alias[-1].upper()}'
+            test_dataset_dir = f'{config.POST.PATH.TEST}_{suffix}'
+
+            # initialize dataset and dataloader
+            test_dataset = H5Dataset(
+                dirpath=test_dataset_dir,
+                features=config.POST.FEATURES,
+                load=config.POST.LOAD,
+                stack=config.POST.STACK,
+                decimation=1,  # there must not be decimation during testing
+                dct_toggle=config.POST.DCT.ON,
+                n_dct=config.POST.DCT.NCOEFF,
+                file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
+            )
+            test_dataloader = torch.utils.data.DataLoader(
+                dataset=test_dataset,
+                batch_size=config.MODEL.BATCHSIZE,
+                shuffle=config.MODEL.SHUFFLE,
+                num_workers=config.MODEL.NWORKERS,
+                drop_last=True,
+            )
+
+            # set normalization transform
+            if config.POST.STANDARDIZATION.FILEBASED:
+                test_means, test_stds = get_files_mean_and_std(
+                    test_dataset,
+                    config.POST.STANDARDIZATION.UNIFORMFEATURES,
+                )
+                test_dataset.transform = StateTensorStandardizer(
+                    test_means,
+                    test_stds,
+                )
+            else:
+                test_dataset.transform = TensorStandardizer(mean, std)
+
+            # add to list of dataloaders
+            test_dataloaders.append(test_dataloader)
+
     # initialize network
     model_args = {
         'input_size': train_dataset.n_features,
@@ -231,6 +283,7 @@ def main(model_dir, force, no_cuda):
     logging.info('Starting main loop')
     train_losses = []
     val_losses = []
+    test_losses = []
     start_time = time.time()
     for epoch in range(config.MODEL.EPOCHS):
         # train
@@ -257,12 +310,23 @@ def main(model_dir, force, no_cuda):
             load=config.POST.LOAD,
             cuda=config.MODEL.CUDA and not no_cuda,
         )
+        test_loss = 0
+        for test_dataloader in test_dataloaders:
+            test_loss += evaluate(
+                model=model,
+                criterion=criterion,
+                dataloader=test_dataloader,
+                load=config.POST.LOAD,
+                cuda=config.MODEL.CUDA and not no_cuda,
+            )
+        test_loss /= len(test_dataloaders)
 
         # log and store errors
         logging.info(f'Epoch {epoch}: train loss: {train_loss:.6f}; '
                      f'val loss: {val_loss:.6f}')
         train_losses.append(train_loss)
         val_losses.append(val_loss)
+        test_losses.append(test_loss)
 
         # check stop criterion
         checkpoint_path = os.path.join(model_dir, 'checkpoint.pt')
@@ -288,11 +352,12 @@ def main(model_dir, force, no_cuda):
                  f'{int(total_time%3600/60)} m {int(total_time%60)} s')
 
     # plot training and validation error
-    plot_losses(train_losses, val_losses, model_dir)
+    plot_losses(train_losses, val_losses, test_losses, model_dir)
 
     # save errors
     np.save(train_loss_path, train_losses)
     np.save(val_loss_path, val_losses)
+    np.save(test_loss_path, test_losses)
 
     # write full config file
     full_config_file = os.path.join(model_dir, 'config_full.yaml')
