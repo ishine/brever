@@ -96,42 +96,51 @@ def evaluate(model, criterion, dataloader, load, cuda):
 
 
 class EarlyStopping:
-    def __init__(self, patience=7, verbose=True, delta=0,
-                 checkpoint_dir='', active=True):
+    def __init__(self, patience=7, verbose=True, delta=0):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
         self.best_score = None
-        self.early_stop = False
-        self.val_loss_min = np.inf
+        self.stop = False
+        self.min_loss = np.inf
         self.delta = delta
-        self.checkpoint_path = os.path.join(checkpoint_dir, 'checkpoint.pt')
-        self.active = active
 
-    def __call__(self, val_loss, model):
+    def __call__(self, val_loss):
         score = -val_loss
         if self.best_score is None:
             self.best_score = score
-            self.save_checkpoint(val_loss, model)
-        elif score < self.best_score + self.delta and self.active:
+        elif score < self.best_score + self.delta:
             self.counter += 1
             if self.verbose:
                 logging.info((f'EarlyStopping counter: {self.counter} out of '
                               f'{self.patience}'))
             if self.counter >= self.patience:
-                self.early_stop = True
+                self.stop = True
         else:
             self.best_score = score
-            self.save_checkpoint(val_loss, model)
+            if self.verbose:
+                logging.info((f'Minimum validation loss decreased from '
+                              f'{self.min_loss:.6f} to {val_loss:.6f}'))
+            self.min_loss = val_loss
             self.counter = 0
 
-    def save_checkpoint(self, val_loss, model):
-        if self.verbose:
-            logging.info((f'Validation loss decreased from '
-                          f'{self.val_loss_min:.6f} to {val_loss:.6f}. '
-                          f'Saving model...'))
-        torch.save(model.state_dict(), self.checkpoint_path)
-        self.val_loss_min = val_loss
+
+class ProgressTracker:
+    def __init__(self, strip=10, threshold=0.1):
+        self.strip = strip
+        self.threshold = 0.1
+        self.losses = np.empty(10)
+        self.counter = 0
+        self.stop = False
+
+    def __call__(self, loss):
+        self.losses = np.roll(self.losses, 1)
+        self.losses[0] = loss
+        self.counter += 1
+        progress = 1000*(self.losses.mean()/self.losses.min() - 1)
+        logging.info(f'Progress: {progress} per thousand')
+        if self.counter >= self.strip and progress < self.threshold:
+            self.stop = True
 
 
 class TensorStandardizer:

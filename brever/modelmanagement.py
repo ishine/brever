@@ -465,6 +465,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         'file_based_norm': ['POST', 'STANDARDIZATION', 'FILEBASED'],
         'epochs': ['MODEL', 'EPOCHS'],
         'earlystop': ['MODEL', 'EARLYSTOP', 'ON'],
+        'progress': ['MODEL', 'PROGRESS', 'ON'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -569,13 +570,19 @@ class ModelFilterArgParser(ExtendableArgParser):
             '--epochs',
             type=int,
             nargs='+',
-            help='number of epochs',
+            help='maximum number of epochs',
         )
         self.add_base_argument(
             '--earlystop',
             type=lambda x: bool(int(x)),
             nargs='+',
             help='early stopping toggle',
+        )
+        self.add_base_argument(
+            '--progress',
+            type=lambda x: bool(int(x)),
+            nargs='+',
+            help='progress tracker toggle',
         )
 
 

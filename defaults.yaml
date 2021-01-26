@@ -14,6 +14,10 @@ MODEL:
     DELTA: 0
     PATIENCE: 20
     VERBOSE: true
+  PROGRESS:
+    'ON': true
+    STRIP: 50
+    THRESHOLD: 1.0
   EPOCHS: 1000
   LEARNINGRATE: 0.001
   NLAYERS: 1

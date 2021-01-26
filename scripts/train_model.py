@@ -15,7 +15,7 @@ from brever.config import defaults
 from brever.pytorchtools import (EarlyStopping, TensorStandardizer,
                                  StateTensorStandardizer, H5Dataset,
                                  Feedforward, evaluate, get_mean_and_std,
-                                 get_files_mean_and_std)
+                                 get_files_mean_and_std, ProgressTracker)
 
 
 def clear_logger():
@@ -215,12 +215,16 @@ def main(model_dir, force, no_cuda):
     )
 
     # initialize early stopper
-    early_stopping = EarlyStopping(
+    earlyStop = EarlyStopping(
         patience=config.MODEL.EARLYSTOP.PATIENCE,
         verbose=config.MODEL.EARLYSTOP.VERBOSE,
         delta=config.MODEL.EARLYSTOP.DELTA,
-        checkpoint_dir=model_dir,
-        active=config.MODEL.EARLYSTOP.ON,
+    )
+
+    # initialize progress tracker
+    progressTracker = ProgressTracker(
+        strip=config.MODEL.PROGRESS.STRIP,
+        threshold=config.MODEL.PROGRESS.THRESHOLD,
     )
 
     # main loop
@@ -260,12 +264,22 @@ def main(model_dir, force, no_cuda):
         train_losses.append(train_loss)
         val_losses.append(val_loss)
 
-        # check early stopping
-        early_stopping(val_loss, model)
-        if early_stopping.early_stop:
-            logging.info('Early stopping!')
-            logging.info(f'Best validation loss: '
-                         f'{early_stopping.val_loss_min}')
+        # check stop criterion
+        checkpoint_path = os.path.join(model_dir, 'checkpoint.pt')
+        stop = False
+        if config.MODEL.EARLYSTOP.ON:
+            earlyStop(val_loss)
+            if earlyStop.stop:
+                logging.info('Early stopping!')
+                logging.info(f'Best validation loss: {earlyStop.min_loss}')
+                stop = True
+        if config.MODEL.PROGRESS.ON:
+            progressTracker(train_loss)
+            if progressTracker.stop:
+                logging.info('Train loss has converged')
+                stop = True
+        if stop:
+            torch.save(model.state_dict(), checkpoint_path)
             break
 
     # display total time spent
