@@ -171,6 +171,9 @@ def main(dataset_dir, force):
     # SEED AGAIN FOR REPRODUCIBILITY BECAUSE RANDOMIZING THE EXAMPLE INDEXES
     # LEADS TO DIFFERENT SEEDS COMING INTO THE RANDOMMIXTUREMAKER OBJECT FOR
     # TWO IDENTICAL DATASETS WITH DIFFERENT NUMBER OF MIXTURES!!!
+    #
+    # This was probably fixed after having implemented the independent random
+    # generators for each random parameter, but I am leaving it for safety
     if config.PRE.SEED.ON:
         random.seed(config.PRE.SEED.VALUE)
 
