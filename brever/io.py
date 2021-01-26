@@ -42,7 +42,7 @@ def load_random_target(target_dirpath, lims=None, fs=16e3, randomizer=None):
                 all_filepaths.append(os.path.join(root, file))
     if not all_filepaths:
         raise ValueError(f'No audio file found in {target_dirpath}')
-    random.Ramdom(0).shuffle(all_filepaths)
+    random.Random(0).shuffle(all_filepaths)
     if lims is not None:
         n_files = len(all_filepaths)
         i_min, i_max = round(n_files*lims[0]), round(n_files*lims[1])
@@ -219,7 +219,7 @@ def load_random_noise(dcase_dirpath, type_, n_samples, lims=None, fs=16e3,
                 all_filepaths.append(os.path.join(root, file))
     if not all_filepaths:
         raise ValueError(f'No .wav file found in {dcase_dirpath}')
-    random.Ramdom(0).shuffle(all_filepaths)
+    random.Random(0).shuffle(all_filepaths)
     if lims is not None:
         n_files = len(all_filepaths)
         i_min, i_max = round(lims[0]*n_files), round(lims[1]*n_files)
