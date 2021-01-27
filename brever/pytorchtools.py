@@ -105,24 +105,26 @@ class EarlyStopping:
         self.min_loss = np.inf
         self.delta = delta
 
-    def __call__(self, val_loss):
-        score = -val_loss
+    def __call__(self, loss, model, checkpoint_path):
+        score = -loss
         if self.best_score is None:
             self.best_score = score
         elif score < self.best_score + self.delta:
             self.counter += 1
             if self.verbose:
-                logging.info((f'EarlyStopping counter: {self.counter} out of '
-                              f'{self.patience}'))
+                logging.info(f'EarlyStopping counter: {self.counter} out of '
+                             f'{self.patience}')
             if self.counter >= self.patience:
                 self.stop = True
         else:
             self.best_score = score
             if self.verbose:
-                logging.info((f'Minimum validation loss decreased from '
-                              f'{self.min_loss:.6f} to {val_loss:.6f}'))
-            self.min_loss = val_loss
+                logging.info(f'Minimum validation loss decreased from '
+                             f'{self.min_loss:.6f} to {loss:.6f}. '
+                             f'Saving model.')
+            self.min_loss = loss
             self.counter = 0
+            torch.save(model.state_dict(), checkpoint_path)
 
 
 class ProgressTracker:
@@ -133,14 +135,16 @@ class ProgressTracker:
         self.counter = 0
         self.stop = False
 
-    def __call__(self, loss):
+    def __call__(self, loss, model, checkpoint_path):
         self.losses = np.roll(self.losses, 1)
         self.losses[0] = loss
         self.counter += 1
+        torch.save(model.state_dict(), checkpoint_path)
         if self.counter >= self.strip:
             progress = 1000*(self.losses.mean()/self.losses.min() - 1)
-            logging.info(f'Progress: {progress} per thousand')
+            logging.info(f'Progress: {progress} per thousand.')
             if progress < self.threshold:
+                logging.info(f'Progress has dropped below {self.threshold}')
                 self.stop = True
 
 
@@ -298,8 +302,8 @@ class H5Dataset(torch.utils.data.Dataset):
             for i, j in enumerate(indexes):
                 x[i, :], y[i, :] = self.__getitem__(j)
         else:
-            raise ValueError((f'{type(self).__name__} does not support '
-                              f'{type(index).__name__} indexing'))
+            raise ValueError(f'{type(self).__name__} does not support '
+                             f'{type(index).__name__} indexing')
         return x, y
 
     def __len__(self):

@@ -47,13 +47,17 @@ def check_overlapping_files(train_path, val_path):
 
     train_targets = [x['target']['filename'] for x in train_info]
     val_targets = [x['target']['filename'] for x in val_info]
-    assert not set(train_targets) & set(val_targets)
+    if set(train_targets) & set(val_targets):
+        logging.warning('Training and validation speech materials are '
+                        'overlapping')
 
     train_noises = [y['filename'] for x in train_info
                     for y in x['directional']['sources']]
     val_noises = [y['filename'] for x in val_info
                   for y in x['directional']['sources']]
-    assert not set(train_noises) & set(val_noises)
+    if set(train_noises) & set(val_noises):
+        logging.warning('Training and validation noise materials are '
+                        'overlapping')
 
 
 def train(model, criterion, optimizer, train_dataloader, cuda):
@@ -330,21 +334,20 @@ def main(model_dir, force, no_cuda):
 
         # check stop criterion
         checkpoint_path = os.path.join(model_dir, 'checkpoint.pt')
-        stop = False
         if config.MODEL.EARLYSTOP.ON:
-            earlyStop(val_loss)
+            earlyStop(val_loss, model, checkpoint_path)
             if earlyStop.stop:
                 logging.info('Early stopping!')
                 logging.info(f'Best validation loss: {earlyStop.min_loss}')
-                stop = True
-        if config.MODEL.PROGRESS.ON:
-            progressTracker(train_loss)
+                break
+        elif config.MODEL.PROGRESS.ON:
+            progressTracker(train_loss, model, checkpoint_path)
             if progressTracker.stop:
                 logging.info('Train loss has converged')
-                stop = True
-        if stop:
-            torch.save(model.state_dict(), checkpoint_path)
-            break
+                break
+        else:
+            raise ValueError("Can't have both early stopping and progress "
+                             "criterion")
 
     # display total time spent
     total_time = time.time() - start_time
