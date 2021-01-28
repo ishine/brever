@@ -128,23 +128,35 @@ class EarlyStopping:
 
 
 class ProgressTracker:
-    def __init__(self, strip=10, threshold=0.1):
+    def __init__(self, strip=100, threshold=-5.5):
         self.strip = strip
         self.threshold = threshold
-        self.losses = np.empty(10)
-        self.counter = 0
+        self.losses = []
         self.stop = False
 
+    def smooth(self, data, sigma=50):
+        df = np.subtract.outer(np.arange(len(data)), np.arange(len(data)))
+        filtering_mat = np.exp(-0.5*(df/sigma)**2)/(sigma*(2*np.pi)**0.5)
+        filtering_mat = np.tril(filtering_mat)
+        filtering_mat /= filtering_mat.sum(axis=1, keepdims=True)
+        return filtering_mat@data
+
+    def slope(self, data):
+        x = np.arange(len(data))
+        cov = lambda x, y: np.sum((x - x.mean())*(y - y.mean()))
+        return cov(x, data)/cov(x, x)
+
     def __call__(self, loss, model, checkpoint_path):
-        self.losses = np.roll(self.losses, 1)
-        self.losses[0] = loss
-        self.counter += 1
+        self.losses.append(loss)
         torch.save(model.state_dict(), checkpoint_path)
-        if self.counter >= self.strip:
-            progress = 1000*(self.losses.mean()/self.losses.min() - 1)
-            logging.info(f'Progress: {progress} per thousand.')
-            if progress < self.threshold:
-                logging.info(f'Progress has dropped below {self.threshold}')
+        if len(self.losses) >= self.strip:
+            losses = self.smooth(self.losses)
+            slope = self.slope(losses[-self.strip:])
+            slope = np.log10(abs(slope))
+            logging.info(f'Training curve slope (log10): {slope}')
+            if slope < self.threshold:
+                logging.info(f'Training curve slope has dropped below '
+                             f'{self.threshold}.')
                 self.stop = True
 
 

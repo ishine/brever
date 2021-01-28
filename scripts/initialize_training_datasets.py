@@ -5,17 +5,17 @@ import yaml
 from brever.modelmanagement import set_dict_field, DatasetInitArgParser
 
 
-def main(alias, params, force, n_train, n_val):
-    if n_train is None:
-        n_train = 1000
-    if n_val is None:
-        n_val = 200
-    for basename, filelims, number in [
-                ('training', [0.0, 0.7], n_train),
-                ('validation', [0.7, 0.85], n_val),
+def main(alias, params):
+    for basename, filelims, number, seed in [
+                ('training', [0.0, 0.7], args.n_train, args.seed_value_train),
+                ('validation', [0.7, 0.85], args.n_val, args.seed_value_val),
             ]:
         config = {
             'PRE': {
+                'SEED': {
+                    'ON': True,
+                    'VALUE': seed,
+                },
                 'MIXTURES': {
                     'NUMBER': number,
                     'FILELIMITS': {
@@ -34,12 +34,12 @@ def main(alias, params, force, n_train, n_val):
                 key_list = DatasetInitArgParser.arg_to_keys_map[param]
                 set_dict_field(config, key_list, value)
 
-        dirname = f'{basename}_{alias}'
+        dirname = f'{basename}_{args.alias}'
         dirpath = os.path.join('data', 'processed', dirname)
         if not os.path.exists(dirpath):
             os.makedirs(dirpath)
         config_filepath = os.path.join(dirpath, 'config.yaml')
-        if os.path.exists(config_filepath) and not force:
+        if os.path.exists(config_filepath) and not args.force:
             print(f'{config_filepath} already exists')
             continue
         with open(config_filepath, 'w') as f:
@@ -53,11 +53,15 @@ if __name__ == '__main__':
                         help='dataset alias')
     parser.add_argument('-f', '--force', action='store_true',
                         help='overwrite config file if already exists')
-    parser.add_argument('--n-train', type=int,
+    parser.add_argument('--n-train', type=int, default=1000,
                         help='number of training mixture, defaults to 1000')
-    parser.add_argument('--n-val', type=int,
+    parser.add_argument('--n-val', type=int, default=200,
                         help='number of validation mixture, defaults to 200')
+    parser.add_argument('--seed-value-train', type=int, default=0,
+                        help='seed for the training dataset')
+    parser.add_argument('--seed-value-val', type=int, default=1,
+                        help='seed for the validation dataset')
     dataset_args, args = parser.parse_args()
     params = vars(dataset_args)
 
-    main(args.alias, params, args.force, args.n_train, args.n_val)
+    main(args, params)

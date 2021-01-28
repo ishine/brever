@@ -16,8 +16,8 @@ MODEL:
     VERBOSE: true
   PROGRESS:
     'ON': true
-    STRIP: 50
-    THRESHOLD: 3.0
+    STRIP: 100
+    THRESHOLD: -5.5
   EPOCHS: 1000
   LEARNINGRATE: 0.001
   NLAYERS: 1
