@@ -115,7 +115,7 @@ PRE:
           STEP: 5
         NUMBER:
           MAX: 3
-          MIN: 0
+          MIN: 1
         SNR:
           MAX: 30
           MIN: 0
