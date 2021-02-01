@@ -79,6 +79,7 @@ def main(model_dir, force, no_cuda):
     ]
     MSE = np.empty((len(snrs), len(room_aliases)))
     seg_scores = np.empty((len(snrs), len(room_aliases)), dtype=object)
+    seg_scores_oracle = np.empty((len(snrs), len(room_aliases)), dtype=object)
     for i, snr in enumerate(snrs):
         for j, room_alias in enumerate(room_aliases):
             # build dataset directory name
@@ -137,6 +138,7 @@ def main(model_dir, force, no_cuda):
             with h5py.File(test_dataset.filepath, 'r') as f:
                 n = len(f['mixtures'])
                 seg_scores_i_j = np.zeros((n, 4))
+                seg_scores_oracle_i_j = np.zeros((n, 4))
                 for k in range(n):
                     logging.info(f'Enhancing mixture {k}/{n}...')
 
@@ -165,10 +167,12 @@ def main(model_dir, force, no_cuda):
                     reverb_filt = filterbank.filt(reverb)
 
                     # extract features
-                    features, _ = test_dataset[i_start:i_end]
+                    features, IRM = test_dataset[i_start:i_end]
                     features = torch.from_numpy(features).float()
+                    IRM = torch.from_numpy(IRM).float()
                     if config.MODEL.CUDA and not no_cuda:
                         features = features.cuda()
+                        IRM = IRM.cuda()
 
                     # make mask prediction
                     model.eval()
@@ -229,12 +233,50 @@ def main(model_dir, force, no_cuda):
                         config.PRE.FS,
                     )
 
+                    # now repeat but with oracle mask to obtain oracle scores
+                    #
+                    # extrapolate oracle mask
+                    IRM = wola(IRM, trim=len(mixture_filt))[:, :, np.newaxis]
+
+                    # apply oracle mask and shadow filter
+                    mixture_enhanced = filterbank.rfilt(mixture_filt*IRM)
+                    foreground_enhanced = filterbank.rfilt(foreground_filt*IRM)
+                    background_enhanced = filterbank.rfilt(background_filt*IRM)
+                    noise_enhanced = filterbank.rfilt(noise_filt*IRM)
+                    reverb_enhanced = filterbank.rfilt(reverb_filt*IRM)
+
+                    # segmental SNRs
+                    segSSNR, segBR, segNR, segRR = segmental_scores(
+                        foreground_ref,
+                        foreground_enhanced,
+                        background_ref,
+                        background_enhanced,
+                        noise_ref,
+                        noise_enhanced,
+                        reverb_ref,
+                        reverb_enhanced,
+                    )
+                    seg_scores_oracle_i_j[k, :] = segSSNR, segBR, segNR, segRR
+
+                    # write oracle enhanced mixture
+                    output_dir = os.path.join(model_dir, 'audio', suffix)
+                    if not os.path.exists(output_dir):
+                        os.makedirs(output_dir)
+                    sf.write(
+                        os.path.join(output_dir, f'mixture_oracle_{k}.wav'),
+                        mixture_enhanced*gain,
+                        config.PRE.FS,
+                    )
+
             seg_scores[i, j] = seg_scores_i_j
+            seg_scores_oracle[i, j] = seg_scores_oracle_i_j
     seg_scores = np.array(seg_scores.tolist())
+    seg_scores_oracle = np.array(seg_scores_oracle.tolist())
 
     # save MSE and segmental scores
     np.save(os.path.join(model_dir, 'mse_scores.npy'), MSE)
     np.save(os.path.join(model_dir, 'seg_scores.npy'), seg_scores)
+    np.save(os.path.join(model_dir, 'seg_scores_oracle.npy'), seg_scores_oracle)
 
     # calculate PESQ on matlab
     try:

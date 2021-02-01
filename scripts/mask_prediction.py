@@ -24,11 +24,9 @@ def main(args):
         random.seed(args.seed)
 
     # calculate subplot grid
-    n_rows = 1
-    n_cols = 1
+    n_rows = len(args.input)
+    n_cols = 2
     n_models = len(args.input)
-    while n_rows*n_cols < n_models+1:
-        n_rows += 1
     fig_run, axes_run = plt.subplots(n_rows, n_cols)
 
     for i_model, model_dirpath in enumerate(args.input):
@@ -223,7 +221,7 @@ def main(args):
         # plot on running fig
         plot_spectrogram(
             labels,
-            ax=axes_run.flatten()[0],
+            ax=axes_run[i_model, 0],
             fs=config.PRE.FS,
             hop_length=framer.hop_length,
             f=filterbank.fc,
@@ -234,7 +232,7 @@ def main(args):
         set_kw = {'title': title}
         plot_spectrogram(
             PRM,
-            ax=axes_run.flatten()[i_model+1],
+            ax=axes_run[i_model, 1],
             fs=config.PRE.FS,
             hop_length=framer.hop_length,
             f=filterbank.fc,

@@ -126,6 +126,21 @@ def load_scores(groups):
             val_curve = np.load(val_filepath)
             group[i]['train_curve'] = train_curve
             group[i]['val_curve'] = val_curve
+            pesq_filepath = os.path.join('models', model, 'pesq_scores_oracle.mat')
+            pesq = scipy.io.loadmat(pesq_filepath)['scores_oracle']
+            seg_filepath = os.path.join('models', model, 'seg_scores_oracle.npy')
+            seg = np.load(seg_filepath)
+            segSSNR = seg[:, :, :, 0]
+            segBR = seg[:, :, :, 1]
+            segNR = seg[:, :, :, 2]
+            segRR = seg[:, :, :, 3]
+            group[i]['oracle'] = {}
+            group[i]['oracle']['pesq'] = pesq
+            group[i]['oracle']['mse'] = np.zeros(mse.shape)
+            group[i]['oracle']['segSSNR'] = segSSNR
+            group[i]['oracle']['segBR'] = segBR
+            group[i]['oracle']['segNR'] = segNR
+            group[i]['oracle']['segRR'] = segRR
 
 
 def sort_groups_by_mean_pesq(groups):
@@ -208,7 +223,7 @@ class LegendFormatter:
 
 
 def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
-         default, only_pesq, figsize, ymax, train_curve):
+         default, only_pesq, figsize, ymax, train_curve, oracle):
     if default:
         set_default_parameters(filter_, dimensions, group_by)
 
@@ -249,6 +264,8 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
     room_names = ['A', 'B', 'C', 'D']
 
     n = sum(len(group) for group in groups)
+    if oracle:
+        n *= 2
     width = 1/(n+1)
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
     hatch_cycle = ['', '////', '\\\\\\', 'xxxx']
@@ -267,32 +284,40 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
             model_count = 0
             for i, group in enumerate(groups):
                 color = color_cycle[i % len(color_cycle)]
+                hatch_count = 0
                 for j, model in enumerate(group):
-                    hatch = hatch_cycle[j % len(hatch_cycle)]
-                    data = model[metric]
-                    if metric == 'mse':
-                        mean = data.mean(axis=axis)
-                        mean = np.hstack((mean, data.mean()))
-                        err = None
-                    else:
-                        mean = data.mean(axis=(axis, -1))
-                        mean = np.hstack((mean, data.mean()))
-                        err = data.std(axis=(axis, -1))
-                        err = err/(data.shape[axis]*data.shape[-1])**0.5
-                        err = np.hstack((err, data.std()))
-                        err[-1] = err[-1]/(data.size)**0.5
-                    if axis == 0:
-                        if legend is None:
-                            label = f'{model["val"]}'
+                    datas = [model[metric]]
+                    if oracle:
+                        datas.append(model['oracle'][metric])
+                    for k, data in enumerate(datas):
+                        hatch = hatch_cycle[hatch_count % len(hatch_cycle)]
+                        if metric == 'mse':
+                            mean = data.mean(axis=axis)
+                            mean = np.hstack((mean, data.mean()))
+                            err = None
                         else:
-                            label = legend[model_count]
-                    else:
-                        label = None
-                    x = np.arange(len(mean)) + (model_count - (n-1)/2)*width
-                    x[-1] = x[-1] + 2*width
-                    ax.bar(x=x, height=mean, width=width, label=label,
-                           color=color, hatch=hatch, yerr=err)
-                    model_count += 1
+                            mean = data.mean(axis=(axis, -1))
+                            mean = np.hstack((mean, data.mean()))
+                            err = data.std(axis=(axis, -1))
+                            err = err/(data.shape[axis]*data.shape[-1])**0.5
+                            err = np.hstack((err, data.std()))
+                            err[-1] = err[-1]/(data.size)**0.5
+                        if axis == 0:
+                            if legend is None:
+                                label = f'{model["val"]}'
+                                if k == 1:
+                                    label += ' - oracle'
+                            else:
+                                label = legend[model_count]
+                        else:
+                            label = None
+                        x = np.arange(len(mean)) + (model_count - (n-1)/2)*width
+                        x[-1] = x[-1] + 2*width
+                        ax.bar(x=x, height=mean, width=width, label=label,
+                               color=color, hatch=hatch, yerr=err)
+                        model_count += 1
+                        hatch_count += 1
+
             xticks = np.arange(len(xticklabels) + 1, dtype=float)
             xticks[-1] = xticks[-1] + 2*width
             ax.set_xticks(xticks)
@@ -388,6 +413,8 @@ if __name__ == '__main__':
                         help='pesq y axis upper limits')
     parser.add_argument('--train-curve', action='store_true',
                         help='plot training curves')
+    parser.add_argument('--oracle', action='store_true',
+                        help='plot oracle scores')
     filter_args, args = parser.parse_args()
 
     model_dirs = []
@@ -397,4 +424,4 @@ if __name__ == '__main__':
         model_dirs += glob(input_)
     main(model_dirs, args.dims, args.group_by, args.sort_by, vars(filter_args),
          args.legend, args.top, args.ncol, args.default, args.only_pesq,
-         args.figsize, args.ymax, args.train_curve)
+         args.figsize, args.ymax, args.train_curve, args.oracle)
