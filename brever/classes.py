@@ -236,24 +236,27 @@ class RandomMixtureMaker:
                                                          seeder.get())
 
     def make(self):
-        self.mixture = Mixture()
-        self.metadata = {}
-        room = self.get_random_room()
-        decayer = self.get_random_decayer()
-        self.add_random_target(room, decayer)
-        self.add_random_dir_noises(room, decayer)
-        self.add_random_diffuse_noise(room)
-        self.set_random_dir_to_diff_snr()
-        self.set_random_target_snr()
-        self.set_random_rms()
-        return self.mixture, self.metadata
+        mixture = Mixture()
+        metadata = {}
+        room, metadata = self.get_random_room(metadata)
+        decayer, metadata = self.get_random_decayer(metadata)
+        mixture, metadata = self.add_random_target(mixture, metadata, room,
+                                                   decayer)
+        mixture, metadata = self.add_random_dir_noises(mixture, metadata, room,
+                                                       decayer)
+        mixture, metadata = self.add_random_diffuse_noise(mixture, metadata,
+                                                          room)
+        mixture, metadata = self.set_random_dir_to_diff_snr(mixture, metadata)
+        mixture, metadata = self.set_random_target_snr(mixture, metadata)
+        mixture, metadata = self.set_random_rms(mixture, metadata)
+        return mixture, metadata
 
-    def get_random_room(self):
+    def get_random_room(self, metadata):
         room = self.rooms.get()
-        self.metadata['room'] = room
-        return room
+        metadata['room'] = room
+        return room, metadata
 
-    def get_random_decayer(self):
+    def get_random_decayer(self, metadata):
         rt60 = self.decay_rt60s.get()
         drr = self.decay_drrs.get()
         delay = self.decay_delays.get()
@@ -266,14 +269,14 @@ class RandomMixtureMaker:
             self.decay_on,
         )
         if self.decay_on:
-            self.metadata['decay'] = {}
-            self.metadata['decay']['rt60'] = rt60
-            self.metadata['decay']['drr'] = drr
-            self.metadata['decay']['delay'] = delay
-            self.metadata['decay']['color'] = self.decay_color
-        return decayer
+            metadata['decay'] = {}
+            metadata['decay']['rt60'] = rt60
+            metadata['decay']['drr'] = drr
+            metadata['decay']['delay'] = delay
+            metadata['decay']['color'] = self.decay_color
+        return decayer, metadata
 
-    def add_random_target(self, room, decayer):
+    def add_random_target(self, mixture, metadata, room, decayer):
         angle = self.target_angles.get()
         brir = self._load_brirs(room, angle)
         brir = decayer.run(brir)
@@ -283,32 +286,33 @@ class RandomMixtureMaker:
             self.fs,
             randomizer=self.target_filename_randomizer.random,
         )
-        self.mixture.add_target(
+        mixture.add_target(
             x=target,
             brir=brir,
             rb=self.mixture_rb,
             t_pad=self.mixture_pad,
             fs=self.fs,
         )
-        self.metadata['target'] = {}
-        self.metadata['target']['angle'] = angle
-        self.metadata['target']['filename'] = filename
+        metadata['target'] = {}
+        metadata['target']['angle'] = angle
+        metadata['target']['filename'] = filename
+        return mixture, metadata
 
-    def add_random_dir_noises(self, room, decayer):
+    def add_random_dir_noises(self, mixture, metadata, room, decayer):
         number = self.dir_noise_nums.get()
         types = self.dir_noise_types.get(number)
         angles = self.dir_noise_angles.get(number)
         noises, files, indices = self._load_noises(
             types,
-            len(self.mixture),
+            len(mixture),
             randomizers=self.noise_filename_randomizer.randoms,
         )
         brirs = self._load_brirs(room, angles)
         brirs = [decayer.run(brir) for brir in brirs]
-        self.mixture.add_dir_noises(noises, brirs)
-        self.metadata['directional'] = {}
-        self.metadata['directional']['number'] = number
-        self.metadata['directional']['sources'] = []
+        mixture.add_dir_noises(noises, brirs)
+        metadata['directional'] = {}
+        metadata['directional']['number'] = number
+        metadata['directional']['sources'] = []
         for i in range(number):
             source_metadata = {
                 'angle': angles[i],
@@ -316,41 +320,46 @@ class RandomMixtureMaker:
                 'filename': files[i],
                 'indices': indices[i],
             }
-            self.metadata['directional']['sources'].append(source_metadata)
+            metadata['directional']['sources'].append(source_metadata)
+        return mixture, metadata
 
-    def add_random_diffuse_noise(self, room):
+    def add_random_diffuse_noise(self, mixture, metadata, room):
         if self.diffuse_noise_on:
             brirs = self._load_brirs(room)
-            self.mixture.add_diffuse_noise(
+            mixture.add_diffuse_noise(
                 brirs,
                 self.diffuse_noise_color,
                 self.diffuse_noise_ltas_eq,
             )
-            self.metadata['diffuse'] = {}
-            self.metadata['diffuse']['color'] = self.diffuse_noise_color
-            self.metadata['diffuse']['ltas_eq'] = self.diffuse_noise_ltas_eq
+            metadata['diffuse'] = {}
+            metadata['diffuse']['color'] = self.diffuse_noise_color
+            metadata['diffuse']['ltas_eq'] = self.diffuse_noise_ltas_eq
+        return mixture, metadata
 
-    def set_random_dir_to_diff_snr(self):
+    def set_random_dir_to_diff_snr(self, mixture, metadata):
         snr = self.dir_noise_snrs.get()
-        if self.metadata['directional']['number'] == 0:
+        if metadata['directional']['number'] == 0:
             return
         if self.diffuse_noise_on:
-            self.mixture.adjust_dir_to_diff_snr(snr)
-            self.metadata['directional']['snr'] = snr
+            mixture.adjust_dir_to_diff_snr(snr)
+            metadata['directional']['snr'] = snr
+        return mixture, metadata
 
-    def set_random_target_snr(self):
+    def set_random_target_snr(self, mixture, metadata):
         snr = self.target_snrs.get()
-        if self.metadata['directional']['number'] == 0:
+        if metadata['directional']['number'] == 0:
             if not self.diffuse_noise_on:
                 return
-        self.mixture.adjust_target_snr(snr)
-        self.metadata['target']['snr'] = snr
+        mixture.adjust_target_snr(snr)
+        metadata['target']['snr'] = snr
+        return mixture, metadata
 
-    def set_random_rms(self):
+    def set_random_rms(self, mixture, metadata):
         rms_dB = self.mixture_rms_jitters.get()
         if self.mixture_rms_jitter_on:
-            self.mixture.adjust_rms(rms_dB)
-            self.metadata['rms_dB'] = rms_dB
+            mixture.adjust_rms(rms_dB)
+            metadata['rms_dB'] = rms_dB
+        return mixture, metadata
 
     def _load_brirs(self, room, angles=None):
         if angles is None or isinstance(angles, list):
