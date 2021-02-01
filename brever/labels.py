@@ -43,6 +43,33 @@ def irm(target, noise, filtered=False, filt_kwargs=None, framed=False,
     return IRM
 
 
+def tmr(mixture_object, filtered=False, filt_kwargs=None, framed=False,
+        frame_kwargs=None):
+    """
+    Target-to-masker ratio (TMR)
+    """
+    return irm(mixture_object.foreground, mixture_object.background,
+               filtered, filt_kwargs, framed, frame_kwargs)
+
+
+def tnr(mixture_object, filtered=False, filt_kwargs=None, framed=False,
+        frame_kwargs=None):
+    """
+    Target-to-noise ratio (TNR)
+    """
+    return irm(mixture_object.foreground, mixture_object.noise,
+               filtered, filt_kwargs, framed, frame_kwargs)
+
+
+def trr(mixture_object, filtered=False, filt_kwargs=None, framed=False,
+        frame_kwargs=None):
+    """
+    Target-to-reverberant ratio (TRR)
+    """
+    return irm(mixture_object.foreground, mixture_object.late_target,
+               filtered, filt_kwargs, framed, frame_kwargs)
+
+
 def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
                  frame_kwargs=None):
     '''

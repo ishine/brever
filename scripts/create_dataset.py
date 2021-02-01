@@ -148,7 +148,7 @@ def main(dataset_dir, force):
 
     # label extractor
     labelExtractor = LabelExtractor(
-        label=config.PRE.LABEL,
+        labels=sorted(config.PRE.LABELS),
     )
 
     # main loop intialization
@@ -192,43 +192,34 @@ def main(dataset_dir, force):
 
         # make mixture and save
         mixtureObject, metadata = randomMixtureMaker.make()
-        mixture = mixtureObject.mixture
-        foreground = mixtureObject.foreground
-        background = mixtureObject.background
         if config.PRE.MIXTURES.SAVE:
-            mixtures.append(mixture.flatten())
-            foregrounds.append(foreground.flatten())
-            backgrounds.append(background.flatten())
+            mixtures.append(mixtureObject.mixture.flatten())
+            foregrounds.append(mixtureObject.foreground.flatten())
+            backgrounds.append(mixtureObject.background.flatten())
             noises.append(mixtureObject.noise.flatten())
             reverbs.append(mixtureObject.late_target.flatten())
         if i in examples_index:
-            examples.append(mixture.flatten())
+            examples.append(mixtureObject.mixture.flatten())
 
         # scale signal
-        scaler.fit(mixture)
-        mixture = scaler.scale(mixture)
-        foreground = scaler.scale(foreground)
-        background = scaler.scale(background)
+        scaler.fit(mixtureObject.mixture)
+        mixtureObject.transform(scaler.scale)
         scaler.__init__(scaler.active)
 
         # apply filterbank
-        mixture = filterbank.filt(mixture)
-        foreground = filterbank.filt(foreground)
-        background = filterbank.filt(background)
+        mixtureObject.transform(filterbank.filt)
 
         # frame
-        mixture = framer.frame(mixture)
-        foreground = framer.frame(foreground)
-        background = framer.frame(background)
+        mixtureObject.transform(framer.frame)
 
         # extract features
-        features.append(featureExtractor.run(mixture))
+        features.append(featureExtractor.run(mixtureObject.mixture))
 
         # extract labels
-        labels.append(labelExtractor.run(foreground, background))
+        labels.append(labelExtractor.run(mixtureObject))
 
         # save indices
-        i_end = i_start + len(mixture)
+        i_end = i_start + len(mixtureObject)
         metadata['dataset_indices'] = (i_start, i_end)
         metadatas.append(metadata)
         i_start = i_end
@@ -332,12 +323,13 @@ def main(dataset_dir, force):
         fig.colorbar(pos, cax=cax)
         ax.set_title('labels')
         ax.get_images()[0].set_clim(0, 1)
-        yticks_major = [0, y.shape[1]]
+        yticks_major = [index[0] for index in labelExtractor.indices]
+        yticks_major.append(labelExtractor.indices[-1][1])
         axes[1].set_yticks(yticks_major)
         axes[1].set_yticklabels(yticks_major)
-        yticks_minor = [y.shape[1]/2]
+        yticks_minor = np.mean(labelExtractor.indices, axis=1)
         axes[1].set_yticks(yticks_minor, minor=True)
-        axes[1].set_yticklabels([labelExtractor.label], minor=True)
+        axes[1].set_yticklabels(labelExtractor.labels, minor=True)
         axes[1].tick_params(axis='y', which='minor', length=0)
 
         peek_output_path = os.path.join(dataset_dir, filename)

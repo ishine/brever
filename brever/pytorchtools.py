@@ -194,14 +194,16 @@ class H5Dataset(torch.utils.data.Dataset):
     efficiently implement HDF5 dataset classes:
     https://discuss.pytorch.org/t/dataloader-when-num-worker-0-there-is-bug/25643/16,
     '''
-    def __init__(self, dirpath, features=None, load=False, transform=None,
-                 stack=0, decimation=1, dct_toggle=False, n_dct=5,
-                 file_based_stats=False):
+    def __init__(self, dirpath, features=None, labels=None, load=False,
+                 transform=None, stack=0, decimation=1, dct_toggle=False,
+                 n_dct=5, file_based_stats=False):
+        if features is not None:
+            features = sorted(features)
+        if labels is not None:
+            labels = sorted(labels)
         self.dirpath = dirpath
-        if features is None:
-            self.features = None
-        else:
-            self.features = sorted(features)
+        self.features = features
+        self.labels = labels
         self.load = load
         self.transform = transform
         self.stack = stack
@@ -213,18 +215,26 @@ class H5Dataset(torch.utils.data.Dataset):
         self.filepath = os.path.join(dirpath, 'dataset.hdf5')
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
+            # calculate number of samples
             self.n_samples = len(f['features'])//decimation
-            if features is None:
+            # calculate number of features
+            if self.features is None:
                 self._n_current_features = f['features'].shape[1]
                 self.feature_indices = [(0, self._n_current_features)]
             else:
-                feature_indices = self.get_feature_indices()
-                self._n_current_features = sum(j-i for i, j in feature_indices)
-                self.feature_indices = feature_indices
+                self.feature_indices = self.get_feature_indices()
+                self._n_current_features = sum(j-i for i, j in
+                                               self.feature_indices)
             if dct_toggle:
                 stack = n_dct
             self.n_features = self._n_current_features*(stack + 1)
-            self.n_labels = f['labels'].shape[1]
+            # calculate number of labels
+            if self.labels is None:
+                self.n_labels = f['labels'].shape[1]
+                self.label_indices = [(0, self.n_labels)]
+            else:
+                self.label_indices = self.get_label_indices()
+                self.n_labels = sum(j-i for i, j in self.label_indices)
             if self.load:
                 self.datasets = (f['features'][:], f['labels'][:])
         self.file_indices = self.get_file_indices()
@@ -243,6 +253,16 @@ class H5Dataset(torch.utils.data.Dataset):
             indices_dict['ic'] = (start+step, end)
         feature_indices = [indices_dict[feature] for feature in self.features]
         return feature_indices
+
+    def get_label_indices(self):
+        pipes_path = os.path.join(self.dirpath, 'pipes.pkl')
+        with open(pipes_path, 'rb') as f:
+            labelExtractor = pickle.load(f)['labelExtractor']
+        names = labelExtractor.labels
+        indices = labelExtractor.indices
+        indices_dict = {name: lims for name, lims in zip(names, indices)}
+        label_indices = [indices_dict[label] for label in self.labels]
+        return label_indices
 
     def get_file_indices(self):
         metadatas_path = os.path.join(self.dirpath, 'mixture_info.json')
@@ -271,6 +291,7 @@ class H5Dataset(torch.utils.data.Dataset):
             else:
                 self.datasets = (f['features'], f['labels'])
         if isinstance(index, int):
+            # features
             x = np.empty(self.n_features)
             # decimate
             index *= self.decimation
@@ -306,7 +327,14 @@ class H5Dataset(torch.utils.data.Dataset):
                 if self.file_based_stats:
                     self.transform.set_state(file_num)
                 x = self.transform(x)
-            y = self.datasets[1][index]
+            # labels
+            y = np.empty(self.n_labels)
+            count = 0
+            for i, j in self.label_indices:
+                i_ = count
+                j_ = count+j-i
+                y[i_:j_] = self.datasets[1][index, i:j]
+                count = j_
         elif isinstance(index, slice):
             indexes = list(range(self.n_samples))[index]
             x = np.empty((len(indexes), self.n_features))

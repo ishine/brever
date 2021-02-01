@@ -373,3 +373,14 @@ class Mixture:
             self.dir_noise *= gain
         if self.diffuse_noise is not None:
             self.diffuse_noise *= gain
+
+    def transform(self, transform_func):
+        for attr_name in [
+                    'early_target',
+                    'late_target',
+                    'dir_noise',
+                    'diffuse_noise',
+                ]:
+            attr_val = getattr(self, attr_name)
+            if attr_val is not None:
+                setattr(self, attr_name, transform_func(attr_val))

@@ -128,6 +128,7 @@ def main(model_dir, force, no_cuda):
     train_dataset = H5Dataset(
         dirpath=config.POST.PATH.TRAIN,
         features=config.POST.FEATURES,
+        labels=config.POST.LABELS,
         load=config.POST.LOAD,
         stack=config.POST.STACK,
         decimation=config.POST.DECIMATION,
@@ -138,6 +139,7 @@ def main(model_dir, force, no_cuda):
     val_dataset = H5Dataset(
         dirpath=config.POST.PATH.VAL,
         features=config.POST.FEATURES,
+        labels=config.POST.LABELS,
         load=config.POST.LOAD,
         stack=config.POST.STACK,
         decimation=config.POST.DECIMATION,
@@ -213,6 +215,7 @@ def main(model_dir, force, no_cuda):
             test_dataset = H5Dataset(
                 dirpath=test_dataset_dir,
                 features=config.POST.FEATURES,
+                labels=config.POST.LABELS,
                 load=config.POST.LOAD,
                 stack=config.POST.STACK,
                 decimation=1,  # there must not be decimation during testing

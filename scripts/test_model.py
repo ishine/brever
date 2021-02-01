@@ -98,6 +98,7 @@ def main(model_dir, force, no_cuda):
             test_dataset = H5Dataset(
                 dirpath=test_dataset_dir,
                 features=config.POST.FEATURES,
+                labels=config.POST.LABELS,
                 load=config.POST.LOAD,
                 stack=config.POST.STACK,
                 decimation=1,  # there must not be decimation during testing
@@ -240,7 +241,7 @@ def main(model_dir, force, no_cuda):
         import matlab
         import matlab.engine
     except Exception:
-        logging.info(('Matlab engine import failed. You will have to manually'
+        logging.info(('Matlab engine import failed. You will have to manually '
                       'call testModel.m to calculate PESQ scores.'))
     else:
         logging.info('Starting MATLAB engine...')

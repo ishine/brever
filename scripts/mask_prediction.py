@@ -71,6 +71,7 @@ def main(args):
         test_dataset = H5Dataset(
             dirpath=test_dataset_dir,
             features=config.POST.FEATURES,
+            labels=config.POST.LABELS,
             load=config.POST.LOAD,
             stack=config.POST.STACK,
             decimation=1,  # there must not be decimation during testing

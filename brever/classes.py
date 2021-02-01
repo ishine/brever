@@ -127,12 +127,22 @@ class FeatureExtractor:
 
 
 class LabelExtractor:
-    def __init__(self, label):
-        self.label = label
+    def __init__(self, labels):
+        self.labels = labels
+        self.indices = None
 
-    def run(self, target, noise):
-        label_func = getattr(labels_module, self.label)
-        return label_func(target, noise, filtered=True, framed=True)
+    def run(self, mix_object):
+        output = []
+        for label in self.labels:
+            label_func = getattr(labels_module, label)
+            output.append(label_func(mix_object, filtered=True, framed=True))
+        self.indices = []
+        i_start = 0
+        for label_set in output:
+            i_end = i_start + label_set.shape[1]
+            self.indices.append((i_start, i_end))
+            i_start = i_end
+        return np.hstack(output)
 
 
 class RandomPool:

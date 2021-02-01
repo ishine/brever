@@ -455,6 +455,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         'dropout_input': ['MODEL', 'DROPOUT', 'INPUT'],
         'batchsize': ['MODEL', 'BATCHSIZE'],
         'features': ['POST', 'FEATURES'],
+        'labels': ['POST', 'LABELS'],
         'train_path': ['POST', 'PATH', 'TRAIN'],
         'val_path': ['POST', 'PATH', 'VAL'],
         'test_path': ['POST', 'PATH', 'TEST'],
@@ -517,6 +518,12 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=arg_set_type,
             nargs='+',
             help='feature set',
+        )
+        self.add_base_argument(
+            '--labels',
+            type=arg_set_type,
+            nargs='+',
+            help='label set',
         )
         self.add_base_argument(
             '--train-path',
