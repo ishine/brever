@@ -169,10 +169,8 @@ def main(model_dir, force, no_cuda):
                     # extract features
                     features, IRM = test_dataset[i_start:i_end]
                     features = torch.from_numpy(features).float()
-                    IRM = torch.from_numpy(IRM).float()
                     if config.MODEL.CUDA and not no_cuda:
                         features = features.cuda()
-                        IRM = IRM.cuda()
 
                     # make mask prediction
                     model.eval()
