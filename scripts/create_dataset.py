@@ -58,7 +58,8 @@ def main(dataset_dir, force):
         rooms=config.PRE.MIXTURES.RANDOM.ROOMS,
         target_angles=range(
             config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MIN,
-            config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MAX + 1,
+            config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MAX
+            + config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.STEP,
             config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.STEP,
         ),
         target_snrs=range(
@@ -72,7 +73,8 @@ def main(dataset_dir, force):
         dir_noise_types=config.PRE.MIXTURES.RANDOM.SOURCES.TYPES,
         dir_noise_angles=range(
             config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MIN,
-            config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MAX + 1,
+            config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MAX
+            + config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.STEP,
             config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.STEP,
         ),
         dir_noise_snrs=range(
@@ -98,19 +100,22 @@ def main(dataset_dir, force):
         decay_color=config.PRE.MIXTURES.DECAY.COLOR,
         decay_rt60s=np.arange(
             config.PRE.MIXTURES.RANDOM.DECAY.RT60.MIN,
-            config.PRE.MIXTURES.RANDOM.DECAY.RT60.MAX,
+            config.PRE.MIXTURES.RANDOM.DECAY.RT60.MAX
+            + config.PRE.MIXTURES.RANDOM.DECAY.RT60.STEP,
             config.PRE.MIXTURES.RANDOM.DECAY.RT60.STEP,
             dtype=float,
         ),
         decay_drrs=np.arange(
             config.PRE.MIXTURES.RANDOM.DECAY.DRR.MIN,
-            config.PRE.MIXTURES.RANDOM.DECAY.DRR.MAX,
+            config.PRE.MIXTURES.RANDOM.DECAY.DRR.MAX
+            + config.PRE.MIXTURES.RANDOM.DECAY.DRR.STEP,
             config.PRE.MIXTURES.RANDOM.DECAY.DRR.STEP,
             dtype=float,
         ),
         decay_delays=np.arange(
             config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MIN,
-            config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MAX,
+            config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MAX
+            + config.PRE.MIXTURES.RANDOM.DECAY.DELAY.STEP,
             config.PRE.MIXTURES.RANDOM.DECAY.DELAY.STEP,
             dtype=float,
         ),
