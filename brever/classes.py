@@ -249,6 +249,7 @@ class RandomMixtureMaker:
         mixture, metadata = self.set_random_dir_to_diff_snr(mixture, metadata)
         mixture, metadata = self.set_random_target_snr(mixture, metadata)
         mixture, metadata = self.set_random_rms(mixture, metadata)
+        metadata = self.get_long_term_labels(mixture, metadata)
         return mixture, metadata
 
     def get_random_room(self, metadata):
@@ -360,6 +361,12 @@ class RandomMixtureMaker:
             mixture.adjust_rms(rms_dB)
             metadata['rms_dB'] = rms_dB
         return mixture, metadata
+
+    def get_long_term_labels(self, mixture, metadata):
+        metadata['lt_labels'] = {}
+        for label in ['tmr', 'tnr', 'trr']:
+            metadata['lt_labels'][label] = mixture.get_long_term_label(label)
+        return metadata
 
     def _load_brirs(self, room, angles=None):
         if angles is None or isinstance(angles, list):

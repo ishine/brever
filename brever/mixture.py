@@ -384,3 +384,19 @@ class Mixture:
             attr_val = getattr(self, attr_name)
             if attr_val is not None:
                 setattr(self, attr_name, transform_func(attr_val))
+
+    def get_long_term_label(self, label='tmr'):
+        target = self.early_target
+        if label == 'tmr':
+            masker = self.late_target + self.noise
+        elif label == 'tnr':
+            masker = self.noise
+        elif label == 'trr':
+            masker = self.late_target
+        else:
+            raise ValueError(f'Label must be tmr, tnr or trr, got {label}')
+        slice_ = slice(*self.target_indices)
+        energy_target = np.sum(target[slice_].mean(axis=-1)**2)
+        energy_masker = np.sum(masker[slice_].mean(axis=-1)**2)
+        label = energy_target / (energy_target + energy_masker)
+        return label
