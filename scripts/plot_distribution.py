@@ -1,5 +1,7 @@
 import argparse
 from glob import glob
+import json
+import os
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -8,17 +10,24 @@ import numpy as np
 from brever.pytorchtools import H5Dataset
 
 
-def get_data(dataset_dir, name, kind):
+def get_data(dataset_dir, name, kind, long_term=False):
     if isinstance(dataset_dir, list):
-        data = [get_data(dir_, name, kind) for dir_ in dataset_dir]
+        data = [get_data(dir_, name, kind, long_term) for dir_ in dataset_dir]
         data = np.vstack(data)
     else:
         if kind == 'feature':
             h5dataset = H5Dataset(dataset_dir, features=[name], load=True)
             data, _ = h5dataset[:]
         elif kind == 'label':
-            h5dataset = H5Dataset(dataset_dir, labels=[name], load=True)
-            _, data = h5dataset[:]
+            if long_term:
+                metadata_path = os.path.join(dataset_dir, 'mixture_info.json')
+                with open(metadata_path, 'r') as f:
+                    metadata = json.load(f)
+                data = [item['lt_labels'][name] for item in metadata]
+                data = np.asarray(data)
+            else:
+                h5dataset = H5Dataset(dataset_dir, labels=[name], load=True)
+                _, data = h5dataset[:]
         else:
             raise ValueError('kind must be feature or label')
     return data
@@ -56,8 +65,8 @@ def make_boxplot(ax, inputs, item, kind, labels):
 
 def main(args):
 
-    def hist(ax, data):
-        ax.hist(data.flatten(), bins=args.bins, alpha=args.alpha, density=True)
+    def hist(ax, data, bins=args.bins, alpha=args.alpha):
+        ax.hist(data.flatten(), bins=bins, alpha=alpha, density=True)
 
     globed_inputs = [glob(item) for item in args.inputs]
 
@@ -73,6 +82,14 @@ def main(args):
             fig, ax = plt.subplots()
             make_boxplot(ax, globed_inputs, item, kind, args.inputs)
 
+    for item in args.labels:
+        fig, ax = plt.subplots()
+        for dataset_dirs in globed_inputs:
+            data = get_data(dataset_dirs, item, 'label', long_term=True)
+            hist(ax, data, bins=np.linspace(0, 1, 21))
+        ax.set_title(f'long term {item}')
+        ax.legend(args.inputs)
+
     for items, kind in [(args.features, 'feature'), (args.labels, 'label')]:
         if items:
             for dataset_dirs, input_ in zip(globed_inputs, args.inputs):
@@ -82,6 +99,15 @@ def main(args):
                     hist(ax, data)
                 ax.set_title(input_)
                 ax.legend(items)
+
+    if args.labels:
+        for dataset_dirs, input_ in zip(globed_inputs, args.inputs):
+            fig, ax = plt.subplots()
+            for item in args.labels:
+                data = get_data(dataset_dirs, item, 'label', long_term=True)
+                hist(ax, data, bins=np.linspace(0, 1, 21))
+            ax.set_title(input_)
+            ax.legend([f'long term {label}' for label in args.labels])
 
     plt.show()
 

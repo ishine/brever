@@ -184,16 +184,28 @@ class Seeder:
         return self.random.randrange(self.max_seed)
 
 
+class ContinuousRandomGenerator:
+    def __init__(self, dist_name, dist_args, seed=None):
+        self.random = np.random.RandomState(seed)
+        self.dist_name = dist_name
+        self.dist_args = dist_args
+
+    def get(self):
+        dist_func = getattr(self.random, self.dist_name)
+        return dist_func(*self.dist_args)
+
+
 class RandomMixtureMaker:
-    def __init__(self, fs, rooms, target_angles, target_snrs,
-                 dir_noise_nums, dir_noise_types,
+    def __init__(self, fs, rooms, target_angles, target_snr_dist_name,
+                 target_snr_dist_args, dir_noise_nums, dir_noise_types,
                  dir_noise_angles, dir_noise_snrs,
                  diffuse_noise_on, diffuse_noise_color, diffuse_noise_ltas_eq,
                  mixture_pad, mixture_rb, mixture_rms_jitter_on,
                  mixture_rms_jitters, path_target, path_surrey, path_dcase,
                  filelims_target, filelims_dir_noise, decay_on,
-                 decay_color, decay_rt60s, decay_drrs, decay_delays, seed_on,
-                 seed_value):
+                 decay_color, decay_rt60s, decay_drr_dist_name,
+                 decay_drr_dist_args, decay_delays, seed_on, seed_value,
+                 uniform_tmr):
 
         if not seed_on:
             seed_value = None
@@ -202,7 +214,9 @@ class RandomMixtureMaker:
         self.fs = fs
         self.rooms = RandomPool(rooms, seeder.get())
         self.target_angles = RandomPool(target_angles, seeder.get())
-        self.target_snrs = RandomPool(target_snrs, seeder.get())
+        self.target_snrs = ContinuousRandomGenerator(target_snr_dist_name,
+                                                     target_snr_dist_args,
+                                                     seeder.get())
         self.dir_noise_snrs = RandomPool(dir_noise_snrs, seeder.get())
         self.dir_noise_nums = RandomPool(dir_noise_nums, seeder.get())
         self.dir_noise_types = MultiRandomPool(dir_noise_types,
@@ -227,13 +241,17 @@ class RandomMixtureMaker:
         self.decay_on = decay_on
         self.decay_color = decay_color
         self.decay_rt60s = RandomPool(decay_rt60s, seeder.get())
-        self.decay_drrs = RandomPool(decay_drrs, seeder.get())
+        self.decay_drrs = ContinuousRandomGenerator(decay_drr_dist_name,
+                                                    decay_drr_dist_args,
+                                                    seeder.get())
         self.decay_delays = RandomPool(decay_delays, seeder.get())
 
         self.target_filename_randomizer = RandomPool([], seeder.get())
         self.noise_filename_randomizer = MultiRandomPool([],
                                                          max(dir_noise_nums),
                                                          seeder.get())
+        self.uniform_tmr = uniform_tmr
+        self.tmrs = ContinuousRandomGenerator('uniform', [], seeder.get())
 
     def make(self):
         mixture = Mixture()
@@ -248,6 +266,7 @@ class RandomMixtureMaker:
                                                           room)
         mixture, metadata = self.set_random_dir_to_diff_snr(mixture, metadata)
         mixture, metadata = self.set_random_target_snr(mixture, metadata)
+        mixture, metadata = self.set_random_tmr(mixture, metadata)
         mixture, metadata = self.set_random_rms(mixture, metadata)
         metadata = self.get_long_term_labels(mixture, metadata)
         return mixture, metadata
@@ -353,6 +372,30 @@ class RandomMixtureMaker:
                 return
         mixture.adjust_target_snr(snr)
         metadata['target']['snr'] = snr
+        return mixture, metadata
+
+    def set_random_tmr(self, mixture, metadata):
+        tmr = self.tmrs.get()
+        alpha = self.tmrs.get()
+        if self.uniform_tmr:
+            target_energy = np.sum(mixture.early_target.mean(axis=1)**2)
+            new_masker_energy = target_energy*(1/tmr-1)
+            new_noise_energy = alpha*new_masker_energy
+            new_reverb_energy = (1-alpha)*new_masker_energy
+            current_noise_energy = np.sum(mixture.noise.mean(axis=1)**2)
+            current_reverb_energy = np.sum(mixture.late_target.mean(axis=1)**2)
+            noise_gain = (new_noise_energy/current_noise_energy)**0.5
+            reverb_gain = (new_reverb_energy/current_reverb_energy)**0.5
+            if mixture.dir_noise is not None:
+                mixture.dir_noise = noise_gain*mixture.dir_noise
+            if mixture.diffuse_noise is not None:
+                mixture.diffuse_noise = noise_gain*mixture.diffuse_noise
+            mixture.late_target = reverb_gain*mixture.late_target
+            metadata['uniform_tmr'] = {}
+            metadata['uniform_tmr']['tmr'] = tmr
+            metadata['uniform_tmr']['alpha'] = alpha
+            metadata['target']['snr'] = None
+            metadata['decay']['drr'] = None
         return mixture, metadata
 
     def set_random_rms(self, mixture, metadata):

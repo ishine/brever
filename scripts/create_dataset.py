@@ -62,10 +62,8 @@ def main(dataset_dir, force):
             + config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.STEP,
             config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.STEP,
         ),
-        target_snrs=range(
-            config.PRE.MIXTURES.RANDOM.TARGET.SNR.MIN,
-            config.PRE.MIXTURES.RANDOM.TARGET.SNR.MAX + 1,
-        ),
+        target_snr_dist_name=config.PRE.MIXTURES.RANDOM.TARGET.SNR.DISTNAME,
+        target_snr_dist_args=config.PRE.MIXTURES.RANDOM.TARGET.SNR.DISTARGS,
         dir_noise_nums=range(
             config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MIN,
             config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MAX + 1,
@@ -105,13 +103,8 @@ def main(dataset_dir, force):
             config.PRE.MIXTURES.RANDOM.DECAY.RT60.STEP,
             dtype=float,
         ),
-        decay_drrs=np.arange(
-            config.PRE.MIXTURES.RANDOM.DECAY.DRR.MIN,
-            config.PRE.MIXTURES.RANDOM.DECAY.DRR.MAX
-            + config.PRE.MIXTURES.RANDOM.DECAY.DRR.STEP,
-            config.PRE.MIXTURES.RANDOM.DECAY.DRR.STEP,
-            dtype=float,
-        ),
+        decay_drr_dist_name=config.PRE.MIXTURES.RANDOM.DECAY.DRR.DISTNAME,
+        decay_drr_dist_args=config.PRE.MIXTURES.RANDOM.DECAY.DRR.DISTARGS,
         decay_delays=np.arange(
             config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MIN,
             config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MAX
@@ -121,6 +114,7 @@ def main(dataset_dir, force):
         ),
         seed_on=config.PRE.SEED.ON,
         seed_value=config.PRE.SEED.VALUE,
+        uniform_tmr=config.PRE.MIXTURES.RANDOM.UNIFORMTMR,
     )
 
     # scaler

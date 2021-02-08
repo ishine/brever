@@ -607,8 +607,6 @@ class DatasetInitArgParser(ExtendableArgParser):
         'decay_color': ['PRE', 'MIXTURES', 'DECAY', 'COLOR'],
         'diffuse': ['PRE', 'MIXTURES', 'DIFFUSE', 'ON'],
         'diffuse_color': ['PRE', 'MIXTURES', 'DIFFUSE', 'COLOR'],
-        'drr_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'MIN'],
-        'drr_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'MAX'],
         'rt60_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MIN'],
         'rt60_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MAX'],
         'delay_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MIN'],
@@ -625,8 +623,11 @@ class DatasetInitArgParser(ExtendableArgParser):
         'features': ['PRE', 'FEATURES'],
         'seed': ['PRE', 'SEED', 'ON'],
         'seed_value': ['PRE', 'SEED', 'VALUE'],
-        'snr_min': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'MIN'],
-        'snr_max': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'MAX'],
+        'snr_dist_name': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'DISTNAME'],
+        'snr_dist_args': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'DISTARGS'],
+        'drr_dist_name': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'DISTNAME'],
+        'drr_dist_args': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'DISTARGS'],
+        'uniform_tmr': ['PRE', 'MIXTURES', 'RANDOM', 'UNIFORMTMR'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -650,16 +651,6 @@ class DatasetInitArgParser(ExtendableArgParser):
             '--diffuse-color',
             type=str,
             help='diffuse noise color',
-        )
-        self.add_base_argument(
-            '--drr-min',
-            type=int,
-            help='random decay drr lower bound',
-        )
-        self.add_base_argument(
-            '--drr-max',
-            type=int,
-            help='random decay drr upper bound',
         )
         self.add_base_argument(
             '--rt60-min',
@@ -742,12 +733,29 @@ class DatasetInitArgParser(ExtendableArgParser):
             help='seed value',
         )
         self.add_base_argument(
-            '--snr-min',
-            type=int,
-            help='minimum target snr',
+            '--snr-dist-name',
+            type=str,
+            help='target snr distribution name',
         )
         self.add_base_argument(
-            '--snr-max',
-            type=int,
-            help='maximum target snr',
+            '--snr-dist-args',
+            type=float,
+            nargs='+',
+            help='target snr distribution arguments',
+        )
+        self.add_base_argument(
+            '--drr-dist-name',
+            type=str,
+            help='decay drr distribution name',
+        )
+        self.add_base_argument(
+            '--drr-dist-args',
+            type=float,
+            nargs='+',
+            help='decay drr distribution arguments',
+        )
+        self.add_base_argument(
+            '--uniform-tmr',
+            type=lambda x: bool(int(x)),
+            help='impose a uniform tmr distribution',
         )

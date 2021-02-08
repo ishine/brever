@@ -91,15 +91,17 @@ PRE:
       SURREY: data/external/SURREY/
       TARGET: data/external/TIMIT/TRAIN/
     RANDOM:
+      UNIFORMTMR: false
       DECAY:
         DELAY:
           MAX: 0.100
           MIN: 0.075
           STEP: 0.001
         DRR:
-          MAX: 35
-          MIN: 5
-          STEP: 1
+          # DISTNAME: logistic
+          # DISTARGS: [0.0, 4.3429448190325175]
+          DISTNAME: uniform
+          DISTARGS: [5.0, 35.0]
         RT60:
           MAX: 5.0
           MIN: 0.0
@@ -140,8 +142,10 @@ PRE:
           MIN: -90
           STEP: 5
         SNR:
-          MAX: 15
-          MIN: 0
+          # DISTNAME: logistic
+          # DISTARGS: [0.0, 4.3429448190325175]
+          DISTNAME: uniform
+          DISTARGS: [0.0, 15.0]
     REFLECTIONBOUNDARY: 0.05
     SAVE: false
     SCALERMS: true
