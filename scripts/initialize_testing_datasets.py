@@ -52,13 +52,13 @@ def main(alias, params, force, n_test):
             )
             set_dict_field(
                 config,
-                ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'MIN'],
-                snr,
+                ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'DISTARGS'],
+                [snr, snr],
             )
             set_dict_field(
                 config,
-                ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'MAX'],
-                snr,
+                ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'DISTNAME'],
+                'uniform',
             )
 
             for param, value in params.items():
