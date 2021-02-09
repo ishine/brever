@@ -104,7 +104,7 @@ PRE:
           DISTARGS: [5.0, 35.0]
         RT60:
           MAX: 5.0
-          MIN: 0.0
+          MIN: 0.1
           STEP: 0.1
       RMSDB:
         MAX: 0
