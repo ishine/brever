@@ -467,6 +467,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         'epochs': ['MODEL', 'EPOCHS'],
         'earlystop': ['MODEL', 'EARLYSTOP', 'ON'],
         'progress': ['MODEL', 'PROGRESS', 'ON'],
+        'weight_decay': ['MODEL', 'WEIGHTDECAY'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -590,6 +591,12 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=lambda x: bool(int(x)),
             nargs='+',
             help='progress tracker toggle',
+        )
+        self.add_base_argument(
+            '--weight-decay',
+            type=float,
+            nargs='+',
+            help='weight decay',
         )
 
 
