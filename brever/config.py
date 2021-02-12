@@ -1,4 +1,5 @@
 import yaml
+import os
 
 
 class AttrDict:
@@ -66,6 +67,8 @@ def defaults():
     with open('defaults.yaml') as f:
         dict_ = yaml.safe_load(f)
     config = AttrDict(dict_)
-    with open('defaults_user.yaml') as f:
-        config.update(yaml.safe_load(f))
+    user_defaults_path = 'defaults_user.yaml'
+    if os.path.exists(user_defaults_path):
+        with open() as f:
+            config.update(yaml.safe_load(f))
     return config
