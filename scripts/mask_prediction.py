@@ -31,11 +31,10 @@ def main(args):
 
     for i_model, model_dirpath in enumerate(args.input):
         # load model configuration
+        config = defaults()
         config_file = os.path.join(model_dirpath, 'config.yaml')
         with open(config_file, 'r') as f:
-            data = yaml.safe_load(f)
-        config = defaults()
-        config.update(data)
+            config.update(yaml.safe_load(f))
 
         # initialize and load model
         model_args_path = os.path.join(model_dirpath, 'model_args.yaml')

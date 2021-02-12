@@ -93,11 +93,10 @@ def main(model_dir, force, no_cuda):
     logging.info(f'Processing {model_dir}')
 
     # load config file
+    config = defaults()
     config_file = os.path.join(model_dir, 'config.yaml')
     with open(config_file, 'r') as f:
-        data = yaml.safe_load(f)
-    config = defaults()
-    config.update(data)
+        config.update(yaml.safe_load(f))
 
     # check if model is already trained using directory contents
     train_loss_path = os.path.join(model_dir, 'train_losses.npy')

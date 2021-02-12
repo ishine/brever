@@ -65,4 +65,7 @@ class AttrDict:
 def defaults():
     with open('defaults.yaml') as f:
         dict_ = yaml.safe_load(f)
-    return AttrDict(dict_)
+    config = AttrDict(dict_)
+    with open('defaults_user.yaml') as f:
+        config.update(yaml.safe_load(f))
+    return config

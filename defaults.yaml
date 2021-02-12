@@ -86,10 +86,6 @@ PRE:
       - 1.0
     NUMBER: 100
     PADDING: 0.0
-    PATH:
-      DCASE: data/external/DCASE/
-      SURREY: data/external/SURREY/
-      TARGET: data/external/TIMIT/TRAIN/
     RANDOM:
       UNIFORMTMR: false
       DECAY:
@@ -117,9 +113,9 @@ PRE:
         surrey_room_d: null
       SOURCES:
         ANGLE:
-          MAX: 90
-          MIN: -90
-          STEP: 5
+          MAX: 90.0
+          MIN: -90.0
+          STEP: 5.0
         NUMBER:
           MAX: 3
           MIN: 1
@@ -138,14 +134,16 @@ PRE:
           dcase_tram: null
       TARGET:
         ANGLE:
-          MAX: 90
-          MIN: -90
-          STEP: 5
+          MAX: 90.0
+          MIN: -90.0
+          STEP: 5.0
         SNR:
           # DISTNAME: logistic
           # DISTARGS: [0.0, 4.3429448190325175]
           DISTNAME: uniform
           DISTARGS: [0.0, 15.0]
+        DATASETS: !!set
+          timit: null
     REFLECTIONBOUNDARY: 0.05
     SAVE: false
     SCALERMS: true
@@ -155,3 +153,8 @@ PRE:
   SEED:
     'ON': true
     VALUE: 0
+PATH:
+  DCASE: data/external/DCASE/
+  SURREY: data/external/SURREY/
+  TIMIT: data/external/TIMIT/TRAIN/
+  HUDDERSFIELD: data/external/Huddersfield/

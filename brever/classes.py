@@ -6,7 +6,7 @@ import re
 from .utils import pca, frame, rms
 from .filters import mel_filterbank, gammatone_filterbank
 from .mixture import Mixture, colored_noise, add_decay
-from .io import load_random_target, load_brir, load_brirs, load_random_noise
+from .io import load_random_target, load_brirs, load_random_noise
 from .config import defaults
 from . import features as features_module
 from . import labels as labels_module
@@ -196,14 +196,13 @@ class ContinuousRandomGenerator:
 
 
 class RandomMixtureMaker:
-    def __init__(self, fs, rooms, target_angles, target_snr_dist_name,
-                 target_snr_dist_args, dir_noise_nums, dir_noise_types,
-                 dir_noise_angles, dir_noise_snrs,
+    def __init__(self, fs, rooms, target_datasets, target_angles,
+                 target_snr_dist_name, target_snr_dist_args, dir_noise_nums,
+                 dir_noise_types, dir_noise_angles, dir_noise_snrs,
                  diffuse_noise_on, diffuse_noise_color, diffuse_noise_ltas_eq,
                  mixture_pad, mixture_rb, mixture_rms_jitter_on,
-                 mixture_rms_jitters, path_target, path_surrey, path_dcase,
-                 filelims_target, filelims_dir_noise, decay_on,
-                 decay_color, decay_rt60s, decay_drr_dist_name,
+                 mixture_rms_jitters, filelims_target, filelims_dir_noise,
+                 decay_on, decay_color, decay_rt60s, decay_drr_dist_name,
                  decay_drr_dist_args, decay_delays, seed_on, seed_value,
                  uniform_tmr):
 
@@ -213,6 +212,7 @@ class RandomMixtureMaker:
 
         self.fs = fs
         self.rooms = RandomPool(rooms, seeder.get())
+        self.target_datasets = RandomPool(target_datasets, seeder.get())
         self.target_angles = RandomPool(target_angles, seeder.get())
         self.target_snrs = ContinuousRandomGenerator(target_snr_dist_name,
                                                      target_snr_dist_args,
@@ -233,9 +233,6 @@ class RandomMixtureMaker:
         self.mixture_rms_jitter_on = mixture_rms_jitter_on
         self.mixture_rms_jitters = RandomPool(mixture_rms_jitters,
                                               seeder.get())
-        self.path_target = path_target
-        self.path_surrey = path_surrey
-        self.path_dcase = path_dcase
         self.filelims_target = filelims_target
         self.filelims_dir_noise = filelims_dir_noise
         self.decay_on = decay_on
@@ -300,8 +297,9 @@ class RandomMixtureMaker:
         angle = self.target_angles.get()
         brir = self._load_brirs(room, angle)
         brir = decayer.run(brir)
+        target_dataset = self.target_datasets.get()
         target, filename = load_random_target(
-            self.path_target,
+            target_dataset,
             self.filelims_target,
             self.fs,
             randomizer=self.target_filename_randomizer.random,
@@ -412,24 +410,16 @@ class RandomMixtureMaker:
         return metadata
 
     def _load_brirs(self, room, angles=None):
-        if angles is None or isinstance(angles, list):
-            brirs, fs = load_brirs(self.path_surrey, room, angles)
-            if fs is not None and fs != self.fs:
-                raise ValueError(('the brir samplerate obtained from '
-                                  'load_brirs(%s, %s) does not match the '
-                                  'RandomMixtureMaker instance samplerate '
-                                  'attribute (%i vs %i)'
-                                  % (room, angles, fs, self.fs)))
-            return brirs
-        else:
-            brir, fs = load_brir(self.path_surrey, room, angles)
-            if fs is not None and fs != self.fs:
-                raise ValueError(('the brir samplerate obtained from '
-                                  'load_brir(%s, %s) does not match the '
-                                  'RandomMixtureMaker instance samplerate '
-                                  'attribute (%i vs %i)'
-                                  % (room, angles, fs, self.fs)))
-            return brir
+        brirs, fs = load_brirs(room, angles)
+        if fs != self.fs:
+            pass
+        if fs is not None and fs != self.fs:
+            raise ValueError(('the brir samplerate obtained from '
+                              'load_brirs(%s, %s) does not match the '
+                              'RandomMixtureMaker instance samplerate '
+                              'attribute (%i vs %i)'
+                              % (room, angles, fs, self.fs)))
+        return brirs
 
     def _load_noises(self, types, n_samples, randomizers):
         if not types:
@@ -445,7 +435,6 @@ class RandomMixtureMaker:
                 indices = None
             elif type_.startswith('dcase_'):
                 x, filepath, indices = load_random_noise(
-                    self.path_dcase,
                     type_,
                     n_samples,
                     self.filelims_dir_noise,
@@ -521,9 +510,6 @@ class DefaultRandomMixtureMaker(RandomMixtureMaker):
                 config.PRE.MIXTURES.RANDOM.RMSDB.MIN,
                 config.PRE.MIXTURES.RANDOM.RMSDB.MAX + 1,
             ),
-            path_surrey=config.PRE.MIXTURES.PATH.SURREY,
-            path_target=config.PRE.MIXTURES.PATH.TARGET,
-            path_dcase=config.PRE.MIXTURES.PATH.DCASE,
             filelims_dir_noise=config.PRE.MIXTURES.FILELIMITS.NOISE,
             filelims_target=config.PRE.MIXTURES.FILELIMITS.TARGET,
             decay_on=config.PRE.MIXTURES.DECAY.ON,

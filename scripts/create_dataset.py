@@ -28,11 +28,11 @@ def main(dataset_dir, force):
         logging.info('Dataset already exists')
         return
 
+    # load config file
+    config = defaults()
     config_file = os.path.join(dataset_dir, 'config.yaml')
     with open(config_file, 'r') as f:
-        data = yaml.safe_load(f)
-    config = defaults()
-    config.update(data)
+        config.update(yaml.safe_load(f))
 
     # redirect logger
     logger = logging.getLogger()
@@ -56,11 +56,13 @@ def main(dataset_dir, force):
     randomMixtureMaker = RandomMixtureMaker(
         fs=config.PRE.FS,
         rooms=config.PRE.MIXTURES.RANDOM.ROOMS,
-        target_angles=range(
+        target_datasets=config.PRE.MIXTURES.RANDOM.TARGET.DATASETS,
+        target_angles=np.arange(
             config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MIN,
             config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MAX
             + config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.STEP,
             config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.STEP,
+            dtype=float,
         ),
         target_snr_dist_name=config.PRE.MIXTURES.RANDOM.TARGET.SNR.DISTNAME,
         target_snr_dist_args=config.PRE.MIXTURES.RANDOM.TARGET.SNR.DISTARGS,
@@ -69,11 +71,12 @@ def main(dataset_dir, force):
             config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MAX + 1,
         ),
         dir_noise_types=config.PRE.MIXTURES.RANDOM.SOURCES.TYPES,
-        dir_noise_angles=range(
+        dir_noise_angles=np.arange(
             config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MIN,
             config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MAX
             + config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.STEP,
             config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.STEP,
+            dtype=float,
         ),
         dir_noise_snrs=range(
             config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN,
@@ -89,9 +92,6 @@ def main(dataset_dir, force):
             config.PRE.MIXTURES.RANDOM.RMSDB.MIN,
             config.PRE.MIXTURES.RANDOM.RMSDB.MAX + 1,
         ),
-        path_surrey=config.PRE.MIXTURES.PATH.SURREY,
-        path_target=config.PRE.MIXTURES.PATH.TARGET,
-        path_dcase=config.PRE.MIXTURES.PATH.DCASE,
         filelims_dir_noise=config.PRE.MIXTURES.FILELIMITS.NOISE,
         filelims_target=config.PRE.MIXTURES.FILELIMITS.TARGET,
         decay_on=config.PRE.MIXTURES.DECAY.ON,

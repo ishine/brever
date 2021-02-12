@@ -619,7 +619,6 @@ class DatasetInitArgParser(ExtendableArgParser):
         'delay_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MIN'],
         'delay_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MAX'],
         'rooms': ['PRE', 'MIXTURES', 'RANDOM', 'ROOMS'],
-        'dirpath_target': ['PRE', 'MIXTURES', 'PATH', 'TARGET'],
         'noise_types': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'TYPES'],
         'random_rms': ['PRE', 'MIXTURES', 'RANDOM', 'RMSDB', 'ON'],
         'scale_rms': ['PRE', 'MIXTURES', 'SCALERMS'],
@@ -683,11 +682,6 @@ class DatasetInitArgParser(ExtendableArgParser):
             '--rooms',
             type=arg_set_type,
             help='list of rooms',
-        )
-        self.add_base_argument(
-            '--dirpath-target',
-            type=str,
-            help='path to target speech database',
         )
         self.add_base_argument(
             '--noise-types',

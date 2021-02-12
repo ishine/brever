@@ -40,11 +40,10 @@ def main(model_dir, force, no_cuda):
         return
 
     # load config file
+    config = defaults()
     config_file = os.path.join(model_dir, 'config.yaml')
     with open(config_file, 'r') as f:
-        data = yaml.safe_load(f)
-    config = defaults()
-    config.update(data)
+        config.update(yaml.safe_load(f))
 
     # seed for reproducibility
     torch.manual_seed(0)
