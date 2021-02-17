@@ -22,7 +22,7 @@ def get_path(field_name):
         output = getattr(config.PATH, field_name)
     if not os.path.exists(output):
         raise ValueError('the following dataset path was not found in the '
-                         'filesystem: {output}')
+                         f'filesystem: {output}')
     return output
 
 
