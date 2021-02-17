@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import yaml
 import scipy.io
+import re
 
 from brever.modelmanagement import (get_config_field, ModelFilterArgParser,
                                     find_model)
@@ -181,6 +182,28 @@ def merge_lists(dimensions, group_by):
     return dimensions
 
 
+def get_snrs_and_rooms(models):
+    snrss = []
+    roomss = []
+    for model in models:
+        config = defaults()
+        config_file = os.path.join('models', model, 'config.yaml')
+        with open(config_file, 'r') as f:
+            config.update(yaml.safe_load(f))
+        basename = os.path.basename(config.POST.PATH.TEST)
+        basename = os.path.basename(config.POST.PATH.TEST)
+        dirname = os.path.dirname(config.POST.PATH.TEST)
+        r = re.compile(fr'^{basename}_(snr-?\d{{1,2}})_(.*)$')
+        dirs_ = [dir_ for dir_ in filter(r.match, os.listdir(dirname))]
+        snrs = sorted(set(r.match(dir_).group(1) for dir_ in dirs_))
+        rooms = sorted(set(r.match(dir_).group(2) for dir_ in dirs_))
+        snrss.append(snrs)
+        roomss.append(rooms)
+    assert all(snrs == snrss[0] for snrs in snrss)
+    assert all(rooms == roomss[0] for rooms in roomss)
+    return snrss[0], roomss[0]
+
+
 class LegendFormatter:
     def __init__(self, figure, lh=None, ncol=None):
         self.figure = figure
@@ -260,8 +283,7 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
         for model in group:
             print(model['model'])
 
-    snrs = [0, 3, 6, 9, 12, 15]
-    room_names = ['A', 'B', 'C', 'D']
+    snrs, rooms = get_snrs_and_rooms(models)
 
     n = sum(len(group) for group in groups)
     if oracle:
@@ -278,7 +300,7 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
         fig, axes = plt.subplots(1, 2, sharey=True, figsize=figsize)
         for axis, (ax, xticklabels, xlabel) in enumerate(zip(
                     axes[::-1],
-                    [room_names, snrs],
+                    [rooms, snrs],
                     ['Room', 'SNR (dB)'],
                 )):
             model_count = 0
@@ -336,7 +358,7 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
         fig_legend_labels = []
         for axis, (ax, labels) in enumerate(zip(
                     axes[::-1],
-                    [room_names, snrs],
+                    [rooms, snrs],
                 )):
             ax_legend_handles = []
             ax_legend_labels = []

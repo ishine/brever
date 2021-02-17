@@ -634,6 +634,12 @@ class DatasetInitArgParser(ExtendableArgParser):
         'drr_dist_name': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'DISTNAME'],
         'drr_dist_args': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'DISTARGS'],
         'uniform_tmr': ['PRE', 'MIXTURES', 'RANDOM', 'UNIFORMTMR'],
+        'target_angle_min': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'ANGLE', 'MIN'],
+        'target_angle_max': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'ANGLE', 'MAX'],
+        'target_angle_step': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'ANGLE', 'STEP'],
+        'noise_angle_min': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'ANGLE', 'MIN'],
+        'noise_angle_max': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'ANGLE', 'MAX'],
+        'noise_angle_step': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'ANGLE', 'STEP'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -759,4 +765,34 @@ class DatasetInitArgParser(ExtendableArgParser):
             '--uniform-tmr',
             type=lambda x: bool(int(x)),
             help='impose a uniform tmr distribution',
+        )
+        self.add_base_argument(
+            '--target-angle-min',
+            type=float,
+            help='minimum target direction angle',
+        )
+        self.add_base_argument(
+            '--target-angle-max',
+            type=float,
+            help='maximum target direction angle',
+        )
+        self.add_base_argument(
+            '--target-angle-step',
+            type=float,
+            help='target direction angle step',
+        )
+        self.add_base_argument(
+            '--noise-angle-min',
+            type=float,
+            help='minimum noise direction angle',
+        )
+        self.add_base_argument(
+            '--noise-angle-max',
+            type=float,
+            help='maximum noise direction angle',
+        )
+        self.add_base_argument(
+            '--noise-angle-step',
+            type=float,
+            help='noise direction angle step',
         )

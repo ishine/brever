@@ -4,6 +4,8 @@ from glob import glob
 import pickle
 import logging
 import sys
+import re
+import subprocess
 
 import yaml
 import numba  # noqa: F401
@@ -68,22 +70,23 @@ def main(model_dir, force, no_cuda):
     # initialize criterion
     criterion = getattr(torch.nn, config.MODEL.CRITERION)()
 
+    # get snrs and rooms grid
+    basename = os.path.basename(config.POST.PATH.TEST)
+    dirname = os.path.dirname(config.POST.PATH.TEST)
+    r = re.compile(fr'^{basename}_(snr-?\d{{1,2}})_(.*)$')
+    dirs_ = [dir_ for dir_ in filter(r.match, os.listdir(dirname))]
+    snrs = sorted(set(r.match(dir_).group(1) for dir_ in dirs_))
+    rooms = sorted(set(r.match(dir_).group(2) for dir_ in dirs_))
+
     # main loop
-    snrs = [0, 3, 6, 9, 12, 15]
-    room_aliases = [
-        'surrey_room_a',
-        'surrey_room_b',
-        'surrey_room_c',
-        'surrey_room_d',
-    ]
-    MSE = np.empty((len(snrs), len(room_aliases)))
-    seg_scores = np.empty((len(snrs), len(room_aliases)), dtype=object)
-    seg_scores_oracle = np.empty((len(snrs), len(room_aliases)), dtype=object)
+    MSE = np.empty((len(snrs), len(rooms)))
+    seg_scores = np.empty((len(snrs), len(rooms)), dtype=object)
+    seg_scores_oracle = np.empty((len(snrs), len(rooms)), dtype=object)
     for i, snr in enumerate(snrs):
-        for j, room_alias in enumerate(room_aliases):
+        for j, room in enumerate(rooms):
             # build dataset directory name
-            suffix = f'snr{snr}_room{room_alias[-1].upper()}'
-            test_dataset_dir = f'{config.POST.PATH.TEST}_{suffix}'
+            suffix = f'{snr}_{room}'
+            test_dataset_dir = f'{config.POST.PATH.TEST}_{snr}_{room}'
             logging.info(f'Processing {test_dataset_dir}:')
 
             # load pipes
@@ -276,24 +279,14 @@ def main(model_dir, force, no_cuda):
     np.save(os.path.join(model_dir, 'seg_scores_oracle.npy'), seg_scores_oracle)
 
     # calculate PESQ on matlab
-    try:
-        import matlab
-        import matlab.engine
-    except Exception:
-        logging.info(('Matlab engine import failed. You will have to manually '
-                      'call testModel.m to calculate PESQ scores.'))
-    else:
-        logging.info('Starting MATLAB engine...')
-        eng = matlab.engine.start_matlab()
-        eng.addpath('matlab/loizou', nargout=0)
-        eng.addpath('matlab', nargout=0)
-        logging.info('Calculating PESQ...')
-        eng.testModel(
-            model_dir,
-            config.PRE.FS,
-            config.PRE.MIXTURES.PADDING,
-            nargout=0,
-        )
+    subprocess.call([
+        'matlab',
+        '-batch',
+        'addpath matlab; '
+        'addpath matlab/loizou; '
+        f'testModel {model_dir} {config.PRE.FS} {config.PRE.MIXTURES.PADDING} '
+        f'\'{" ".join(snrs)}\' \'{" ".join(rooms)}\''
+    ])
 
 
 if __name__ == '__main__':

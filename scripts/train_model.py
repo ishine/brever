@@ -5,6 +5,7 @@ import time
 import json
 from glob import glob
 import sys
+import re
 
 import yaml
 import numpy as np
@@ -196,55 +197,47 @@ def main(model_dir, force, no_cuda):
         val_dataset.transform = TensorStandardizer(mean, std)
 
     # initialize test dataset and dataloaders
-    snrs = [0, 3, 6, 9, 12, 15]
-    room_aliases = [
-        'surrey_room_a',
-        'surrey_room_b',
-        'surrey_room_c',
-        'surrey_room_d',
-    ]
+    basename = os.path.basename(config.POST.PATH.TEST)
+    dirname = os.path.dirname(config.POST.PATH.TEST)
+    r = re.compile(fr'^{basename}_(snr-?\d{{1,2}})_(.*)$')
+    dirs_ = [dir_ for dir_ in filter(r.match, os.listdir(dirname))]
     test_dataloaders = []
-    for i, snr in enumerate(snrs):
-        for j, room_alias in enumerate(room_aliases):
-            # build dataset directory name
-            suffix = f'snr{snr}_room{room_alias[-1].upper()}'
-            test_dataset_dir = f'{config.POST.PATH.TEST}_{suffix}'
+    for test_dataset_dir in dirs_:
+        # initialize dataset and dataloader
+        test_dataset = H5Dataset(
+            dirpath=test_dataset_dir,
+            features=config.POST.FEATURES,
+            labels=config.POST.LABELS,
+            load=config.POST.LOAD,
+            stack=config.POST.STACK,
+            decimation=1,  # there must not be decimation during testing
+            dct_toggle=config.POST.DCT.ON,
+            n_dct=config.POST.DCT.NCOEFF,
+            file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
+        )
+        test_dataloader = torch.utils.data.DataLoader(
+            dataset=test_dataset,
+            batch_size=config.MODEL.BATCHSIZE,
+            shuffle=config.MODEL.SHUFFLE,
+            num_workers=config.MODEL.NWORKERS,
+            drop_last=True,
+        )
 
-            # initialize dataset and dataloader
-            test_dataset = H5Dataset(
-                dirpath=test_dataset_dir,
-                features=config.POST.FEATURES,
-                labels=config.POST.LABELS,
-                load=config.POST.LOAD,
-                stack=config.POST.STACK,
-                decimation=1,  # there must not be decimation during testing
-                dct_toggle=config.POST.DCT.ON,
-                n_dct=config.POST.DCT.NCOEFF,
-                file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
+        # set normalization transform
+        if config.POST.STANDARDIZATION.FILEBASED:
+            test_means, test_stds = get_files_mean_and_std(
+                test_dataset,
+                config.POST.STANDARDIZATION.UNIFORMFEATURES,
             )
-            test_dataloader = torch.utils.data.DataLoader(
-                dataset=test_dataset,
-                batch_size=config.MODEL.BATCHSIZE,
-                shuffle=config.MODEL.SHUFFLE,
-                num_workers=config.MODEL.NWORKERS,
-                drop_last=True,
+            test_dataset.transform = StateTensorStandardizer(
+                test_means,
+                test_stds,
             )
+        else:
+            test_dataset.transform = TensorStandardizer(mean, std)
 
-            # set normalization transform
-            if config.POST.STANDARDIZATION.FILEBASED:
-                test_means, test_stds = get_files_mean_and_std(
-                    test_dataset,
-                    config.POST.STANDARDIZATION.UNIFORMFEATURES,
-                )
-                test_dataset.transform = StateTensorStandardizer(
-                    test_means,
-                    test_stds,
-                )
-            else:
-                test_dataset.transform = TensorStandardizer(mean, std)
-
-            # add to list of dataloaders
-            test_dataloaders.append(test_dataloader)
+        # add to list of dataloaders
+        test_dataloaders.append(test_dataloader)
 
     # initialize network
     model_args = {
