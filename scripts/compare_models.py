@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import yaml
 import scipy.io
-import re
+import math
 
 from brever.modelmanagement import (get_config_field, ModelFilterArgParser,
                                     find_model)
@@ -19,12 +19,12 @@ def check_models(models, dims):
     models_ = []
     configs_ = []
     for model in models:
-        pesq_file = os.path.join('models', model, 'pesq_scores.mat')
-        mse_file = os.path.join('models', model, 'mse_scores.npy')
+        mat_file = os.path.join('models', model, 'scores.mat')
+        npz_file = os.path.join('models', model, 'scores.npz')
         config_file = os.path.join('models', model, 'config_full.yaml')
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
-        if not (os.path.exists(pesq_file) and os.path.exists(mse_file)):
+        if not os.path.exists(mat_file) or not os.path.exists(npz_file):
             print(f'Model {model} is not evaluated!')
             continue
         val = {dim: get_config_field(config, dim)
@@ -104,44 +104,45 @@ def group_by_dimension(models, values, dimensions):
 def load_scores(groups):
     for group in groups:
         for i in range(len(group)):
+            # load mat scores
             model = group[i]['model']
-            pesq_filepath = os.path.join('models', model, 'pesq_scores.mat')
-            pesq = scipy.io.loadmat(pesq_filepath)['scores']
-            mse_filepath = os.path.join('models', model, 'mse_scores.npy')
-            mse = np.load(mse_filepath)
-            seg_filepath = os.path.join('models', model, 'seg_scores.npy')
-            seg = np.load(seg_filepath)
-            segSSNR = seg[:, :, :, 0]
-            segBR = seg[:, :, :, 1]
-            segNR = seg[:, :, :, 2]
-            segRR = seg[:, :, :, 3]
+            filepath = os.path.join('models', model, 'scores.mat')
+            scores = scipy.io.loadmat(filepath)
+            pesq = scores['pesqs']
+            pesq_oracle = scores['pesqs_oracle']
+            stoi = scores['stois']
+            stoi_oracle = scores['stois_oracle']
+
+            # load npz scores
+            filepath = os.path.join('models', model, 'scores.npz')
+            scores = np.load(filepath)
+            mse = scores['mse']
+            mse_oracle = np.zeros(mse.shape)
+            seg = scores['seg']
+            seg_oracle = scores['seg_oracle']
+
+            # assign
             group[i]['pesq'] = pesq
+            group[i]['stoi'] = stoi
             group[i]['mse'] = mse
-            group[i]['segSSNR'] = segSSNR
-            group[i]['segBR'] = segBR
-            group[i]['segNR'] = segNR
-            group[i]['segRR'] = segRR
-            train_filepath = os.path.join('models', model, 'train_losses.npy')
-            train_curve = np.load(train_filepath)
-            val_filepath = os.path.join('models', model, 'val_losses.npy')
-            val_curve = np.load(val_filepath)
-            group[i]['train_curve'] = train_curve
-            group[i]['val_curve'] = val_curve
-            pesq_filepath = os.path.join('models', model, 'pesq_scores_oracle.mat')
-            pesq = scipy.io.loadmat(pesq_filepath)['scores_oracle']
-            seg_filepath = os.path.join('models', model, 'seg_scores_oracle.npy')
-            seg = np.load(seg_filepath)
-            segSSNR = seg[:, :, :, 0]
-            segBR = seg[:, :, :, 1]
-            segNR = seg[:, :, :, 2]
-            segRR = seg[:, :, :, 3]
+            group[i]['segSSNR'] = seg[:, :, :, 0]
+            group[i]['segBR'] = seg[:, :, :, 1]
+            group[i]['segNR'] = seg[:, :, :, 2]
+            group[i]['segRR'] = seg[:, :, :, 3]
             group[i]['oracle'] = {}
-            group[i]['oracle']['pesq'] = pesq
-            group[i]['oracle']['mse'] = np.zeros(mse.shape)
-            group[i]['oracle']['segSSNR'] = segSSNR
-            group[i]['oracle']['segBR'] = segBR
-            group[i]['oracle']['segNR'] = segNR
-            group[i]['oracle']['segRR'] = segRR
+            group[i]['oracle']['pesq'] = pesq_oracle
+            group[i]['oracle']['stoi'] = stoi_oracle
+            group[i]['oracle']['mse'] = mse_oracle
+            group[i]['oracle']['segSSNR'] = seg_oracle[:, :, :, 0]
+            group[i]['oracle']['segBR'] = seg_oracle[:, :, :, 1]
+            group[i]['oracle']['segNR'] = seg_oracle[:, :, :, 2]
+            group[i]['oracle']['segRR'] = seg_oracle[:, :, :, 3]
+
+            # load loss curves
+            filepath = os.path.join('models', model, 'losses.npz')
+            curves = np.load(filepath)
+            group[i]['train_curve'] = curves['train']
+            group[i]['val_curve'] = curves['val']
 
 
 def sort_groups_by_mean_pesq(groups):
@@ -186,19 +187,11 @@ def get_snrs_and_rooms(models):
     snrss = []
     roomss = []
     for model in models:
-        config = defaults()
-        config_file = os.path.join('models', model, 'config.yaml')
-        with open(config_file, 'r') as f:
-            config.update(yaml.safe_load(f))
-        basename = os.path.basename(config.POST.PATH.TEST)
-        basename = os.path.basename(config.POST.PATH.TEST)
-        dirname = os.path.dirname(config.POST.PATH.TEST)
-        r = re.compile(fr'^{basename}_(snr-?\d{{1,2}})_(.*)$')
-        dirs_ = [dir_ for dir_ in filter(r.match, os.listdir(dirname))]
-        snrs = sorted(set(r.match(dir_).group(1) for dir_ in dirs_))
-        rooms = sorted(set(r.match(dir_).group(2) for dir_ in dirs_))
-        snrss.append(snrs)
-        roomss.append(rooms)
+        # load npz scores
+        filepath = os.path.join('models', model, 'scores.npz')
+        scores = np.load(filepath)
+        snrss.append(scores['snrs'].tolist())
+        roomss.append(scores['rooms'].tolist())
     assert all(snrs == snrss[0] for snrs in snrss)
     assert all(rooms == roomss[0] for rooms in roomss)
     return snrss[0], roomss[0]
@@ -245,23 +238,39 @@ class LegendFormatter:
                 pass
 
 
-def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
-         default, only_pesq, figsize, ymax, train_curve, oracle):
-    if default:
-        set_default_parameters(filter_, dimensions, group_by)
+def fit_plots(n, aspect=(16, 9)):
+    width = aspect[0]
+    height = aspect[1]
+    area = width*height*1.0
+    factor = (n/area)**(1/2.0)
+    cols = math.floor(width*factor)
+    rows = math.floor(height*factor)
+    row_first = width < height
+    while rows*cols < n:
+        if row_first:
+            rows += 1
+        else:
+            cols += 1
+        row_first = not(row_first)
+    return rows, cols
+
+
+def main(models, args, filter_):
+    if args.default:
+        set_default_parameters(filter_, args.dims, args.group_by)
 
     models = paths_to_dirnames(models)
     possible_models = find_model(**filter_)
     models = [model for model in models if model in possible_models]
 
-    dimensions = merge_lists(dimensions, group_by)
+    dimensions = merge_lists(args.dims, args.group_by)
 
     models, values = check_models(models, dimensions)
-    groups, group_values = group_by_dimension(models, values, group_by)
+    groups, group_values = group_by_dimension(models, values, args.group_by)
     load_scores(groups)
-    if sort_by == 'pesq':
+    if args.sort_by == 'pesq':
         groups = sort_groups_by_mean_pesq(groups)
-    elif sort_by == 'dims':
+    elif args.sort_by == 'dims':
         if dimensions is not None:
             group_values_copy = group_values.copy()
             for dim in reversed(list(group_values[0].keys())):
@@ -273,11 +282,11 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
                 group_values_copy = [group_values_copy[i] for i in i_sorted]
         else:
             raise ValueError("Can't sort by dims when no dim is provided")
-    elif sort_by is not None:
+    elif args.sort_by is not None:
         raise ValueError('Unrecognized sort-by argument, must be pesq or dims')
 
-    if top is not None:
-        groups = groups[-top:]
+    if args.top is not None:
+        groups = groups[-args.top:]
 
     for group in groups:
         for model in group:
@@ -286,18 +295,15 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
     snrs, rooms = get_snrs_and_rooms(models)
 
     n = sum(len(group) for group in groups)
-    if oracle:
+    if args.oracle:
         n *= 2
     width = 1/(n+1)
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
     hatch_cycle = ['', '////', '\\\\\\', 'xxxx']
-    for ylabel, metric in zip(
-            ['MSE', r'$\Delta PESQ$', 'segSSNR', 'segBR', 'segNR', 'segRR'],
-            ['mse', 'pesq', 'segSSNR', 'segBR', 'segNR', 'segRR'],
-            ):
-        if only_pesq and metric != 'pesq':
-            continue
-        fig, axes = plt.subplots(1, 2, sharey=True, figsize=figsize)
+    ylabels = ['MSE', r'$\Delta PESQ$', 'STOI', 'segSSNR', 'segBR', 'segNR', 'segRR']
+    metrics = ['mse', 'pesq', 'stoi', 'segSSNR', 'segBR', 'segNR', 'segRR']
+    for ylabel, metric in zip(ylabels, metrics):
+        fig, axes = plt.subplots(1, 2, sharey=True, figsize=args.figsize)
         for axis, (ax, xticklabels, xlabel) in enumerate(zip(
                     axes[::-1],
                     [rooms, snrs],
@@ -309,7 +315,7 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
                 hatch_count = 0
                 for j, model in enumerate(group):
                     datas = [model[metric]]
-                    if oracle:
+                    if args.oracle:
                         datas.append(model['oracle'][metric])
                     for k, data in enumerate(datas):
                         hatch = hatch_cycle[hatch_count % len(hatch_cycle)]
@@ -325,12 +331,12 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
                             err = np.hstack((err, data.std()))
                             err[-1] = err[-1]/(data.size)**0.5
                         if axis == 0:
-                            if legend is None:
+                            if args.legend is None:
                                 label = f'{model["val"]}'
                                 if k == 1:
                                     label += ' - oracle'
                             else:
-                                label = legend[model_count]
+                                label = args.legend[model_count]
                         else:
                             label = None
                         x = np.arange(len(mean)) + (model_count - (n-1)/2)*width
@@ -347,62 +353,98 @@ def main(models, dimensions, group_by, sort_by, filter_, legend, top, ncol,
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
             ax.yaxis.set_tick_params(labelleft=True)
-            if metric == 'pesq' and ymax is not None:
-                ax.set_ylim(0, ymax)
-        LegendFormatter(fig, ncol=ncol)
+            if metric == 'pesq' and args.ymax is not None:
+                ax.set_ylim(0, args.ymax)
+        LegendFormatter(fig, ncol=args.ncol)
 
-    if not only_pesq:
-        symbols = ['o', 's', '^', 'v', '<', '>']
-        fig, axes = plt.subplots(1, 2, sharey=True, sharex=True)
-        fig_legend_handles = []
-        fig_legend_labels = []
-        for axis, (ax, labels) in enumerate(zip(
-                    axes[::-1],
-                    [rooms, snrs],
-                )):
-            ax_legend_handles = []
-            ax_legend_labels = []
-            for i, group in enumerate(groups):
-                color = color_cycle[i % len(color_cycle)]
-                for j, model in enumerate(group):
-                    x = model['segBR'].mean(axis=(axis, -1))
-                    y = model['segSSNR'].mean(axis=(axis, -1))
-                    line, = ax.plot(x, y, linestyle='--',
-                                    color=color)
-                    if axis == 0:
-                        fig_legend_handles.append(line)
-                        fig_legend_labels.append(f'{model["val"]}')
-                    for k, (x_, y_) in enumerate(zip(x, y)):
-                        ax.plot(x_, y_, marker=symbols[k], markersize=10,
-                                linestyle='', color=color)
-                        if i == j == 0:
-                            dummy_line, = ax.plot([], [], marker=symbols[k],
-                                                  markersize=10, linestyle='',
-                                                  color='k')
-                            ax_legend_handles.append(dummy_line)
-                            if axis == 0:
-                                label = f'room {labels[k]}'
-                            else:
-                                label = f'SNR = {labels[k]} dB'
-                            ax_legend_labels.append(label)
-            ax.legend(ax_legend_handles, ax_legend_labels)
-            ax.set_xlabel('segBR (dB)')
-            ax.set_ylabel('segSSNR (dB)')
-        lh = fig.legend(fig_legend_handles, fig_legend_labels)
-        LegendFormatter(fig, lh=lh)
+    symbols = ['o', 's', '^', 'v', '<', '>']
+    fig, axes = plt.subplots(1, 2, sharey=True, sharex=True)
+    fig_legend_handles = []
+    fig_legend_labels = []
+    for axis, (ax, labels) in enumerate(zip(
+                axes[::-1],
+                [rooms, snrs],
+            )):
+        ax_legend_handles = []
+        ax_legend_labels = []
+        for i, group in enumerate(groups):
+            color = color_cycle[i % len(color_cycle)]
+            for j, model in enumerate(group):
+                x = model['segBR'].mean(axis=(axis, -1))
+                y = model['segSSNR'].mean(axis=(axis, -1))
+                line, = ax.plot(x, y, linestyle='--',
+                                color=color)
+                if axis == 0:
+                    fig_legend_handles.append(line)
+                    fig_legend_labels.append(f'{model["val"]}')
+                for k, (x_, y_) in enumerate(zip(x, y)):
+                    ax.plot(x_, y_, marker=symbols[k], markersize=10,
+                            linestyle='', color=color)
+                    if i == j == 0:
+                        dummy_line, = ax.plot([], [], marker=symbols[k],
+                                              markersize=10, linestyle='',
+                                              color='k')
+                        ax_legend_handles.append(dummy_line)
+                        if axis == 0:
+                            label = f'room {labels[k]}'
+                        else:
+                            label = f'SNR = {labels[k]} dB'
+                        ax_legend_labels.append(label)
+        ax.legend(ax_legend_handles, ax_legend_labels)
+        ax.set_xlabel('segBR (dB)')
+        ax.set_ylabel('segSSNR (dB)')
+    lh = fig.legend(fig_legend_handles, fig_legend_labels)
+    LegendFormatter(fig, lh=lh)
 
-    if train_curve:
+    if args.train_curve:
         fig, ax = plt.subplots(1, 1)
         for i, group in enumerate(groups):
             color = color_cycle[i % len(color_cycle)]
             for j, model in enumerate(group):
-                if legend is None:
+                if args.legend is None:
                     label = f'{model["val"]}'
                 else:
-                    label = legend[model_count]
+                    label = args.legend[model_count]
                 ax.plot(model['train_curve'], label=label, color=color)
                 ax.plot(model['val_curve'], '--', color=color)
-        LegendFormatter(fig, ncol=ncol)
+        LegendFormatter(fig, ncol=args.ncol)
+
+    summary_metrics = ['pesq', 'stoi', 'segSSNR', 'segBR']
+    rows, cols = 1, len(summary_metrics)
+    fig, axes = plt.subplots(rows, cols)
+    for i, metric in enumerate(summary_metrics):
+        ax = axes.flatten()[i]
+        model_count = 0
+        for i, group in enumerate(groups):
+            color = color_cycle[i % len(color_cycle)]
+            hatch_count = 0
+            for j, model in enumerate(group):
+                datas = [model[metric]]
+                if args.oracle:
+                    datas.append(model['oracle'][metric])
+                for k, data in enumerate(datas):
+                    hatch = hatch_cycle[hatch_count % len(hatch_cycle)]
+                    if metric == 'mse':
+                        mean = data.mean()
+                        err = None
+                    else:
+                        mean = data.mean()
+                        err = data.std()/(data.size)**0.5
+                    if axis == 0:
+                        if args.legend is None:
+                            label = f'{model["val"]}'
+                            if k == 1:
+                                label += ' - oracle'
+                        else:
+                            label = args.legend[model_count]
+                    else:
+                        label = None
+                    x = (model_count - (n-1)/2)*width
+                    ax.bar(x=x, height=mean, width=width, label=label,
+                           color=color, hatch=hatch, yerr=err)
+                    model_count += 1
+                    hatch_count += 1
+    fig.tight_layout()
 
     plt.show()
 
@@ -427,8 +469,8 @@ if __name__ == '__main__':
                         help='only plot top best models')
     parser.add_argument('--default', action='store_true',
                         help='use default parameters to filter models')
-    parser.add_argument('--only-pesq', action='store_true',
-                        help='plot only pesq scores')
+    parser.add_argument('--summary', action='store_true',
+                        help='plot only the summary of scores')
     parser.add_argument('--figsize', nargs=2, type=int,
                         help='figure size')
     parser.add_argument('--ymax', type=float,
@@ -444,6 +486,4 @@ if __name__ == '__main__':
         if not glob(input_):
             print(f'Model not found: {input_}')
         model_dirs += glob(input_)
-    main(model_dirs, args.dims, args.group_by, args.sort_by, vars(filter_args),
-         args.legend, args.top, args.ncol, args.default, args.only_pesq,
-         args.figsize, args.ymax, args.train_curve, args.oracle)
+    main(model_dirs, args, vars(filter_args))

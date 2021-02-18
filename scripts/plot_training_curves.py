@@ -1,4 +1,5 @@
 import os
+from glob import glob
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,42 +15,44 @@ def smooth(data, sigma=50):
     return filtering_mat@data
 
 
-def main(**kwargs):
+def paths_to_dirnames(paths):
+    dirnames = []
+    for path in paths:
+        dirnames.append(os.path.basename(os.path.normpath(path)))
+    return dirnames
+
+
+def main(models, **kwargs):
     plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True)
     plt.rc('grid', color='w', linestyle='solid')
 
-    model_ids = find_model(**kwargs)
+    models = paths_to_dirnames(models)
+    possible_models = find_model(**kwargs)
+    models = [model for model in models if model in possible_models]
 
     plt.figure(figsize=(16, 8))
-    for i, model_id in enumerate(model_ids):
-        path = os.path.join('models', model_id, 'train_losses.npy')
-        data = np.load(path)
-        l, = plt.plot(data, label=f'{model_id[:3]}...')
-        path = os.path.join('models', model_id, 'val_losses.npy')
-        data = np.load(path)
-        plt.plot(data, '--', color=l.get_color())
-    plt.legend(ncol=10)
-    plt.grid()
-
-    plt.figure(figsize=(16, 8))
-    for i, model_id in enumerate(model_ids):
+    for i, model_id in enumerate(models):
         print(model_id)
-        path = os.path.join('models', model_id, 'train_losses.npy')
+        path = os.path.join('models', model_id, 'losses.npz')
         data = np.load(path)
-        data = smooth(data)
-        l, = plt.plot(data, label=f'{model_id[:3]}...')
-        path = os.path.join('models', model_id, 'val_losses.npy')
-        data = np.load(path)
-        data = smooth(data)
-        plt.plot(data, '--', color=l.get_color())
+        l, = plt.plot(data['train'], label=f'{model_id[:3]}...')
+        _, = plt.plot(data['val'], '--', color=l.get_color())
     plt.legend(ncol=10)
     plt.grid()
 
     plt.figure(figsize=(16, 8))
-    for i, model_id in enumerate(model_ids):
-        path = os.path.join('models', model_id, 'train_losses.npy')
+    for i, model_id in enumerate(models):
+        path = os.path.join('models', model_id, 'losses.npz')
         data = np.load(path)
-        data = smooth(data)
+        l, = plt.plot(smooth(data['train']), label=f'{model_id[:3]}...')
+        _, = plt.plot(smooth(data['val']), '--', color=l.get_color())
+    plt.legend(ncol=10)
+    plt.grid()
+
+    plt.figure(figsize=(16, 8))
+    for i, model_id in enumerate(models):
+        path = os.path.join('models', model_id, 'losses.npz')
+        data = smooth(np.load(path)['train'])
         slope = np.zeros(len(data))
         strip = 100
         for i in range(len(data)-strip):
@@ -64,5 +67,13 @@ def main(**kwargs):
 
 if __name__ == '__main__':
     parser = ModelFilterArgParser(description='plot training curves')
-    filter_args, _ = parser.parse_args()
-    main(**vars(filter_args))
+    parser.add_argument('input', nargs='+',
+                        help='list of models whose curves to plot')
+    filter_args, args = parser.parse_args()
+
+    model_dirs = []
+    for input_ in args.input:
+        if not glob(input_):
+            print(f'Model not found: {input_}')
+        model_dirs += glob(input_)
+    main(model_dirs, **vars(filter_args))

@@ -1,6 +1,7 @@
 import os
 import shutil
 import itertools
+import re
 
 import yaml
 
@@ -15,19 +16,19 @@ def check_if_path_exists(configs, path_type='train'):
     default_path = get_config_field(defaults_, f'{path_type}_path')
     for config in configs:
         path = get_config_field(config, f'{path_type}_path')
-        if path is None and not os.path.exists(default_path):
-            print((f'No {path_type} path specified, and default path does not '
-                   'exist'))
-            resp = input('Do you wish to continue? y/n')
-        elif not os.path.exists(path):
-            print(f'The specified {path_type} path does not exist')
-            resp = input('Do you wish to continue? y/n')
+        if path is None:
+            path = default_path
+            msg = f'No {path_type} path specified, and default path does not '\
+                  'exist'
         else:
-            continue
-        if resp == 'y':
-            return True
-        else:
-            return False
+            msg = f'The specified {path_type} path does not exist'
+        if not os.path.exists(path):
+            print(msg)
+            resp = input('Do you wish to continue? y/n')
+            if resp == 'y':
+                return True
+            else:
+                return False
     return True
 
 
@@ -37,12 +38,37 @@ def check_trailing_slashes(configs, path_type='train'):
         if path is not None and not path.endswith(('\\', '/')):
             print(f'The specified {path_type} path has no trailing slashes')
             resp = input('Do you wish to continue? y/n')
+            if resp == 'y':
+                return True
+            else:
+                return False
+    return True
+
+
+def check_if_test_datasets_exist(configs):
+    defaults_ = defaults().to_dict()
+    default_path = get_config_field(defaults_, 'test_path')
+    for config in configs:
+        path = get_config_field(config, 'test_path')
+        if path is None:
+            path = default_path
+            msg = 'No base test path specified, and the default base test '\
+                  'path does not correspond to any test dataset directory in '\
+                  'the filesystem'
         else:
-            continue
-        if resp == 'y':
-            return True
-        else:
-            return False
+            msg = 'The specified base test path does not correspond to any '\
+                  'existing test dataset directory in the filesystem'
+        basename = os.path.basename(path)
+        dirname = os.path.dirname(path)
+        r = re.compile(fr'^{basename}_(snr-?\d{{1,2}})_(.*)$')
+        dirs_ = [dir_ for dir_ in filter(r.match, os.listdir(dirname))]
+        if not dirs_:
+            print(msg)
+            resp = input('Do you wish to continue? y/n')
+            if resp == 'y':
+                return True
+            else:
+                return False
     return True
 
 
@@ -52,6 +78,7 @@ def check_paths(configs):
         and check_if_path_exists(configs, 'val')
         and check_trailing_slashes(configs, 'train')
         and check_trailing_slashes(configs, 'val')
+        and check_if_test_datasets_exist(configs)
     )
 
 
@@ -62,9 +89,12 @@ def main(args):
         if value is not None:
             set_config_field(to_combine, key, value)
 
-    to_combine = flatten(to_combine)
-    keys, values = zip(*to_combine.items())
-    configs = unflatten(keys, itertools.product(*values))
+    if to_combine:
+        to_combine = flatten(to_combine)
+        keys, values = zip(*to_combine.items())
+        configs = unflatten(keys, itertools.product(*values))
+    else:
+        configs = [{}]
 
     result = check_paths(configs)
     if not result:

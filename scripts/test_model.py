@@ -6,6 +6,7 @@ import logging
 import sys
 import re
 import subprocess
+import shutil
 
 import yaml
 import numba  # noqa: F401
@@ -21,23 +22,20 @@ from brever.pytorchtools import (Feedforward, H5Dataset, TensorStandardizer,
                                  StateTensorStandardizer)
 
 
-def main(model_dir, force, no_cuda):
+def main(model_dir, args):
     logging.info(f'Processing {model_dir}')
 
     # check if model is already tested
-    output_pesq_path = os.path.join(model_dir, 'pesq_scores.mat')
-    output_mse_path = os.path.join(model_dir, 'mse_scores.npy')
-    if os.path.exists(output_pesq_path) and os.path.exists(output_mse_path):
-        if not force:
+    output_mat_path = os.path.join(model_dir, 'scores.mat')
+    output_npz_path = os.path.join(model_dir, 'scores.npz')
+    if os.path.exists(output_mat_path) and os.path.exists(output_npz_path):
+        if not args.force:
             logging.info('Model is already tested!')
             return
 
     # check if model is trained
-    train_loss_path = os.path.join(model_dir, 'train_losses.npy')
-    val_loss_path = os.path.join(model_dir, 'val_losses.npy')
-    if os.path.exists(train_loss_path) and os.path.exists(val_loss_path):
-        pass
-    else:
+    loss_path = os.path.join(model_dir, 'losses.npz')
+    if not os.path.exists(loss_path):
         logging.info('Model is not trained!')
         return
 
@@ -64,7 +62,7 @@ def main(model_dir, force, no_cuda):
     model = Feedforward.build(model_args_path)
     state_file = os.path.join(model_dir, 'checkpoint.pt')
     model.load_state_dict(torch.load(state_file, map_location='cpu'))
-    if config.MODEL.CUDA and not no_cuda:
+    if config.MODEL.CUDA and not args.no_cuda:
         model = model.cuda()
 
     # initialize criterion
@@ -73,9 +71,9 @@ def main(model_dir, force, no_cuda):
     # get snrs and rooms grid
     basename = os.path.basename(config.POST.PATH.TEST)
     dirname = os.path.dirname(config.POST.PATH.TEST)
-    r = re.compile(fr'^{basename}_(snr-?\d{{1,2}})_(.*)$')
+    r = re.compile(fr'^{basename}_snr(-?\d{{1,2}})_(.*)$')
     dirs_ = [dir_ for dir_ in filter(r.match, os.listdir(dirname))]
-    snrs = sorted(set(r.match(dir_).group(1) for dir_ in dirs_))
+    snrs = sorted(set(int(r.match(dir_).group(1)) for dir_ in dirs_))
     rooms = sorted(set(r.match(dir_).group(2) for dir_ in dirs_))
 
     # main loop
@@ -85,8 +83,8 @@ def main(model_dir, force, no_cuda):
     for i, snr in enumerate(snrs):
         for j, room in enumerate(rooms):
             # build dataset directory name
-            suffix = f'{snr}_{room}'
-            test_dataset_dir = f'{config.POST.PATH.TEST}_{snr}_{room}'
+            suffix = f'snr{snr}_{room}'
+            test_dataset_dir = f'{config.POST.PATH.TEST}_{suffix}'
             logging.info(f'Processing {test_dataset_dir}:')
 
             # load pipes
@@ -133,7 +131,7 @@ def main(model_dir, force, no_cuda):
                 criterion=criterion,
                 dataloader=test_dataloader,
                 load=config.POST.LOAD,
-                cuda=config.MODEL.CUDA and not no_cuda,
+                cuda=config.MODEL.CUDA and not args.no_cuda,
             )
 
             # enhance mixtures for PESQ calculation
@@ -171,14 +169,14 @@ def main(model_dir, force, no_cuda):
                     # extract features
                     features, IRM = test_dataset[i_start:i_end]
                     features = torch.from_numpy(features).float()
-                    if config.MODEL.CUDA and not no_cuda:
+                    if config.MODEL.CUDA and not args.no_cuda:
                         features = features.cuda()
 
                     # make mask prediction
                     model.eval()
                     with torch.no_grad():
                         PRM = model(features)
-                        if config.MODEL.CUDA and not no_cuda:
+                        if config.MODEL.CUDA and not args.no_cuda:
                             PRM = PRM.cpu()
                         PRM = PRM.numpy()
 
@@ -274,9 +272,8 @@ def main(model_dir, force, no_cuda):
     seg_scores_oracle = np.array(seg_scores_oracle.tolist())
 
     # save MSE and segmental scores
-    np.save(os.path.join(model_dir, 'mse_scores.npy'), MSE)
-    np.save(os.path.join(model_dir, 'seg_scores.npy'), seg_scores)
-    np.save(os.path.join(model_dir, 'seg_scores_oracle.npy'), seg_scores_oracle)
+    np.savez(output_npz_path, mse=MSE, seg=seg_scores,
+             seg_oracle=seg_scores_oracle, snrs=snrs, rooms=rooms)
 
     # calculate PESQ on matlab
     subprocess.call([
@@ -285,8 +282,13 @@ def main(model_dir, force, no_cuda):
         'addpath matlab; '
         'addpath matlab/loizou; '
         f'testModel {model_dir} {config.PRE.FS} {config.PRE.MIXTURES.PADDING} '
-        f'\'{" ".join(snrs)}\' \'{" ".join(rooms)}\''
+        f'\'{" ".join([str(snr) for snr in snrs])}\' '
+        f'\'{" ".join(rooms)}\''
     ])
+
+    # delete audio files
+    if not args.no_delete:
+        shutil.rmtree(os.path.join(model_dir, 'audio'))
 
 
 if __name__ == '__main__':
@@ -297,6 +299,8 @@ if __name__ == '__main__':
                         help='test even if already tested')
     parser.add_argument('--no-cuda', action='store_true',
                         help='force testing on cpu')
+    parser.add_argument('--no-delete', action='store_true',
+                        help='disable audio file deletion')
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -311,4 +315,4 @@ if __name__ == '__main__':
             logging.info(f'Model not found: {input_}')
         model_dirs += glob(input_)
     for model_dir in model_dirs:
-        main(model_dir, args.force, args.no_cuda)
+        main(model_dir, args)

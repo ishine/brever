@@ -100,10 +100,8 @@ def main(model_dir, force, no_cuda):
         config.update(yaml.safe_load(f))
 
     # check if model is already trained using directory contents
-    train_loss_path = os.path.join(model_dir, 'train_losses.npy')
-    val_loss_path = os.path.join(model_dir, 'val_losses.npy')
-    test_loss_path = os.path.join(model_dir, 'test_losses.npy')
-    if os.path.exists(train_loss_path) and os.path.exists(val_loss_path):
+    loss_path = os.path.join(model_dir, 'losses.npz')
+    if os.path.exists(loss_path):
         if not force:
             logging.info('Model is already trained')
             return
@@ -201,6 +199,7 @@ def main(model_dir, force, no_cuda):
     dirname = os.path.dirname(config.POST.PATH.TEST)
     r = re.compile(fr'^{basename}_(snr-?\d{{1,2}})_(.*)$')
     dirs_ = [dir_ for dir_ in filter(r.match, os.listdir(dirname))]
+    dirs_ = [os.path.join(dirname, dir_) for dir_ in dirs_]
     test_dataloaders = []
     for test_dataset_dir in dirs_:
         # initialize dataset and dataloader
@@ -353,9 +352,7 @@ def main(model_dir, force, no_cuda):
     plot_losses(train_losses, val_losses, test_losses, model_dir)
 
     # save errors
-    np.save(train_loss_path, train_losses)
-    np.save(val_loss_path, val_losses)
-    np.save(test_loss_path, test_losses)
+    np.savez(loss_path, train=train_losses, val=val_losses, test=test_losses)
 
     # write full config file
     full_config_file = os.path.join(model_dir, 'config_full.yaml')

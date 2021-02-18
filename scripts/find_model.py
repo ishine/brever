@@ -18,9 +18,8 @@ def main(delete=False, set_field=None, **kwargs):
     untrained = []
 
     for model_id in models:
-        train_loss = os.path.join('models', model_id, 'train_losses.npy')
-        val_loss = os.path.join('models', model_id, 'val_losses.npy')
-        if os.path.exists(train_loss) and os.path.exists(val_loss):
+        loss_file = os.path.join('models', model_id, 'losses.npz')
+        if os.path.exists(loss_file):
             trained.append(model_id)
         else:
             untrained.append(model_id)
