@@ -401,19 +401,17 @@ def main(models, args, filter_):
         for i, group in enumerate(groups):
             color = color_cycle[i % len(color_cycle)]
             for j, model in enumerate(group):
-                if args.legend is None:
-                    label = f'{model["val"]}'
-                else:
-                    label = args.legend[model_count]
+                label = f'{model["val"]}'
                 ax.plot(model['train_curve'], label=label, color=color)
                 ax.plot(model['val_curve'], '--', color=color)
         LegendFormatter(fig, ncol=args.ncol)
 
-    summary_metrics = ['pesq', 'stoi', 'segSSNR', 'segBR']
-    rows, cols = 1, len(summary_metrics)
+    # summary plot
+    metrics = ['pesq', 'stoi', 'segSSNR', 'segBR']
+    ylabels = [r'$\Delta PESQ$', r'$\Delta STOI$', 'segSSNR', 'segBR']
+    rows, cols = 1, len(metrics)
     fig, axes = plt.subplots(rows, cols)
-    for i, metric in enumerate(summary_metrics):
-        ax = axes.flatten()[i]
+    for ax, metric, ylabel in zip(axes.flatten(), metrics, ylabels):
         model_count = 0
         for i, group in enumerate(groups):
             color = color_cycle[i % len(color_cycle)]
@@ -430,7 +428,7 @@ def main(models, args, filter_):
                     else:
                         mean = data.mean()
                         err = data.std()/(data.size)**0.5
-                    if axis == 0:
+                    if ax == axes.flatten()[0]:
                         if args.legend is None:
                             label = f'{model["val"]}'
                             if k == 1:
@@ -444,7 +442,12 @@ def main(models, args, filter_):
                            color=color, hatch=hatch, yerr=err)
                     model_count += 1
                     hatch_count += 1
-    fig.tight_layout()
+        ax.set_xticklabels([])
+        ax.set_xticks([])
+        ax.set_ylabel(ylabel)
+        xmin, xmax = ax.get_xlim()
+        ax.set_xlim(xmin*1.5, xmax*1.5)
+    LegendFormatter(fig, ncol=args.ncol)
 
     plt.show()
 
