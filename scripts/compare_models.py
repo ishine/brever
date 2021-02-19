@@ -300,6 +300,64 @@ def main(models, args, filter_):
     width = 1/(n+1)
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
     hatch_cycle = ['', '////', '\\\\\\', 'xxxx']
+
+    # summary plot
+    metrics = ['pesq', 'stoi', 'segSSNR', 'segBR']
+    ylabels = [r'$\Delta PESQ$', r'$\Delta STOI$', 'segSSNR', 'segBR']
+    rows, cols = 1, len(metrics)
+    fig, axes = plt.subplots(rows, cols)
+    for ax, metric, ylabel in zip(axes.flatten(), metrics, ylabels):
+        model_count = 0
+        for i, group in enumerate(groups):
+            color = color_cycle[i % len(color_cycle)]
+            hatch_count = 0
+            for j, model in enumerate(group):
+                datas = [model[metric]]
+                if args.oracle:
+                    datas.append(model['oracle'][metric])
+                for k, data in enumerate(datas):
+                    hatch = hatch_cycle[hatch_count % len(hatch_cycle)]
+                    if metric == 'mse':
+                        mean = data.mean()
+                        err = None
+                    else:
+                        mean = data.mean()
+                        err = data.std()/(data.size)**0.5
+                    if ax == axes.flatten()[0]:
+                        if args.legend is None:
+                            label = f'{model["val"]}'
+                            if k == 1:
+                                label += ' - oracle'
+                        else:
+                            label = args.legend[model_count]
+                    else:
+                        label = None
+                    x = (model_count - (n-1)/2)*width
+                    ax.bar(x=x, height=mean, width=width, label=label,
+                           color=color, hatch=hatch, yerr=err)
+                    model_count += 1
+                    hatch_count += 1
+        ax.set_xticklabels([])
+        ax.set_xticks([])
+        ax.set_ylabel(ylabel)
+        xmin, xmax = ax.get_xlim()
+        ax.set_xlim(xmin*1.5, xmax*1.5)
+    LegendFormatter(fig, ncol=args.ncol)
+
+    if args.train_curve:
+        fig, ax = plt.subplots(1, 1)
+        for i, group in enumerate(groups):
+            color = color_cycle[i % len(color_cycle)]
+            for j, model in enumerate(group):
+                label = f'{model["val"]}'
+                ax.plot(model['train_curve'], label=label, color=color)
+                ax.plot(model['val_curve'], '--', color=color)
+        LegendFormatter(fig, ncol=args.ncol)
+
+    if args.summary:
+        plt.show()
+        return
+
     ylabels = ['MSE', r'$\Delta PESQ$', 'STOI', 'segSSNR', 'segBR', 'segNR', 'segRR']
     metrics = ['mse', 'pesq', 'stoi', 'segSSNR', 'segBR', 'segNR', 'segRR']
     for ylabel, metric in zip(ylabels, metrics):
@@ -395,59 +453,6 @@ def main(models, args, filter_):
         ax.set_ylabel('segSSNR (dB)')
     lh = fig.legend(fig_legend_handles, fig_legend_labels)
     LegendFormatter(fig, lh=lh)
-
-    if args.train_curve:
-        fig, ax = plt.subplots(1, 1)
-        for i, group in enumerate(groups):
-            color = color_cycle[i % len(color_cycle)]
-            for j, model in enumerate(group):
-                label = f'{model["val"]}'
-                ax.plot(model['train_curve'], label=label, color=color)
-                ax.plot(model['val_curve'], '--', color=color)
-        LegendFormatter(fig, ncol=args.ncol)
-
-    # summary plot
-    metrics = ['pesq', 'stoi', 'segSSNR', 'segBR']
-    ylabels = [r'$\Delta PESQ$', r'$\Delta STOI$', 'segSSNR', 'segBR']
-    rows, cols = 1, len(metrics)
-    fig, axes = plt.subplots(rows, cols)
-    for ax, metric, ylabel in zip(axes.flatten(), metrics, ylabels):
-        model_count = 0
-        for i, group in enumerate(groups):
-            color = color_cycle[i % len(color_cycle)]
-            hatch_count = 0
-            for j, model in enumerate(group):
-                datas = [model[metric]]
-                if args.oracle:
-                    datas.append(model['oracle'][metric])
-                for k, data in enumerate(datas):
-                    hatch = hatch_cycle[hatch_count % len(hatch_cycle)]
-                    if metric == 'mse':
-                        mean = data.mean()
-                        err = None
-                    else:
-                        mean = data.mean()
-                        err = data.std()/(data.size)**0.5
-                    if ax == axes.flatten()[0]:
-                        if args.legend is None:
-                            label = f'{model["val"]}'
-                            if k == 1:
-                                label += ' - oracle'
-                        else:
-                            label = args.legend[model_count]
-                    else:
-                        label = None
-                    x = (model_count - (n-1)/2)*width
-                    ax.bar(x=x, height=mean, width=width, label=label,
-                           color=color, hatch=hatch, yerr=err)
-                    model_count += 1
-                    hatch_count += 1
-        ax.set_xticklabels([])
-        ax.set_xticks([])
-        ax.set_ylabel(ylabel)
-        xmin, xmax = ax.get_xlim()
-        ax.set_xlim(xmin*1.5, xmax*1.5)
-    LegendFormatter(fig, ncol=args.ncol)
 
     plt.show()
 
