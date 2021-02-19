@@ -3,7 +3,7 @@ source jobs/parse_args.sh
 
 for input in "$@"
 do
-    if [ -f $input/pesq_scores.mat ] && [ "$FORCE" == "" ]
+    if [ -f $input/scores.mat ] && [ "$FORCE" == "" ]
     then
         echo "model already tested: $input "
     else
