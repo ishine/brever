@@ -230,10 +230,17 @@ def main(dataset_dir, force):
     features = np.vstack(features)
     labels = np.vstack(labels)
 
+    # create indexes array
+    indexes = np.zeros(len(features), dtype=int)
+    for i, metadata in enumerate(metadatas):
+        i_start, i_end = metadata['dataset_indices']
+        indexes[i_start:i_end] = i
+
     # save datasets
     with h5py.File(datasets_output_path, 'w') as f:
         f.create_dataset('features', data=features)
         f.create_dataset('labels', data=labels)
+        f.create_dataset('indexes', data=indexes)
         if config.PRE.MIXTURES.SAVE:
             f.create_dataset(
                 'mixtures',
