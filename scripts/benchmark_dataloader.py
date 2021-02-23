@@ -9,7 +9,7 @@ from brever.pytorchtools import H5Dataset
 
 def main(args):
     dataset = H5Dataset(
-        firpath=args.input,
+        dirpath=args.input,
         load=args.load,
         stack=args.stacks,
         decimation=args.decimation,
