@@ -468,6 +468,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         'earlystop': ['MODEL', 'EARLYSTOP', 'ON'],
         'progress': ['MODEL', 'PROGRESS', 'ON'],
         'weight_decay': ['MODEL', 'WEIGHTDECAY'],
+        'decimation': ['POST', 'DECIMATION'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -598,7 +599,12 @@ class ModelFilterArgParser(ExtendableArgParser):
             nargs='+',
             help='weight decay',
         )
-
+        self.add_base_argument(
+            '--decimation',
+            type=int,
+            nargs='+',
+            help='decimation factor',
+        )
 
 class DatasetInitArgParser(ExtendableArgParser):
     """
