@@ -212,6 +212,7 @@ class H5Dataset(torch.utils.data.Dataset):
         self.n_dct = n_dct
         self.file_based_stats = file_based_stats
         self.datasets = None
+        self.filenum_array = None
         self.filepath = os.path.join(dirpath, 'dataset.hdf5')
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
@@ -237,6 +238,7 @@ class H5Dataset(torch.utils.data.Dataset):
                 self.n_labels = sum(j-i for i, j in self.label_indices)
             if self.load:
                 self.datasets = (f['features'][:], f['labels'][:])
+                self.filenum_array = f['indexes'][:]
         self.file_indices = self.get_file_indices()
 
     def get_feature_indices(self):
@@ -271,25 +273,15 @@ class H5Dataset(torch.utils.data.Dataset):
             indices = [item['dataset_indices'] for item in metadatas]
         return indices
 
-    def get_file_number(self, index, decimate=True):
-        if decimate:
-            index *= self.decimation
-        broken = False
-        for j, (i_start, i_end) in enumerate(self.file_indices):
-            if i_start <= index < i_end:
-                broken = True
-                break
-        if not broken:
-            raise ValueError(f'Could not find file indices for index {index}')
-        return j
-
     def __getitem__(self, index):
         if self.datasets is None:
             f = h5py.File(self.filepath, 'r')
             if self.load:
                 self.datasets = (f['features'][:], f['labels'][:])
+                self.filenum_array = f['indexes'][:]
             else:
                 self.datasets = (f['features'], f['labels'])
+                self.filenum_array = f['indexes']
         if isinstance(index, int):
             # features
             x = np.empty(self.n_features)
@@ -304,7 +296,7 @@ class H5Dataset(torch.utils.data.Dataset):
                 count = j_
             # frames at previous time indexes
             if self.stack > 0 or (self.transform and self.file_based_stats):
-                file_num = self.get_file_number(index, decimate=False)
+                file_num = self.filenum_array[index]
             if self.stack > 0:
                 x_context = np.zeros((self.stack, self._n_current_features))
                 # first find the starting index of the current file
