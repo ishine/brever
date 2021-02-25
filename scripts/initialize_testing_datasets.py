@@ -84,7 +84,7 @@ if __name__ == '__main__':
                         help='dataset alias')
     parser.add_argument('-f', '--force', action='store_true',
                         help='overwrite config file if already exists')
-    parser.add_argument('--n-test', type=int, default=25,
+    parser.add_argument('--n-test', type=int, default=10,
                         help='number of testing mixtures, defaults to 25')
     parser.add_argument('--test-rooms', type=str, nargs='+',
                         default=[
