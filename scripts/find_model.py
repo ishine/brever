@@ -14,17 +14,24 @@ def main(delete=False, set_field=None, **kwargs):
 
     models = find_model(**kwargs)
 
+    tested = []
     trained = []
     untrained = []
 
     for model_id in models:
+        score_file = os.path.join('models', model_id, 'scores.mat')
         loss_file = os.path.join('models', model_id, 'losses.npz')
-        if os.path.exists(loss_file):
+        if os.path.exists(score_file):
+            tested.append(model_id)
+        elif os.path.exists(loss_file):
             trained.append(model_id)
         else:
             untrained.append(model_id)
 
     print(f'{len(models)} total models found')
+    print(f'{len(tested)} tested models:')
+    for model_id in tested:
+        print(model_id)
     print(f'{len(trained)} trained models:')
     for model_id in trained:
         print(model_id)
@@ -55,7 +62,7 @@ def main(delete=False, set_field=None, **kwargs):
         resp = input('Do you want to continue? y/n')
         if resp == 'y':
             for model_id in models:
-                if model_id in trained:
+                if model_id in trained or model_id in tested:
                     filenames = ['config.yaml', 'config_full.yaml']
                 else:
                     filenames = ['config.yaml']
