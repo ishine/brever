@@ -276,3 +276,39 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
         return x, filepath, (i_start, i_end)
     else:
         raise ValueError(f'wrong noise alias: {noise_alias}')
+
+
+def get_available_angles(room_alias):
+    if room_alias.startswith('surrey_'):
+        dirpath = get_path('SURREY')
+        m = re.match('^surrey_(.*)$', room_alias)
+        if m is None:
+            raise ValueError(f'wrong room alias: {room_alias}')
+        room_name = m.group(1)
+        if room_name == 'anechoic':
+            room_folder = 'Anechoic'
+        else:
+            m = re.match('^room_(.)$', room_name)
+            if m is None:
+                raise ValueError(f'wrong room alias: {room_alias}')
+            room_letter = m.group(1)
+            room_folder = 'Room_%s' % room_letter.upper()
+        room_dir = os.path.join(dirpath, room_folder, '16kHz')
+        r = re.compile(r'CortexBRIR_.*s_(-?\d{1,2})deg_16k\.wav')
+        filenames = list(filter(r.match, os.listdir(room_dir)))
+        angles = sorted(set(int(r.match(fn).group(1)) for fn in filenames))
+        return angles
+    elif room_alias.startswith('huddersfield_'):
+        dirpath = get_path('HUDDERSFIELD')
+        m = re.match('^huddersfield_(.*)m$', room_alias)
+        if m is None:
+            raise ValueError(f'wrong room alias: {room_alias}')
+        room_name = m.group(1)
+        filename = f'{room_name.upper()}m.sofa'
+        filepath = os.path.join(dirpath, 'Binaural', 'SOFA', filename)
+        HRTF = sofa.Database.open(filepath)
+        positions = HRTF.Source.Position.get_values(system='spherical')
+        angles = positions[:, 0]
+        return angles
+    else:
+        raise ValueError(f'wrong room alias: {room_alias}')

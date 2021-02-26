@@ -6,7 +6,8 @@ import re
 from .utils import pca, frame, rms
 from .filters import mel_filterbank, gammatone_filterbank
 from .mixture import Mixture, colored_noise, add_decay
-from .io import load_random_target, load_brirs, load_random_noise
+from .io import (load_random_target, load_brirs, load_random_noise,
+                 get_available_angles)
 from .config import defaults
 from . import features as features_module
 from . import labels as labels_module
@@ -196,9 +197,9 @@ class ContinuousRandomGenerator:
 
 
 class RandomMixtureMaker:
-    def __init__(self, fs, rooms, target_datasets, target_angles,
+    def __init__(self, fs, rooms, target_datasets,
                  target_snr_dist_name, target_snr_dist_args, dir_noise_nums,
-                 dir_noise_types, dir_noise_angles, dir_noise_snrs,
+                 dir_noise_types, dir_noise_snrs,
                  diffuse_noise_on, diffuse_noise_color, diffuse_noise_ltas_eq,
                  mixture_pad, mixture_rb, mixture_rms_jitter_on,
                  mixture_rms_jitters, filelims_target, filelims_dir_noise,
@@ -209,11 +210,11 @@ class RandomMixtureMaker:
         if not seed_on:
             seed_value = None
         seeder = Seeder(seed_value, 100)
+        self.seeder = seeder
 
         self.fs = fs
         self.rooms = RandomPool(rooms, seeder.get())
         self.target_datasets = RandomPool(target_datasets, seeder.get())
-        self.target_angles = RandomPool(target_angles, seeder.get())
         self.target_snrs = ContinuousRandomGenerator(target_snr_dist_name,
                                                      target_snr_dist_args,
                                                      seeder.get())
@@ -222,9 +223,6 @@ class RandomMixtureMaker:
         self.dir_noise_types = MultiRandomPool(dir_noise_types,
                                                max(dir_noise_nums),
                                                seeder.get())
-        self.dir_noise_angles = MultiRandomPool(dir_noise_angles,
-                                                max(dir_noise_nums),
-                                                seeder.get())
         self.diffuse_noise_on = diffuse_noise_on
         self.diffuse_noise_color = diffuse_noise_color
         self.diffuse_noise_ltas_eq = diffuse_noise_ltas_eq
@@ -294,7 +292,9 @@ class RandomMixtureMaker:
         return decayer, metadata
 
     def add_random_target(self, mixture, metadata, room, decayer):
-        angle = self.target_angles.get()
+        target_angles = get_available_angles(room)
+        target_angles = RandomPool(target_angles, self.seeder.get())
+        angle = target_angles.get()
         brir = self._load_brirs(room, angle)
         brir = decayer.run(brir)
         target_dataset = self.target_datasets.get()
@@ -319,7 +319,11 @@ class RandomMixtureMaker:
     def add_random_dir_noises(self, mixture, metadata, room, decayer):
         number = self.dir_noise_nums.get()
         types = self.dir_noise_types.get(number)
-        angles = self.dir_noise_angles.get(number)
+        dir_noise_angles = get_available_angles(room)
+        dir_noise_angles = MultiRandomPool(dir_noise_angles,
+                                           max(self.dir_noise_nums.pool),
+                                           self.seeder.get())
+        angles = dir_noise_angles.get(number)
         noises, files, indices = self._load_noises(
             types,
             len(mixture),
@@ -477,11 +481,6 @@ class DefaultRandomMixtureMaker(RandomMixtureMaker):
         super().__init__(
             fs=config.PRE.FS,
             rooms=config.PRE.MIXTURES.RANDOM.ROOMS,
-            target_angles=range(
-                config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MIN,
-                config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MAX + 1,
-                config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.STEP,
-            ),
             target_snrs=range(
                 config.PRE.MIXTURES.RANDOM.TARGET.SNR.MIN,
                 config.PRE.MIXTURES.RANDOM.TARGET.SNR.MAX + 1,
@@ -491,11 +490,6 @@ class DefaultRandomMixtureMaker(RandomMixtureMaker):
                 config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MAX + 1,
             ),
             dir_noise_types=config.PRE.MIXTURES.RANDOM.SOURCES.TYPES,
-            dir_noise_angles=range(
-                config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MIN,
-                config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MAX + 1,
-                config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.STEP,
-            ),
             dir_noise_snrs=range(
                 config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN,
                 config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MAX + 1,

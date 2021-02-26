@@ -115,7 +115,6 @@ PRE:
         ANGLE:
           MAX: 90.0
           MIN: -90.0
-          STEP: 5.0
         NUMBER:
           MAX: 3
           MIN: 1
@@ -136,7 +135,6 @@ PRE:
         ANGLE:
           MAX: 90.0
           MIN: -90.0
-          STEP: 5.0
         SNR:
           # DISTNAME: logistic
           # DISTARGS: [0.0, 4.3429448190325175]

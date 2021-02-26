@@ -57,13 +57,6 @@ def main(dataset_dir, force):
         fs=config.PRE.FS,
         rooms=config.PRE.MIXTURES.RANDOM.ROOMS,
         target_datasets=config.PRE.MIXTURES.RANDOM.TARGET.DATASETS,
-        target_angles=np.arange(
-            config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MIN,
-            config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MAX
-            + config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.STEP,
-            config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.STEP,
-            dtype=float,
-        ),
         target_snr_dist_name=config.PRE.MIXTURES.RANDOM.TARGET.SNR.DISTNAME,
         target_snr_dist_args=config.PRE.MIXTURES.RANDOM.TARGET.SNR.DISTARGS,
         dir_noise_nums=range(
@@ -71,13 +64,6 @@ def main(dataset_dir, force):
             config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MAX + 1,
         ),
         dir_noise_types=config.PRE.MIXTURES.RANDOM.SOURCES.TYPES,
-        dir_noise_angles=np.arange(
-            config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MIN,
-            config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MAX
-            + config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.STEP,
-            config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.STEP,
-            dtype=float,
-        ),
         dir_noise_snrs=range(
             config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN,
             config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MAX + 1,
