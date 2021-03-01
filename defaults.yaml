@@ -156,3 +156,5 @@ PATH:
   SURREY: data/external/SURREY/
   TIMIT: data/external/TIMIT/TRAIN/
   HUDDERSFIELD: data/external/Huddersfield/
+  LIBRI: data/external/LibriSpeech/
+  IEEE: data/external/IEEE/

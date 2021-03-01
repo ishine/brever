@@ -606,6 +606,7 @@ class ModelFilterArgParser(ExtendableArgParser):
             help='decimation factor',
         )
 
+
 class DatasetInitArgParser(ExtendableArgParser):
     """
     Dataset initialization argument parser.
@@ -642,10 +643,9 @@ class DatasetInitArgParser(ExtendableArgParser):
         'uniform_tmr': ['PRE', 'MIXTURES', 'RANDOM', 'UNIFORMTMR'],
         'target_angle_min': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'ANGLE', 'MIN'],
         'target_angle_max': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'ANGLE', 'MAX'],
-        'target_angle_step': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'ANGLE', 'STEP'],
+        'target_datasets': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'DATASETS'],
         'noise_angle_min': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'ANGLE', 'MIN'],
         'noise_angle_max': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'ANGLE', 'MAX'],
-        'noise_angle_step': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'ANGLE', 'STEP'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -783,9 +783,9 @@ class DatasetInitArgParser(ExtendableArgParser):
             help='maximum target direction angle',
         )
         self.add_base_argument(
-            '--target-angle-step',
-            type=float,
-            help='target direction angle step',
+            '--target-datasets',
+            type=arg_set_type,
+            help='target speech datasets',
         )
         self.add_base_argument(
             '--noise-angle-min',
@@ -796,9 +796,4 @@ class DatasetInitArgParser(ExtendableArgParser):
             '--noise-angle-max',
             type=float,
             help='maximum noise direction angle',
-        )
-        self.add_base_argument(
-            '--noise-angle-step',
-            type=float,
-            help='noise direction angle step',
         )

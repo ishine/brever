@@ -52,10 +52,13 @@ def load_random_target(target_alias, lims=None, fs=16e3, randomizer=None):
         filepath:
             Path to the loaded file.
     '''
-    if target_alias == 'timit':
-        dirpath = get_path('TIMIT')
-    elif target_alias == 'libri':
-        dirpath = get_path('LIBRI')
+    alias_to_key_map = {
+        'timit': 'TIMIT',
+        'libri': 'LIBRI',
+        'ieee': 'IEEE',
+    }
+    if target_alias in alias_to_key_map.keys():
+        dirpath = get_path(alias_to_key_map[target_alias])
     else:
         raise ValueError(f'wrong target alias: {target_alias}')
     if not os.path.exists(dirpath):
