@@ -148,22 +148,22 @@ class LabelExtractor:
 
 class RandomPool:
     def __init__(self, pool, seed=None):
-        if isinstance(pool, set):
-            self.pool = sorted(pool)
-        else:
-            self.pool = pool
+        self.set_pool(pool)
         self.random = random.Random(seed)
 
     def get(self):
         return self.random.choice(self.pool)
 
-
-class MultiRandomPool:
-    def __init__(self, pool, k_max, seed=None):
+    def set_pool(self, pool):
         if isinstance(pool, set):
             self.pool = sorted(pool)
         else:
             self.pool = pool
+
+
+class MultiRandomPool:
+    def __init__(self, pool, k_max, seed=None):
+        self.set_pool(pool)
         if seed is None:
             self.randoms = [random.Random() for i in range(k_max)]
         else:
@@ -174,6 +174,12 @@ class MultiRandomPool:
         assert k <= self.k_max
         output = [self.randoms[i].choice(self.pool) for i in range(self.k_max)]
         return output[:k]
+
+    def set_pool(self, pool):
+        if isinstance(pool, set):
+            self.pool = sorted(pool)
+        else:
+            self.pool = pool
 
 
 class Seeder:
@@ -210,7 +216,6 @@ class RandomMixtureMaker:
         if not seed_on:
             seed_value = None
         seeder = Seeder(seed_value, 100)
-        self.seeder = seeder
 
         self.fs = fs
         self.rooms = RandomPool(rooms, seeder.get())
@@ -247,6 +252,9 @@ class RandomMixtureMaker:
                                                          seeder.get())
         self.uniform_tmr = uniform_tmr
         self.tmrs = ContinuousRandomGenerator('uniform', [], seeder.get())
+        self.target_angles = RandomPool([], seeder.get())
+        self.dir_noise_angles = MultiRandomPool([], max(dir_noise_nums),
+                                                seeder.get())
 
     def make(self):
         mixture = Mixture()
@@ -292,9 +300,8 @@ class RandomMixtureMaker:
         return decayer, metadata
 
     def add_random_target(self, mixture, metadata, room, decayer):
-        target_angles = get_available_angles(room)
-        target_angles = RandomPool(target_angles, self.seeder.get())
-        angle = target_angles.get()
+        self.target_angles.set_pool(get_available_angles(room))
+        angle = self.target_angles.get()
         brir = self._load_brirs(room, angle)
         brir = decayer.run(brir)
         target_dataset = self.target_datasets.get()
@@ -319,11 +326,8 @@ class RandomMixtureMaker:
     def add_random_dir_noises(self, mixture, metadata, room, decayer):
         number = self.dir_noise_nums.get()
         types = self.dir_noise_types.get(number)
-        dir_noise_angles = get_available_angles(room)
-        dir_noise_angles = MultiRandomPool(dir_noise_angles,
-                                           max(self.dir_noise_nums.pool),
-                                           self.seeder.get())
-        angles = dir_noise_angles.get(number)
+        self.dir_noise_angles.set_pool(get_available_angles(room))
+        angles = self.dir_noise_angles.get(number)
         noises, files, indices = self._load_noises(
             types,
             len(mixture),
