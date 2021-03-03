@@ -14,7 +14,15 @@ from brever.config import defaults
 
 def check_models(models, dims):
     if dims is None:
-        return models, models
+        models_ = []
+        for model in models:
+            mat_file = os.path.join('models', model, 'scores.mat')
+            npz_file = os.path.join('models', model, 'scores.npz')
+            if not os.path.exists(mat_file) or not os.path.exists(npz_file):
+                print(f'Model {model} is not evaluated!')
+                continue
+            models_.append(model)
+        return models_, models_
     values = []
     models_ = []
     configs_ = []
@@ -145,14 +153,16 @@ def load_scores(groups):
             group[i]['val_curve'] = curves['val']
 
 
-def sort_groups_by_mean_pesq(groups):
+def sort_groups_by(groups, metric):
     groups_mean_pesq = []
     for group in groups:
-        mean_pesqs = [model['pesq'].mean() for model in group]
+        mean_pesqs = [model[metric].mean() for model in group]
         group_mean_pesq = np.mean(mean_pesqs)
         groups_mean_pesq.append(group_mean_pesq)
     indexes = np.argsort(groups_mean_pesq)
     groups = [groups[i] for i in indexes]
+    if metric == 'mse':
+        groups = groups[::-1]
     return groups
 
 
@@ -268,9 +278,9 @@ def main(models, args, filter_):
     models, values = check_models(models, dimensions)
     groups, group_values = group_by_dimension(models, values, args.group_by)
     load_scores(groups)
-    if args.sort_by == 'pesq':
-        groups = sort_groups_by_mean_pesq(groups)
-    elif args.sort_by == 'dims':
+    if args.sort_by != 'dims':
+        groups = sort_groups_by(groups, args.sort_by)
+    else:
         if dimensions is not None:
             group_values_copy = group_values.copy()
             for dim in reversed(list(group_values[0].keys())):
@@ -282,8 +292,6 @@ def main(models, args, filter_):
                 group_values_copy = [group_values_copy[i] for i in i_sorted]
         else:
             raise ValueError("Can't sort by dims when no dim is provided")
-    elif args.sort_by is not None:
-        raise ValueError('Unrecognized sort-by argument, must be pesq or dims')
 
     if args.top is not None:
         groups = groups[-args.top:]
