@@ -213,6 +213,9 @@ class H5Dataset(torch.utils.data.Dataset):
         self.file_based_stats = file_based_stats
         self.prestack = prestack
         self.filepath = os.path.join(dirpath, 'dataset.hdf5')
+        self._prestacked = False
+        self.datasets = None
+        self.filenum_array = None
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
             # calculate number of samples
@@ -235,10 +238,13 @@ class H5Dataset(torch.utils.data.Dataset):
             else:
                 self.label_indices = self.get_label_indices()
                 self.n_labels = sum(j-i for i, j in self.label_indices)
+            if self.load:
+                self.datasets = (f['features'][:], f['labels'][:])
+                self.filenum_array = f['indexes'][:]
+                if self.prestack:
+                    self.datasets = self[:]
+                    self._prestacked = True
         self.file_indices = self.get_file_indices()
-        self.datasets = None
-        self.filenum_array = None
-        self._prestacked = False
 
     def get_feature_indices(self):
         pipes_path = os.path.join(self.dirpath, 'pipes.pkl')
