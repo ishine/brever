@@ -69,6 +69,6 @@ def defaults():
     config = AttrDict(dict_)
     user_defaults_path = 'defaults_user.yaml'
     if os.path.exists(user_defaults_path):
-        with open() as f:
+        with open(user_defaults_path) as f:
             config.update(yaml.safe_load(f))
     return config
