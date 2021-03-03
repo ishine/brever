@@ -43,6 +43,7 @@ POST:
   DCT:
     NCOEFF: 5
     'ON': false
+  PRESTACK: false
 PRE:
   FEATURES: !!set
     # ild: null

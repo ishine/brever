@@ -196,7 +196,7 @@ class H5Dataset(torch.utils.data.Dataset):
     '''
     def __init__(self, dirpath, features=None, labels=None, load=False,
                  transform=None, stack=0, decimation=1, dct_toggle=False,
-                 n_dct=5, file_based_stats=False):
+                 n_dct=5, file_based_stats=False, prestack=False):
         if features is not None:
             features = sorted(features)
         if labels is not None:
@@ -211,8 +211,7 @@ class H5Dataset(torch.utils.data.Dataset):
         self.dct_toggle = dct_toggle
         self.n_dct = n_dct
         self.file_based_stats = file_based_stats
-        self.datasets = None
-        self.filenum_array = None
+        self.prestack = prestack
         self.filepath = os.path.join(dirpath, 'dataset.hdf5')
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
@@ -236,10 +235,10 @@ class H5Dataset(torch.utils.data.Dataset):
             else:
                 self.label_indices = self.get_label_indices()
                 self.n_labels = sum(j-i for i, j in self.label_indices)
-            if self.load:
-                self.datasets = (f['features'][:], f['labels'][:])
-                self.filenum_array = f['indexes'][:]
         self.file_indices = self.get_file_indices()
+        self.datasets = None
+        self.filenum_array = None
+        self._prestacked = False
 
     def get_feature_indices(self):
         pipes_path = os.path.join(self.dirpath, 'pipes.pkl')
@@ -279,9 +278,14 @@ class H5Dataset(torch.utils.data.Dataset):
             if self.load:
                 self.datasets = (f['features'][:], f['labels'][:])
                 self.filenum_array = f['indexes'][:]
+                if self.prestack:
+                    self.datasets = self[:]
+                    self._prestacked = True
             else:
                 self.datasets = (f['features'], f['labels'])
                 self.filenum_array = f['indexes']
+        if self._prestacked:
+            return self.datasets[0][index], self.datasets[1][index]
         if isinstance(index, int):
             # features
             x = np.empty(self.n_features)

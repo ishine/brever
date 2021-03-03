@@ -133,6 +133,7 @@ def main(model_dir, force, no_cuda):
         dct_toggle=config.POST.DCT.ON,
         n_dct=config.POST.DCT.NCOEFF,
         file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
+        prestack=config.POST.PRESTACK,
     )
     val_dataset = H5Dataset(
         dirpath=config.POST.PATH.VAL,
@@ -144,6 +145,7 @@ def main(model_dir, force, no_cuda):
         dct_toggle=config.POST.DCT.ON,
         n_dct=config.POST.DCT.NCOEFF,
         file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
+        prestack=config.POST.PRESTACK,
     )
     logging.info(f'Number of features: {train_dataset.n_features}')
 
@@ -213,6 +215,7 @@ def main(model_dir, force, no_cuda):
             dct_toggle=config.POST.DCT.ON,
             n_dct=config.POST.DCT.NCOEFF,
             file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
+            prestack=config.POST.PRESTACK,
         )
         test_dataloader = torch.utils.data.DataLoader(
             dataset=test_dataset,

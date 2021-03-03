@@ -106,6 +106,7 @@ def main(model_dir, args):
                 dct_toggle=config.POST.DCT.ON,
                 n_dct=config.POST.DCT.NCOEFF,
                 file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
+                prestack=config.POST.PRESTACK,
             )
             test_dataloader = torch.utils.data.DataLoader(
                 dataset=test_dataset,
