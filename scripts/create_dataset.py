@@ -223,10 +223,10 @@ def main(dataset_dir, force):
 
         # apply label and reverse filter to obtain oracle signals
         if config.PRE.MIXTURES.SAVE:
-            for (i_start, i_end), label in zip(labelExtractor.indices,
+            for (i_start_, i_end_), label in zip(labelExtractor.indices,
                                                labelExtractor.labels):
                 mixOracle = copy.deepcopy(mixCopy)
-                mask = label_mat[:, i_start:i_end]
+                mask = label_mat[:, i_start_:i_end_]
                 mask = wola(mask, trim=len(mixOracle))
                 mask = mask[:, :, np.newaxis]
                 mixOracle.transform(partial(np.multiply, mask))
