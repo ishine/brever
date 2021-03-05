@@ -88,6 +88,8 @@ class Filterbank:
         return x_filt.squeeze()
 
     def rfilt(self, x_filt):
+        if x_filt.ndim == 2:
+            x_filt = x_filt[:, :, np.newaxis]
         x = np.zeros((len(x_filt), x_filt.shape[2]))
         for i in range(self.n_filters):
             x += scipy.signal.lfilter(self.b[i], self.a[i], x_filt[::-1, i, :],
