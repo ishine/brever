@@ -99,7 +99,7 @@ def gammatone_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, order=4):
     return filt(x, 'gammatone', n_filters, f_min, f_max, fs, order)
 
 
-def mel_iir(f_low, f_high, fs=16e3, order=4):
+def mel_iir(f_low, f_high, fs=16e3, order=4, output='ba'):
     '''
     Coefficients for a bandpass Butterworth filter.
 
@@ -112,20 +112,29 @@ def mel_iir(f_low, f_high, fs=16e3, order=4):
             Sampling frequency.
         order:
             Filter order.
+        output:
+            Type of output: numerator/denominator ('ba'), pole-zero ('zpk'), or
+            second-order sections ('sos').
 
     Returns:
-        b:
-            Numerator coefficients.
-        a:
-            Denominator coefficients.
+        b, a:
+            Numerator and denominator coefficients of the IIR filter. Only
+            returned if `output='ba'`.
+        z, p, k:
+            Zeros, poles, and system gain of the IIR filter transfer function.
+            Only returned if `output='zpk'`.
+        sos:
+            Second-order sections representation of the IIR filter. Only
+            returned if `output=='sos'`.
     '''
     if order % 2 != 0:
         raise ValueError('order must be even')
-    b, a = scipy.signal.butter(order//2, [f_low, f_high], 'bandpass', fs=fs)
-    return b, a
+    return scipy.signal.butter(order//2, [f_low, f_high], 'bandpass', fs=fs,
+                               output=output)
 
 
-def mel_filterbank(n_filters=64, f_min=50, f_max=8000, fs=16e3, order=4):
+def mel_filterbank(n_filters=64, f_min=50, f_max=8000, fs=16e3, order=4,
+                   output='ba'):
     '''
     Coefficients for a bank of Butterworth filters equally spaced on a mel
     scale.
@@ -141,12 +150,20 @@ def mel_filterbank(n_filters=64, f_min=50, f_max=8000, fs=16e3, order=4):
             Sampling frequency.
         order:
             Order of the filters.
+        output:
+            Type of output: numerator/denominator ('ba'), pole-zero ('zpk'), or
+            second-order sections ('sos').
 
     Returns:
-        b:
-            Numerator coefficients. Size n_filters*(order+1).
-        a:
-            Denominator coefficients. Size n_filters*(order+1).
+        b, a:
+            Numerator and denominator coefficients of the IIR filter. Only
+            returned if `output='ba'`.
+        z, p, k:
+            Zeros, poles, and system gain of the IIR filter transfer function.
+            Only returned if `output='zpk'`.
+        sos:
+            Second-order sections representation of the IIR filter. Only
+            returned if `output=='sos'`.
         fc:
             Center frequencies.
     '''
@@ -156,10 +173,10 @@ def mel_filterbank(n_filters=64, f_min=50, f_max=8000, fs=16e3, order=4):
     fc = f_all[1:-1]
     f_low = np.sqrt(f_all[:-2]*fc)
     f_high = np.sqrt(fc*f_all[2:])
-    b, a = np.zeros((2, n_filters, order+1))
+    filters = []
     for i in range(n_filters):
-        b[i], a[i] = mel_iir(f_low[i], f_high[i], fs, order)
-    return b, a, fc
+        filters.append(mel_iir(f_low[i], f_high[i], fs, order, output))
+    return filters, fc
 
 
 def mel_filt(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, order=4):

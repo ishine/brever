@@ -7,6 +7,7 @@ import sys
 import re
 import subprocess
 import shutil
+import time
 
 import yaml
 import numba  # noqa: F401
@@ -20,6 +21,7 @@ from brever.utils import wola, segmental_scores
 from brever.pytorchtools import (Feedforward, H5Dataset, TensorStandardizer,
                                  evaluate, get_files_mean_and_std,
                                  StateTensorStandardizer)
+from brever.classes import MultiThreadFilterbank
 
 
 def main(model_dir, args):
@@ -77,6 +79,8 @@ def main(model_dir, args):
     rooms = sorted(set(r.match(dir_).group(2) for dir_ in dirs_))
 
     # main loop
+    enhancement_time = 0
+    n_mixtures_enhanced = 0
     MSE = np.empty((len(snrs), len(rooms)))
     seg_scores = np.empty((len(snrs), len(rooms)), dtype=object)
     seg_scores_oracle = np.empty((len(snrs), len(rooms)), dtype=object)
@@ -94,6 +98,15 @@ def main(model_dir, args):
                 pipes = pickle.load(f)
             scaler = pipes['scaler']
             filterbank = pipes['filterbank']
+
+            filterbank = MultiThreadFilterbank(
+                kind=filterbank.kind,
+                n_filters=filterbank.n_filters,
+                f_min=filterbank.f_min,
+                f_max=filterbank.f_max,
+                fs=filterbank.fs,
+                order=filterbank.order,
+            )
 
             # initialize dataset and dataloader
             test_dataset = H5Dataset(
@@ -137,18 +150,25 @@ def main(model_dir, args):
 
             # enhance mixtures for PESQ calculation
             with h5py.File(test_dataset.filepath, 'r') as f:
-                n = len(f['mixtures'])
+                n = len(f['mixture'])
                 seg_scores_i_j = np.zeros((n, 4))
                 seg_scores_oracle_i_j = np.zeros((n, 4))
                 for k in range(n):
-                    logging.info(f'Enhancing mixture {k}/{n}...')
+                    start_time = time.time()
+                    if k == 0:
+                        logging.info(f'Enhancing mixture {k}/{n}...')
+                    else:
+                        time_per_mix = enhancement_time/n_mixtures_enhanced
+                        logging.info(f'Enhancing mixture {k}/{n}... '
+                                     f'Average enhancement time: '
+                                     f'{time_per_mix:.2f}')
 
                     # load mixture
-                    mixture = f['mixtures'][k].reshape(-1, 2)
-                    foreground = f['foregrounds'][k].reshape(-1, 2)
-                    background = f['backgrounds'][k].reshape(-1, 2)
-                    noise = f['noises'][k].reshape(-1, 2)
-                    reverb = f['reverbs'][k].reshape(-1, 2)
+                    mixture = f['mixture'][k].reshape(-1, 2)
+                    foreground = f['foreground'][k].reshape(-1, 2)
+                    background = f['background'][k].reshape(-1, 2)
+                    noise = f['noise'][k].reshape(-1, 2)
+                    reverb = f['late_target'][k].reshape(-1, 2)
                     i_start, i_end = test_dataset.file_indices[k]
 
                     # scale signal
@@ -184,19 +204,19 @@ def main(model_dir, args):
                     # extrapolate predicted mask
                     PRM = wola(PRM, trim=len(mixture_filt))[:, :, np.newaxis]
 
-                    # apply predicted mask and shadow filter
+                    # apply predicted mask and reverse filter
                     mixture_enhanced = filterbank.rfilt(mixture_filt*PRM)
                     foreground_enhanced = filterbank.rfilt(foreground_filt*PRM)
                     background_enhanced = filterbank.rfilt(background_filt*PRM)
                     noise_enhanced = filterbank.rfilt(noise_filt*PRM)
                     reverb_enhanced = filterbank.rfilt(reverb_filt*PRM)
 
-                    # make reference signals
-                    mixture_ref = filterbank.rfilt(mixture_filt)
-                    foreground_ref = filterbank.rfilt(foreground_filt)
-                    background_ref = filterbank.rfilt(background_filt)
-                    noise_ref = filterbank.rfilt(noise_filt)
-                    reverb_ref = filterbank.rfilt(reverb_filt)
+                    # load reference signals
+                    mixture_ref = f['mixture_ref'][k].reshape(-1, 2)
+                    foreground_ref = f['foreground_ref'][k].reshape(-1, 2)
+                    background_ref = f['background_ref'][k].reshape(-1, 2)
+                    noise_ref = f['noise_ref'][k].reshape(-1, 2)
+                    reverb_ref = f['late_target_ref'][k].reshape(-1, 2)
 
                     # segmental SNRs
                     segSSNR, segBR, segNR, segRR = segmental_scores(
@@ -232,28 +252,24 @@ def main(model_dir, args):
                         config.PRE.FS,
                     )
 
-                    # now repeat but with oracle mask to obtain oracle scores
-                    #
-                    # extrapolate oracle mask
-                    IRM = wola(IRM, trim=len(mixture_filt))[:, :, np.newaxis]
-
-                    # apply oracle mask and shadow filter
-                    mixture_enhanced = filterbank.rfilt(mixture_filt*IRM)
-                    foreground_enhanced = filterbank.rfilt(foreground_filt*IRM)
-                    background_enhanced = filterbank.rfilt(background_filt*IRM)
-                    noise_enhanced = filterbank.rfilt(noise_filt*IRM)
-                    reverb_enhanced = filterbank.rfilt(reverb_filt*IRM)
+                    # load oracle signals
+                    _tag = f'oracle_{next(iter(config.POST.LABELS))}'
+                    mixture_o = f[f'mixture_{_tag}'][k].reshape(-1, 2)
+                    foreground_o = f[f'foreground_{_tag}'][k].reshape(-1, 2)
+                    background_o = f[f'background_{_tag}'][k].reshape(-1, 2)
+                    noise_o = f[f'noise_{_tag}'][k].reshape(-1, 2)
+                    reverb_o = f[f'late_target_{_tag}'][k].reshape(-1, 2)
 
                     # segmental SNRs
                     segSSNR, segBR, segNR, segRR = segmental_scores(
                         foreground_ref,
-                        foreground_enhanced,
+                        foreground_o,
                         background_ref,
-                        background_enhanced,
+                        background_o,
                         noise_ref,
-                        noise_enhanced,
+                        noise_o,
                         reverb_ref,
-                        reverb_enhanced,
+                        reverb_o,
                     )
                     seg_scores_oracle_i_j[k, :] = segSSNR, segBR, segNR, segRR
 
@@ -263,9 +279,13 @@ def main(model_dir, args):
                         os.makedirs(output_dir)
                     sf.write(
                         os.path.join(output_dir, f'mixture_oracle_{k}.wav'),
-                        mixture_enhanced*gain,
+                        mixture_o*gain,
                         config.PRE.FS,
                     )
+
+                    # measure time
+                    enhancement_time += time.time() - start_time
+                    n_mixtures_enhanced += 1
 
             seg_scores[i, j] = seg_scores_i_j
             seg_scores_oracle[i, j] = seg_scores_oracle_i_j

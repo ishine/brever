@@ -68,8 +68,8 @@ PRE:
   FS: 16000
   LABELS: !!set
     tmr : null
-    tnr : null
-    trr : null
+    # tnr : null
+    # trr : null
   MIXTURES:
     DECAY:
       COLOR: white

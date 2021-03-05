@@ -1,7 +1,10 @@
+import queue
+import threading
 import numpy as np
-import scipy.signal
+from scipy.signal import lfilter, sosfilt
 import random
 import re
+from functools import partial
 
 from .utils import pca, frame, rms
 from .filters import mel_filterbank, gammatone_filterbank
@@ -60,22 +63,29 @@ class UnitRMSScaler:
 
 
 class Filterbank:
-    def __init__(self, kind, n_filters, f_min, f_max, fs, order):
+    def __init__(self, kind, n_filters, f_min, f_max, fs, order, output='ba'):
+        if output not in ['ba', 'sos']:
+            raise ValueError('only "ba" and "sos" outputs are not supported, '
+                             f'got "{output}"')
+        if output != 'ba' and kind == 'gammatone':
+            raise ValueError('only "ba" output is supported for gammatone '
+                             f'filterbank, got "{output}"')
         self.kind = kind
         self.n_filters = n_filters
         self.f_min = f_min
         self.f_max = f_max
         self.fs = fs
         self.order = order
+        self.output = output
         if kind == 'mel':
-            b, a, fc = mel_filterbank(n_filters, f_min, f_max, fs, order)
+            self.filters, self.fc = mel_filterbank(n_filters, f_min, f_max, fs,
+                                                   order, output)
         elif kind == 'gammatone':
-            b, a, fc = gammatone_filterbank(n_filters, f_min, f_max, fs, order)
+            self.filters, self.fc = gammatone_filterbank(n_filters, f_min,
+                                                         f_max, fs, order)
         else:
-            raise ValueError('filter_type must be mel or gammatone')
-        self.b = b
-        self.a = a
-        self.fc = fc
+            raise ValueError('filtertype must be "mel" or "gammatone", got '
+                             f'"{kind}"')
 
     def filt(self, x):
         if x.ndim == 1:
@@ -83,8 +93,12 @@ class Filterbank:
         n_samples, n_channels = x.shape
         x_filt = np.zeros((n_samples, self.n_filters, n_channels))
         for i in range(self.n_filters):
-            x_filt[:, i, :] = scipy.signal.lfilter(self.b[i], self.a[i], x,
-                                                   axis=0)
+            if self.output == 'ba':
+                filter_func = partial(lfilter, self.filters[i][0],
+                                      self.filters[i][1], axis=0)
+            elif self.output == 'sos':
+                filter_func = partial(sosfilt, self.filters[i], axis=0)
+            x_filt[:, i, :] = filter_func(x)
         return x_filt.squeeze()
 
     def rfilt(self, x_filt):
@@ -92,8 +106,76 @@ class Filterbank:
             x_filt = x_filt[:, :, np.newaxis]
         x = np.zeros((len(x_filt), x_filt.shape[2]))
         for i in range(self.n_filters):
-            x += scipy.signal.lfilter(self.b[i], self.a[i], x_filt[::-1, i, :],
-                                      axis=0)
+            if self.output == 'ba':
+                filter_func = partial(lfilter, self.filters[i][0],
+                                      self.filters[i][1], axis=0)
+            elif self.output == 'sos':
+                filter_func = partial(sosfilt, self.filters[i], axis=0)
+            else:
+                raise ValueError('wrong output type')
+            x += filter_func(x_filt[::-1, i, :])
+        return x[::-1].squeeze()
+
+
+class MultiThreadFilterbank(Filterbank):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _thread_target(self, q, filter_, x):
+        if self.output == 'ba':
+            q.put(lfilter(filter_[0], filter_[1], x, axis=0))
+        elif self.output == 'sos':
+            q.put(sosfilt(filter_, x, axis=0))
+        else:
+            raise ValueError('wrong output type')
+
+    def filt(self, x):
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
+
+        q = queue.Queue()
+
+        n_samples, n_channels = x.shape
+        for i in range(self.n_filters):
+            t = threading.Thread(
+                target=self._thread_target,
+                args=(
+                    q,
+                    self.filters[i],
+                    x,
+                ),
+            )
+            t.daemon = True
+            t.start()
+
+        x_filt = np.zeros((n_samples, self.n_filters, n_channels))
+        for i in range(self.n_filters):
+            x_filt[:, i, :] = q.get()
+
+        return x_filt.squeeze()
+
+    def rfilt(self, x_filt):
+        if x_filt.ndim == 2:
+            x_filt = x_filt[:, :, np.newaxis]
+
+        q = queue.Queue()
+
+        for i in range(self.n_filters):
+            t = threading.Thread(
+                target=self._thread_target,
+                args=(
+                    q,
+                    self.filters[i],
+                    x_filt[::-1, i, :],
+                ),
+            )
+            t.daemon = True
+            t.start()
+
+        x = np.zeros((len(x_filt), x_filt.shape[2]))
+        for i in range(self.n_filters):
+            x += q.get()
+
         return x[::-1].squeeze()
 
 

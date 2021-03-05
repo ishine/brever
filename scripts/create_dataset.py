@@ -8,6 +8,8 @@ import pickle
 import random
 from glob import glob
 import sys
+import copy
+from functools import partial
 
 import yaml
 import numpy as np
@@ -19,6 +21,7 @@ import soundfile as sf
 from brever.config import defaults
 from brever.classes import (Standardizer, Filterbank, Framer, FeatureExtractor,
                             LabelExtractor, RandomMixtureMaker, UnitRMSScaler)
+from brever.utils import wola
 
 
 def main(dataset_dir, force):
@@ -139,30 +142,30 @@ def main(dataset_dir, force):
     # main loop intialization
     features = []
     labels = []
-    mixtures = []
-    foregrounds = []
-    backgrounds = []
-    noises = []
-    reverbs = []
+    components = {}
+    component_names = [
+        'mixture',
+        'foreground',
+        'background',
+        'noise',
+        'late_target',
+    ]
+    for name in component_names:
+        components[name] = []
+        components[f'{name}_ref'] = []
+        for label in labelExtractor.labels:
+            components[f'{name}_oracle_{label}'] = []
     metadatas = []
     i_start = 0
     total_time = 0
     start_time = time.time()
     n_examples = min(10, config.PRE.MIXTURES.NUMBER)
     examples = []
-    examples_index = random.sample(range(config.PRE.MIXTURES.NUMBER),
-                                   n_examples)
-
-    # SEED AGAIN FOR REPRODUCIBILITY BECAUSE RANDOMIZING THE EXAMPLE INDEXES
-    # LEADS TO DIFFERENT SEEDS COMING INTO THE RANDOMMIXTUREMAKER OBJECT FOR
-    # TWO IDENTICAL DATASETS WITH DIFFERENT NUMBER OF MIXTURES!!!
-    #
-    # This was probably fixed after having implemented the independent random
-    # generators for each random parameter, but I am leaving it for safety
-    if config.PRE.SEED.ON:
-        random.seed(config.PRE.SEED.VALUE)
-
+    examples_index = random.Random(0).sample(range(config.PRE.MIXTURES.NUMBER),
+                                             n_examples)
     examples_index.sort()
+
+    # main loop
     for i in range(config.PRE.MIXTURES.NUMBER):
 
         # estimate time remaining and show progress
@@ -176,38 +179,72 @@ def main(dataset_dir, force):
                           f'ETR: {int(etr/60)} m {int(etr%60)} s'))
 
         # make mixture and save
-        mixtureObject, metadata = randomMixtureMaker.make()
+        mixObject, metadata = randomMixtureMaker.make()
         if config.PRE.MIXTURES.SAVE:
-            mixtures.append(mixtureObject.mixture.flatten())
-            foregrounds.append(mixtureObject.foreground.flatten())
-            backgrounds.append(mixtureObject.background.flatten())
-            noises.append(mixtureObject.noise.flatten())
-            reverbs.append(mixtureObject.late_target.flatten())
+            for name in component_names:
+                components[name].append(
+                    getattr(mixObject, name).flatten()
+                )
         if i in examples_index:
-            examples.append(mixtureObject.mixture.flatten())
+            examples.append(mixObject.mixture.flatten())
 
         # scale signal
-        scaler.fit(mixtureObject.mixture)
-        mixtureObject.transform(scaler.scale)
+        scaler.fit(mixObject.mixture)
+        mixObject.transform(scaler.scale)
+        metadata['rms_scaler_gain'] = scaler.gain
         scaler.__init__(scaler.active)
 
         # apply filterbank
-        mixtureObject.transform(filterbank.filt)
+        mixObject.transform(filterbank.filt)
+
+        # reverse filter to obtain reference signals and save
+        if config.PRE.MIXTURES.SAVE:
+            mixRef = copy.deepcopy(mixObject)
+            mixRef.transform(filterbank.rfilt)
+            for name in component_names:
+                components[f'{name}_ref'].append(
+                    getattr(mixRef, name).flatten()
+                )
+            del mixRef
+
+        # keep a copy of the mixture object for later
+        if config.PRE.MIXTURES.SAVE:
+            mixCopy = copy.deepcopy(mixObject)
 
         # frame
-        mixtureObject.transform(framer.frame)
+        mixObject.transform(framer.frame)
 
         # extract features
-        features.append(featureExtractor.run(mixtureObject.mixture))
+        features.append(featureExtractor.run(mixObject.mixture))
 
         # extract labels
-        labels.append(labelExtractor.run(mixtureObject))
+        label_mat = labelExtractor.run(mixObject)
+        labels.append(label_mat)
+
+        # apply label and reverse filter to obtain oracle signals
+        if config.PRE.MIXTURES.SAVE:
+            for (i_start, i_end), label in zip(labelExtractor.indices,
+                                               labelExtractor.labels):
+                mixOracle = copy.deepcopy(mixCopy)
+                mask = label_mat[:, i_start:i_end]
+                mask = wola(mask, trim=len(mixOracle))
+                mask = mask[:, :, np.newaxis]
+                mixOracle.transform(partial(np.multiply, mask))
+                mixOracle.transform(filterbank.rfilt)
+                for name in component_names:
+                    components[f'{name}_oracle_{label}'].append(
+                        getattr(mixOracle, name).flatten()
+                    )
+            del mixOracle
+            del mixCopy
 
         # save indices
-        i_end = i_start + len(mixtureObject)
+        i_end = i_start + len(mixObject)
         metadata['dataset_indices'] = (i_start, i_end)
-        metadatas.append(metadata)
         i_start = i_end
+
+        # save metadata
+        metadatas.append(metadata)
 
         # update time spent
         total_time = time.time() - start_time
@@ -228,31 +265,12 @@ def main(dataset_dir, force):
         f.create_dataset('labels', data=labels)
         f.create_dataset('indexes', data=indexes)
         if config.PRE.MIXTURES.SAVE:
-            f.create_dataset(
-                'mixtures',
-                data=np.array(mixtures, dtype=object),
-                dtype=h5py.vlen_dtype(float),
-            )
-            f.create_dataset(
-                'foregrounds',
-                data=np.array(foregrounds, dtype=object),
-                dtype=h5py.vlen_dtype(float),
-            )
-            f.create_dataset(
-                'backgrounds',
-                data=np.array(backgrounds, dtype=object),
-                dtype=h5py.vlen_dtype(float),
+            for key, value in components.items():
+                f.create_dataset(
+                    key,
+                    data=np.array(value, dtype=object),
+                    dtype=h5py.vlen_dtype(float),
                 )
-            f.create_dataset(
-                'noises',
-                data=np.array(noises, dtype=object),
-                dtype=h5py.vlen_dtype(float),
-            )
-            f.create_dataset(
-                'reverbs',
-                data=np.array(reverbs, dtype=object),
-                dtype=h5py.vlen_dtype(float),
-            )
 
     # save mixtures metadata
     metadatas_output_path = os.path.join(dataset_dir, 'mixture_info.json')
