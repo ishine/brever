@@ -121,11 +121,11 @@ class MultiThreadFilterbank(Filterbank):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _thread_target(self, q, filter_, x):
+    def _thread_target(self, q, filter_, x, i):
         if self.output == 'ba':
-            q.put(lfilter(filter_[0], filter_[1], x, axis=0))
+            q.put((i, lfilter(filter_[0], filter_[1], x, axis=0)))
         elif self.output == 'sos':
-            q.put(sosfilt(filter_, x, axis=0))
+            q.put((i, sosfilt(filter_, x, axis=0)))
         else:
             raise ValueError('wrong output type')
 
@@ -143,14 +143,16 @@ class MultiThreadFilterbank(Filterbank):
                     q,
                     self.filters[i],
                     x,
+                    i,
                 ),
             )
             t.daemon = True
             t.start()
 
         x_filt = np.zeros((n_samples, self.n_filters, n_channels))
-        for i in range(self.n_filters):
-            x_filt[:, i, :] = q.get()
+        for j in range(self.n_filters):
+            i, data = q.get()
+            x_filt[:, i, :] = data
 
         return x_filt.squeeze()
 
@@ -167,14 +169,16 @@ class MultiThreadFilterbank(Filterbank):
                     q,
                     self.filters[i],
                     x_filt[::-1, i, :],
+                    i
                 ),
             )
             t.daemon = True
             t.start()
 
         x = np.zeros((len(x_filt), x_filt.shape[2]))
-        for i in range(self.n_filters):
-            x += q.get()
+        for j in range(self.n_filters):
+            i, data = q.get()
+            x += data
 
         return x[::-1].squeeze()
 
