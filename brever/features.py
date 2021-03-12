@@ -257,11 +257,11 @@ def itd_ic(x, filtered=False, filt_kwargs=None, framed=False,
 
 
 def logmfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
-            filt_kwargs=None, framed=False, frame_kwargs=None):
+            filt_kwargs=None, framed=False, frame_kwargs=None, energy=None):
     """
     Mel-frequency cepstral coefficients.
 
-    Calculates the mel-frequency cepstral coefficients (MFCC) DC term is not
+    Calculates the mel-frequency cepstral coefficients (MFCC). DC term is not
     returned. Deltas and double deltas are also returned. Uses logarithmic
     compression.
 
@@ -295,16 +295,20 @@ def logmfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
         Keyword arguments passed to `~utils.frame`. Used only if `framed` is
         `False`. Default is `None`, which means no keyword arguments are
         passed.
+    energy : array_like
+        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
+        Default is None.
 
     Returns
     -------
     mfcc : array_like
         Mel-frequency cepstral coefficients. Shape `(n_frames, n_mfcc*3)`.
     """
-    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-    x = x.mean(axis=-1)  # average channels
-    energy = x**2  # get energy
-    energy = energy.mean(axis=1)  # average each frame
+    if energy is None:
+        x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+        x = x.mean(axis=-1)  # average channels
+        energy = x**2  # get energy
+        energy = energy.mean(axis=1)  # average each frame
     energy_comp = np.log(energy + np.nextafter(0, 1))
     mfcc = scipy.fftpack.dct(energy_comp, axis=1, type=dct_type, norm=norm)
     mfcc = mfcc[:, 1:n_mfcc+1]
@@ -314,11 +318,12 @@ def logmfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
 
 
 def cubicmfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
-              filt_kwargs=None, framed=False, frame_kwargs=None):
+              filt_kwargs=None, framed=False, frame_kwargs=None,
+              energy=None):
     """
     Mel-frequency cepstral coefficients.
 
-    Calculates the mel-frequency cepstral coefficients (MFCC) DC term is not
+    Calculates the mel-frequency cepstral coefficients (MFCC). DC term is not
     returned. Deltas and double deltas are also returned. Uses cubic
     compression.
 
@@ -352,16 +357,20 @@ def cubicmfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
         Keyword arguments passed to `~utils.frame`. Used only if `framed` is
         `False`. Default is `None`, which means no keyword arguments are
         passed.
+    energy : array_like
+        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
+        Default is None.
 
     Returns
     -------
     mfcc : array_like
         Mel-frequency cepstral coefficients. Shape `(n_frames, n_mfcc*3)`.
     """
-    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-    x = x.mean(axis=-1)  # average channels
-    energy = x**2  # get energy
-    energy = energy.mean(axis=1)  # average each frame
+    if energy is None:
+        x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+        x = x.mean(axis=-1)  # average channels
+        energy = x**2  # get energy
+        energy = energy.mean(axis=1)  # average each frame
     energy_comp = energy**(1/3)
     mfcc = scipy.fftpack.dct(energy_comp, axis=1, type=dct_type, norm=norm)
     mfcc = mfcc[:, 1:n_mfcc+1]
@@ -371,7 +380,7 @@ def cubicmfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
 
 
 def pdf(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None,
-        log=False):
+        log=False, energy=None):
     """
     Probability density function estimate.
 
@@ -403,16 +412,20 @@ def pdf(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None,
     log : bool, optional
         If `True`, logarithmic compression is applied to the output. Default is
         `False`.
+    energy : array_like
+        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
+        Default is None.
 
     Returns
     -------
     pdf : array_like
         Probability density function estimate. Shape `(n_frames, n_filters)`.
     """
-    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-    x = x.mean(axis=-1)  # average channels
-    energy = x**2  # get energy
-    energy = energy.mean(axis=1)  # average each frame
+    if energy is None:
+        x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+        x = x.mean(axis=-1)  # average channels
+        energy = x**2  # get energy
+        energy = energy.mean(axis=1)  # average each frame
     total_energy = energy.sum(axis=1, keepdims=True)  # energy across bands
     pdf = energy/(total_energy + np.nextafter(0, 1))  # normalization
     if log:
@@ -421,7 +434,8 @@ def pdf(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None,
 
 
 def pdfcc(x, n_pdfcc=13, dct_type=2, norm='ortho', filtered=False,
-          filt_kwargs=None, framed=False, frame_kwargs=None):
+          filt_kwargs=None, framed=False, frame_kwargs=None,
+          energy=None):
     """
     DCT-compressed PDF feature
 
@@ -460,16 +474,20 @@ def pdfcc(x, n_pdfcc=13, dct_type=2, norm='ortho', filtered=False,
         Keyword arguments passed to `~utils.frame`. Used only if `framed` is
         `False`. Default is `None`, which means no keyword arguments are
         passed.
+    energy : array_like
+        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
+        Default is None.
 
     Returns
     -------
     pdfcc : array_like
         DCT-compressed PDF feature. Shape `(n_frames, n_pdfcc*3)`.
     """
-    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-    x = x.mean(axis=-1)  # average channels
-    energy = x**2  # get energy
-    energy = energy.mean(axis=1)  # average each frame
+    if energy is None:
+        x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+        x = x.mean(axis=-1)  # average channels
+        energy = x**2  # get energy
+        energy = energy.mean(axis=1)  # average each frame
     total_energy = energy.sum(axis=1, keepdims=True)  # energy across bands
     energy = energy/(total_energy + np.nextafter(0, 1))  # normalization
     log_energy = np.log(energy + np.nextafter(0, 1))
@@ -481,7 +499,7 @@ def pdfcc(x, n_pdfcc=13, dct_type=2, norm='ortho', filtered=False,
 
 
 def logpdf(x, filtered=False, filt_kwargs=None, framed=False,
-           frame_kwargs=None):
+           frame_kwargs=None, energy=None):
     """
     Log-compressed probability density function estimate.
 
@@ -510,6 +528,9 @@ def logpdf(x, filtered=False, filt_kwargs=None, framed=False,
         Keyword arguments passed to `~utils.frame`. Used only if `framed` is
         `False`. Default is `None`, which means no keyword arguments are
         passed.
+    energy : array_like
+        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
+        Default is None.
 
     Returns
     -------
@@ -518,11 +539,11 @@ def logpdf(x, filtered=False, filt_kwargs=None, framed=False,
         `(n_frames, n_filters)`.
     """
     return pdf(x, filtered=filtered, filt_kwargs=filt_kwargs, framed=framed,
-               frame_kwargs=frame_kwargs, log=True)
+               frame_kwargs=frame_kwargs, log=True, energy=energy)
 
 
 def fbe(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None,
-        log=False):
+        log=False, energy=None):
     """
     Filterbank energies.
 
@@ -553,23 +574,27 @@ def fbe(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None,
     log : bool, optional
         If `True`, logarithmic compression is applied to the output. Default is
         `False`.
+    energy : array_like
+        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
+        Default is None.
 
     Returns
     -------
     fbe : array_like
         Filterbank energies. Shape `(n_frames, n_filters)`.
     """
-    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-    x = x.mean(axis=-1)  # average channels
-    energy = x**2  # get energy
-    fbe = energy.mean(axis=1)  # average each frame
+    if energy is None:
+        x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
+        x = x.mean(axis=-1)  # average channels
+        energy = x**2  # get energy
+        energy = energy.mean(axis=1)  # average each frame
     if log:
-        fbe = np.log(fbe + np.nextafter(0, 1))
-    return fbe
+        energy = np.log(energy + np.nextafter(0, 1))
+    return energy
 
 
 def logfbe(x, filtered=False, filt_kwargs=None, framed=False,
-           frame_kwargs=None):
+           frame_kwargs=None, energy=None):
     """
     Log-compressed filterbank energies.
 
@@ -598,6 +623,9 @@ def logfbe(x, filtered=False, filt_kwargs=None, framed=False,
         Keyword arguments passed to `~utils.frame`. Used only if `framed` is
         `False`. Default is `None`, which means no keyword arguments are
         passed.
+    energy : array_like
+        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
+        Default is None.
 
     Returns
     -------
@@ -605,7 +633,7 @@ def logfbe(x, filtered=False, filt_kwargs=None, framed=False,
         Log-compressed filterbank energies. Shape `(n_frames, n_filters)`.
     """
     return fbe(x, filtered=filtered, filt_kwargs=filt_kwargs, framed=framed,
-               frame_kwargs=frame_kwargs, log=True)
+               frame_kwargs=frame_kwargs, log=True, energy=energy)
 
 
 def _check_input(x, filtered=False, filt_kwargs=None, framed=False,

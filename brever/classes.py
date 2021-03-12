@@ -5,6 +5,7 @@ from scipy.signal import lfilter, sosfilt
 import random
 import re
 from functools import partial
+import inspect
 
 from .utils import pca, frame, rms
 from .filters import mel_filterbank, gammatone_filterbank
@@ -202,10 +203,21 @@ class FeatureExtractor:
         self.indices = None
 
     def run(self, x):
+        # pre-compute energy
+        x = x.mean(axis=-1)  # average channels
+        energy = x**2  # get energy
+        energy = energy.mean(axis=1)  # average each frame
+        # main loop
         output = []
         for feature in self.features:
             feature_func = getattr(features_module, feature)
-            output.append(feature_func(x, filtered=True, framed=True))
+            argspec = inspect.getfullargspec(feature_func)
+            if 'energy' in argspec.args:
+                featmat = feature_func(x, filtered=True, framed=True,
+                                       energy=energy)
+            else:
+                featmat = feature_func(x, filtered=True, framed=True)
+            output.append(featmat)
         self.indices = []
         i_start = 0
         for feature_set in output:

@@ -19,8 +19,9 @@ import h5py
 import soundfile as sf
 
 from brever.config import defaults
-from brever.classes import (Standardizer, Filterbank, Framer, FeatureExtractor,
-                            LabelExtractor, RandomMixtureMaker, UnitRMSScaler)
+from brever.classes import (Standardizer, MultiThreadFilterbank, Framer,
+                            FeatureExtractor, LabelExtractor,
+                            RandomMixtureMaker, UnitRMSScaler)
 from brever.utils import wola
 
 
@@ -112,7 +113,7 @@ def main(dataset_dir, force):
     )
 
     # filterbank
-    filterbank = Filterbank(
+    filterbank = MultiThreadFilterbank(
         kind=config.PRE.FILTERBANK.KIND,
         n_filters=config.PRE.FILTERBANK.NFILTERS,
         f_min=config.PRE.FILTERBANK.FMIN,
@@ -173,10 +174,12 @@ def main(dataset_dir, force):
             logging.info((f'Processing mixture '
                           f'{i+1}/{config.PRE.MIXTURES.NUMBER}...'))
         else:
+            time_per_mix = total_time/i
             etr = (config.PRE.MIXTURES.NUMBER-i)*total_time/i
             logging.info((f'Processing mixture '
                           f'{i+1}/{config.PRE.MIXTURES.NUMBER}... '
-                          f'ETR: {int(etr/60)} m {int(etr%60)} s'))
+                          f'ETR: {int(etr/60)} m {int(etr%60)} s, '
+                          f'Time per mix.: {time_per_mix:.2f} s'))
 
         # make mixture and save
         mixObject, metadata = randomMixtureMaker.make()
