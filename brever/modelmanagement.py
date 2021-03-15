@@ -453,6 +453,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         'dropout': ['MODEL', 'DROPOUT', 'ON'],
         'dropout_rate': ['MODEL', 'DROPOUT', 'RATE'],
         'dropout_input': ['MODEL', 'DROPOUT', 'INPUT'],
+        'scale_capacity': ['MODEL', 'DROPOUT', 'SCALECAPACITY'],
         'batchsize': ['MODEL', 'BATCHSIZE'],
         'features': ['POST', 'FEATURES'],
         'labels': ['POST', 'LABELS'],
@@ -508,6 +509,12 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=lambda x: bool(int(x)),
             nargs='+',
             help='dropout input layer toggle',
+        )
+        self.add_base_argument(
+            '--scale-capacity',
+            type=lambda x: bool(int(x)),
+            nargs='+',
+            help='scale network capacity according to dropout rate',
         )
         self.add_base_argument(
             '--batchsize',

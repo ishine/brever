@@ -9,6 +9,7 @@ MODEL:
     'ON': false
     RATE: 0.2
     INPUT: false
+    SCALECAPACITY: true
   EARLYSTOP:
     'ON': false
     DELTA: 0

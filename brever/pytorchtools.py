@@ -290,58 +290,61 @@ class H5Dataset(torch.utils.data.Dataset):
             else:
                 self.datasets = (f['features'], f['labels'])
                 self.filenum_array = f['indexes']
-        if self._prestacked:
-            x, y = self.datasets[0][index], self.datasets[1][index]
-            if self.transform:
-                if self.file_based_stats:
-                    file_num = self.filenum_array[index]
-                    self.transform.set_state(file_num)
-                x = self.transform(x)
         elif isinstance(index, int):
-            # features
-            x = np.empty(self.n_features)
-            # decimate
-            index *= self.decimation
-            # frame at current time index
-            count = 0
-            for i, j in self.feature_indices:
-                i_ = count
-                j_ = count+j-i
-                x[i_:j_] = self.datasets[0][index, i:j]
-                count = j_
-            # frames at previous time indexes
-            if self.stack > 0 or (self.transform and self.file_based_stats):
-                file_num = self.filenum_array[index]
-            if self.stack > 0:
-                x_context = np.zeros((self.stack, self._n_current_features))
-                # first find the starting index of the current file
-                i_file_start, _ = self.file_indices[file_num]
-                # then add context stacking
-                for k in range(self.stack):
-                    # if context overlaps previous file then replicate
-                    index_lag = max(index-k-1, i_file_start)
-                    count_context_k = 0
-                    for i, j in self.feature_indices:
-                        i_ = count_context_k
-                        j_ = count_context_k+j-i
-                        x_context[k, i_:j_] = self.datasets[0][index_lag, i:j]
-                        count_context_k = j_
-                # perform dct
-                if self.dct_toggle:
-                    x_context = dct(x_context, self.n_dct)
-                x[count:] = x_context.flatten()
-            if self.transform:
-                if self.file_based_stats:
-                    self.transform.set_state(file_num)
-                x = self.transform(x)
-            # labels
-            y = np.empty(self.n_labels)
-            count = 0
-            for i, j in self.label_indices:
-                i_ = count
-                j_ = count+j-i
-                y[i_:j_] = self.datasets[1][index, i:j]
-                count = j_
+            if self._prestacked:
+                x, y = self.datasets[0][index], self.datasets[1][index]
+                if self.transform:
+                    if self.file_based_stats:
+                        file_num = self.filenum_array[index]
+                        self.transform.set_state(file_num)
+                    x = self.transform(x)
+            else:
+                # features
+                x = np.empty(self.n_features)
+                # decimate
+                index *= self.decimation
+                # frame at current time index
+                count = 0
+                for i, j in self.feature_indices:
+                    i_ = count
+                    j_ = count+j-i
+                    x[i_:j_] = self.datasets[0][index, i:j]
+                    count = j_
+                # frames at previous time indexes
+                if self.stack > 0 or (self.transform
+                                      and self.file_based_stats):
+                    file_num = self.filenum_array[index]
+                if self.stack > 0:
+                    x_context = np.zeros((self.stack,
+                                          self._n_current_features))
+                    # first find the starting index of the current file
+                    i_file_start, _ = self.file_indices[file_num]
+                    # then add context stacking
+                    for k in range(self.stack):
+                        # if context overlaps previous file then replicate
+                        i_lag = max(index-k-1, i_file_start)
+                        count_context_k = 0
+                        for i, j in self.feature_indices:
+                            i_ = count_context_k
+                            j_ = count_context_k+j-i
+                            x_context[k, i_:j_] = self.datasets[0][i_lag, i:j]
+                            count_context_k = j_
+                    # perform dct
+                    if self.dct_toggle:
+                        x_context = dct(x_context, self.n_dct)
+                    x[count:] = x_context.flatten()
+                if self.transform:
+                    if self.file_based_stats:
+                        self.transform.set_state(file_num)
+                    x = self.transform(x)
+                # labels
+                y = np.empty(self.n_labels)
+                count = 0
+                for i, j in self.label_indices:
+                    i_ = count
+                    j_ = count+j-i
+                    y[i_:j_] = self.datasets[1][index, i:j]
+                    count = j_
         elif isinstance(index, slice):
             indexes = list(range(self.n_samples))[index]
             x = np.empty((len(indexes), self.n_features))
@@ -360,12 +363,12 @@ class H5Dataset(torch.utils.data.Dataset):
 class Feedforward(torch.nn.Module):
     def __init__(self, input_size, output_size, n_layers, dropout_toggle,
                  dropout_rate, dropout_input, batchnorm_toggle,
-                 batchnorm_momentum):
+                 batchnorm_momentum, scale_capacity):
         super(Feedforward, self).__init__()
         self.operations = torch.nn.ModuleList()
         if dropout_input:
             self.operations.append(torch.nn.Dropout(dropout_rate))
-        if dropout_toggle:
+        if dropout_toggle and scale_capacity:
             hidden_size = int(round(input_size/(1-dropout_rate)))
         else:
             hidden_size = input_size
