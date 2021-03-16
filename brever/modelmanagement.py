@@ -470,6 +470,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         'progress': ['MODEL', 'PROGRESS', 'ON'],
         'weight_decay': ['MODEL', 'WEIGHTDECAY'],
         'decimation': ['POST', 'DECIMATION'],
+        'learning_rate': ['MODEL', 'LEARNINGRATE'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -611,6 +612,12 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=int,
             nargs='+',
             help='decimation factor',
+        )
+        self.add_base_argument(
+            '--learning-rate',
+            type=float,
+            nargs='+',
+            help='learning rate',
         )
 
 
