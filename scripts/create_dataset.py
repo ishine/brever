@@ -31,7 +31,10 @@ def add_to_vlen_dset(dset, data):
 
 
 def add_to_dset(dset, data):
-    dset.resize(dset.shape[0]+len(data), axis=0)
+    if dset.shape[0] == 0:
+        dset.resize(data.shape)
+    else:
+        dset.resize(dset.shape[0]+len(data), axis=0)
     dset[-len(data):] = data
 
 
@@ -294,6 +297,9 @@ def main(dataset_dir, force):
 
         # update time spent
         total_time = time.time() - start_time
+
+    # close hdf5 file
+    h5f.close()
 
     # save mixtures metadata
     metadatas_output_path = os.path.join(dataset_dir, 'mixture_info.json')
