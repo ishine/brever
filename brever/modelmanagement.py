@@ -471,6 +471,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         'weight_decay': ['MODEL', 'WEIGHTDECAY'],
         'decimation': ['POST', 'DECIMATION'],
         'learning_rate': ['MODEL', 'LEARNINGRATE'],
+        'seed': ['MODEL', 'SEED'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -618,6 +619,12 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=float,
             nargs='+',
             help='learning rate',
+        )
+        self.add_base_argument(
+            '--seed',
+            type=int,
+            nargs='+',
+            help='seed',
         )
 
 

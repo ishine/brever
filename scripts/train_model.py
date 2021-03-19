@@ -120,7 +120,7 @@ def main(model_dir, force, no_cuda):
     check_overlapping_files(config.POST.PATH.TRAIN, config.POST.PATH.VAL)
 
     # seed for reproducibility
-    torch.manual_seed(0)
+    torch.manual_seed(config.MODEL.SEED)
 
     # initialize datasets
     train_dataset = H5Dataset(
