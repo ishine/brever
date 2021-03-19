@@ -25,6 +25,16 @@ from brever.classes import (Standardizer, MultiThreadFilterbank, Framer,
 from brever.utils import wola
 
 
+def add_to_vlen_dset(dset, data):
+    dset.resize(dset.shape[0]+1, axis=0)
+    dset[-1] = data.flatten()
+
+
+def add_to_dset(dset, data):
+    dset.resize(dset.shape[0]+len(data), axis=0)
+    dset[-len(data):] = data
+
+
 def main(dataset_dir, force):
     # check if dataset already exists
     datasets_output_path = os.path.join(dataset_dir, 'dataset.hdf5')
@@ -140,22 +150,43 @@ def main(dataset_dir, force):
         labels=sorted(config.PRE.LABELS),
     )
 
+    # initialize hdf5 datasets
+    h5f = h5py.File(datasets_output_path, 'w')
+    dset_features = h5f.create_dataset('features', (0, 0), maxshape=(None, None))
+    dset_labels = h5f.create_dataset('labels', (0, 0), maxshape=(None, None))
+    dset_indexes = h5f.create_dataset('indexes', (0,), maxshape=(None,))
+    if config.PRE.MIXTURES.SAVE:
+        vlen_dsets = {}
+        component_names = [
+            'mixture',
+            'foreground',
+            'background',
+            'noise',
+            'late_target',
+        ]
+        for name in component_names:
+            vlen_dsets[name] = h5f.create_dataset(
+                name,
+                (0,),
+                dtype=h5py.vlen_dtype(float),
+                maxshape=(None,),
+
+            )
+            vlen_dsets[f'{name}_ref'] = h5f.create_dataset(
+                f'{name}_ref',
+                (0,),
+                dtype=h5py.vlen_dtype(float),
+                maxshape=(None,),
+            )
+            for label in labelExtractor.labels:
+                vlen_dsets[f'{name}_oracle_{label}'] = h5f.create_dataset(
+                    f'{name}_oracle_{label}',
+                    (0,),
+                    dtype=h5py.vlen_dtype(float),
+                    maxshape=(None,),
+                )
+
     # main loop intialization
-    features = []
-    labels = []
-    components = {}
-    component_names = [
-        'mixture',
-        'foreground',
-        'background',
-        'noise',
-        'late_target',
-    ]
-    for name in component_names:
-        components[name] = []
-        components[f'{name}_ref'] = []
-        for label in labelExtractor.labels:
-            components[f'{name}_oracle_{label}'] = []
     metadatas = []
     i_start = 0
     total_time = 0
@@ -185,8 +216,9 @@ def main(dataset_dir, force):
         mixObject, metadata = randomMixtureMaker.make()
         if config.PRE.MIXTURES.SAVE:
             for name in component_names:
-                components[name].append(
-                    getattr(mixObject, name).flatten()
+                add_to_vlen_dset(
+                    vlen_dsets[name],
+                    getattr(mixObject, name).flatten(),
                 )
         if i in examples_index:
             examples.append(mixObject.mixture.flatten())
@@ -205,8 +237,9 @@ def main(dataset_dir, force):
             mixRef = copy.deepcopy(mixObject)
             mixRef.transform(filterbank.rfilt)
             for name in component_names:
-                components[f'{name}_ref'].append(
-                    getattr(mixRef, name).flatten()
+                add_to_vlen_dset(
+                    vlen_dsets[f'{name}_ref'],
+                    getattr(mixRef, name).flatten(),
                 )
             del mixRef
 
@@ -218,28 +251,38 @@ def main(dataset_dir, force):
         mixObject.transform(framer.frame)
 
         # extract features
-        features.append(featureExtractor.run(mixObject.mixture))
+        features = featureExtractor.run(mixObject.mixture)
 
         # extract labels
-        label_mat = labelExtractor.run(mixObject)
-        labels.append(label_mat)
+        labels = labelExtractor.run(mixObject)
 
         # apply label and reverse filter to obtain oracle signals
         if config.PRE.MIXTURES.SAVE:
             for (j_start, j_end), label in zip(labelExtractor.indices,
                                                labelExtractor.labels):
                 mixOracle = copy.deepcopy(mixCopy)
-                mask = label_mat[:, j_start:j_end]
+                mask = labels[:, j_start:j_end]
                 mask = wola(mask, trim=len(mixOracle))
                 mask = mask[:, :, np.newaxis]
                 mixOracle.transform(partial(np.multiply, mask))
                 mixOracle.transform(filterbank.rfilt)
                 for name in component_names:
-                    components[f'{name}_oracle_{label}'].append(
-                        getattr(mixOracle, name).flatten()
+                    add_to_vlen_dset(
+                        vlen_dsets[f'{name}_oracle_{label}'],
+                        getattr(mixOracle, name).flatten(),
                     )
             del mixOracle
             del mixCopy
+
+        # create indexes array
+        indexes = np.full(len(features), i, dtype=int)
+
+        # save features and labels
+        for dset, data in zip(
+                    [dset_features, dset_labels, dset_indexes],
+                    [features, labels, indexes],
+                ):
+            add_to_dset(dset, data)
 
         # save indices
         i_end = i_start + len(mixObject)
@@ -251,29 +294,6 @@ def main(dataset_dir, force):
 
         # update time spent
         total_time = time.time() - start_time
-
-    # concatenate features and labels
-    features = np.vstack(features)
-    labels = np.vstack(labels)
-
-    # create indexes array
-    indexes = np.zeros(len(features), dtype=int)
-    for i, metadata in enumerate(metadatas):
-        i_start, i_end = metadata['dataset_indices']
-        indexes[i_start:i_end] = i
-
-    # save datasets
-    with h5py.File(datasets_output_path, 'w') as f:
-        f.create_dataset('features', data=features)
-        f.create_dataset('labels', data=labels)
-        f.create_dataset('indexes', data=indexes)
-        if config.PRE.MIXTURES.SAVE:
-            for key, value in components.items():
-                f.create_dataset(
-                    key,
-                    data=np.array(value, dtype=object),
-                    dtype=h5py.vlen_dtype(float),
-                )
 
     # save mixtures metadata
     metadatas_output_path = os.path.join(dataset_dir, 'mixture_info.json')
