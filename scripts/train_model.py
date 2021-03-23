@@ -293,6 +293,7 @@ def main(model_dir, force, no_cuda):
     train_losses = []
     val_losses = []
     test_losses = []
+    total_time = 0
     start_time = time.time()
     for epoch in range(config.MODEL.EPOCHS):
         # train
@@ -328,8 +329,11 @@ def main(model_dir, force, no_cuda):
         test_loss /= len(test_dataloaders)
 
         # log and store errors
+        total_time = time.time() - start_time
+        time_per_epoch = total_time/(epoch+1)
         logging.info(f'Epoch {epoch}: train loss: {train_loss:.6f}; '
-                     f'val loss: {val_loss:.6f}')
+                     f'val loss: {val_loss:.6f}; '
+                     f'Time per epoch: {time_per_epoch:.2f} s')
         train_losses.append(train_loss)
         val_losses.append(val_loss)
         test_losses.append(test_loss)
