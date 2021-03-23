@@ -2,7 +2,6 @@ import os
 import logging
 import pickle
 import json
-import logging
 
 import yaml
 import numpy as np
