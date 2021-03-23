@@ -472,6 +472,8 @@ class ModelFilterArgParser(ExtendableArgParser):
         'decimation': ['POST', 'DECIMATION'],
         'learning_rate': ['MODEL', 'LEARNINGRATE'],
         'seed': ['MODEL', 'SEED'],
+        'prestack': ['POST', 'PRESTACK'],
+        'load': ['POST', 'LOAD'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -625,6 +627,18 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=int,
             nargs='+',
             help='seed',
+        )
+        self.add_base_argument(
+            '--prestack',
+            type=lambda x: bool(int(x)),
+            nargs='+',
+            help='pre-stack before training loop',
+        )
+        self.add_base_argument(
+            '--load',
+            type=lambda x: bool(int(x)),
+            nargs='+',
+            help='load dataset into memory',
         )
 
 
