@@ -258,7 +258,7 @@ def main(model_dir, force, no_cuda):
         'dropout_input': config.MODEL.DROPOUT.INPUT,
         'batchnorm_toggle': config.MODEL.BATCHNORM.ON,
         'batchnorm_momentum': config.MODEL.BATCHNORM.MOMENTUM,
-        'scale_capacity': config.MODEL.DROPOUT.SCALECAPACITY,
+        'hidden_sizes': config.MODEL.HIDDENSIZES,
     }
     model = Feedforward(**model_args)
     model_args_path = os.path.join(model_dir, 'model_args.yaml')

@@ -9,7 +9,6 @@ MODEL:
     'ON': false
     RATE: 0.2
     INPUT: false
-    SCALECAPACITY: true
   EARLYSTOP:
     'ON': false
     DELTA: 0
@@ -22,6 +21,8 @@ MODEL:
   EPOCHS: 1000
   LEARNINGRATE: 0.0001
   NLAYERS: 1
+  HIDDENSIZES:
+    - 64
   NWORKERS: 0
   OPTIMIZER: Adam
   SHUFFLE: true

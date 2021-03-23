@@ -366,29 +366,25 @@ class H5Dataset(torch.utils.data.Dataset):
 class Feedforward(torch.nn.Module):
     def __init__(self, input_size, output_size, n_layers, dropout_toggle,
                  dropout_rate, dropout_input, batchnorm_toggle,
-                 batchnorm_momentum, scale_capacity):
+                 batchnorm_momentum, hidden_sizes):
+        assert len(hidden_sizes) == n_layers
         super(Feedforward, self).__init__()
         self.operations = torch.nn.ModuleList()
         if dropout_input:
             self.operations.append(torch.nn.Dropout(dropout_rate))
-        if dropout_toggle and scale_capacity:
-            hidden_size = int(round(input_size/(1-dropout_rate)))
-        else:
-            hidden_size = input_size
+        start_size = input_size
         for i in range(n_layers):
-            if i == 0:
-                start_size = input_size
-            else:
-                start_size = hidden_size
-            self.operations.append(torch.nn.Linear(start_size, hidden_size))
+            end_size = hidden_sizes[i]
+            self.operations.append(torch.nn.Linear(start_size, end_size))
             if batchnorm_toggle:
                 self.operations.append(
-                    torch.nn.BatchNorm1d(hidden_size,
+                    torch.nn.BatchNorm1d(end_size,
                                          momentum=batchnorm_momentum))
             self.operations.append(torch.nn.ReLU())
             if dropout_toggle:
                 self.operations.append(torch.nn.Dropout(dropout_rate))
-        self.operations.append(torch.nn.Linear(hidden_size, output_size))
+            start_size = end_size
+        self.operations.append(torch.nn.Linear(start_size, output_size))
         self.operations.append(torch.nn.Sigmoid())
 
     @classmethod

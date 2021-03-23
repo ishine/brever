@@ -432,6 +432,30 @@ def arg_filelims_type(input_str):
     return output_list
 
 
+def arg_list_type(input_str, post_caster):
+    """
+    A convenience function that casts the input string of words separated by
+    spaces into a list of strings. Used to parse arguments as lists.
+
+    Parameters
+    ----------
+    input_str : input_str
+        Input string consisting of words separated by spaces.
+    post_caster: callable
+        And additional function to use on the individual substrings.
+
+    Returns
+    -------
+    output_list: list of str
+        List of strings.
+    """
+    output_list = input_str.split(' ')
+    while '' in output_list:
+        output_list.remove('')
+    output_list = [post_caster(item) for item in output_list]
+    return output_list
+
+
 class ModelFilterArgParser(ExtendableArgParser):
     """
     Model filter argument parser.
@@ -453,7 +477,6 @@ class ModelFilterArgParser(ExtendableArgParser):
         'dropout': ['MODEL', 'DROPOUT', 'ON'],
         'dropout_rate': ['MODEL', 'DROPOUT', 'RATE'],
         'dropout_input': ['MODEL', 'DROPOUT', 'INPUT'],
-        'scale_capacity': ['MODEL', 'DROPOUT', 'SCALECAPACITY'],
         'batchsize': ['MODEL', 'BATCHSIZE'],
         'features': ['POST', 'FEATURES'],
         'labels': ['POST', 'LABELS'],
@@ -474,6 +497,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         'seed': ['MODEL', 'SEED'],
         'prestack': ['POST', 'PRESTACK'],
         'load': ['POST', 'LOAD'],
+        'hidden_sizes': ['MODEL', 'HIDDENSIZES'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -513,12 +537,6 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=lambda x: bool(int(x)),
             nargs='+',
             help='dropout input layer toggle',
-        )
-        self.add_base_argument(
-            '--scale-capacity',
-            type=lambda x: bool(int(x)),
-            nargs='+',
-            help='scale network capacity according to dropout rate',
         )
         self.add_base_argument(
             '--batchsize',
@@ -639,6 +657,12 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=lambda x: bool(int(x)),
             nargs='+',
             help='load dataset into memory',
+        )
+        self.add_base_argument(
+            '--hidden-sizes',
+            type=lambda x: arg_list_type(x, int),
+            nargs='+',
+            help='list of sizes of hidden layers',
         )
 
 
