@@ -32,7 +32,7 @@ def set_logger(output_dir):
     filehandler = logging.FileHandler(logfile, mode='w')
     streamhandler = logging.StreamHandler(sys.stdout)
     formatter = logging.Formatter(
-        '%(asctime)s - %(levelname)s - %(levelname)s] - %(message)s',
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     )
     filehandler.setFormatter(formatter)
     streamhandler.setFormatter(formatter)
