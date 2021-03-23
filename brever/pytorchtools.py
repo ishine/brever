@@ -295,7 +295,7 @@ class H5Dataset(torch.utils.data.Dataset):
                 x, y = self.datasets[0][index], self.datasets[1][index]
                 if self.transform:
                     if self.file_based_stats:
-                        file_num = self.filenum_array[index]
+                        file_num = int(self.filenum_array[index])
                         self.transform.set_state(file_num)
                     x = self.transform(x)
             else:
@@ -313,7 +313,7 @@ class H5Dataset(torch.utils.data.Dataset):
                 # frames at previous time indexes
                 if self.stack > 0 or (self.transform
                                       and self.file_based_stats):
-                    file_num = self.filenum_array[index]
+                    file_num = int(self.filenum_array[index])
                 if self.stack > 0:
                     x_context = np.zeros((self.stack,
                                           self._n_current_features))
