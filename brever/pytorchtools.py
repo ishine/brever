@@ -290,7 +290,7 @@ class H5Dataset(torch.utils.data.Dataset):
             else:
                 self.datasets = (f['features'], f['labels'])
                 self.filenum_array = f['indexes']
-        elif isinstance(index, int):
+        if isinstance(index, int):
             if self._prestacked:
                 x, y = self.datasets[0][index], self.datasets[1][index]
                 if self.transform:
