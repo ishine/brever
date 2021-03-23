@@ -2,6 +2,7 @@ import os
 import logging
 import pickle
 import json
+import logging
 
 import yaml
 import numpy as np
@@ -216,7 +217,9 @@ class H5Dataset(torch.utils.data.Dataset):
         self._prestacked = False
         self.datasets = None
         self.filenum_array = None
+        logging.info('Getting file indices...')
         self.file_indices = self.get_file_indices()
+        logging.info('Done.')
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
             # calculate number of samples
@@ -226,7 +229,9 @@ class H5Dataset(torch.utils.data.Dataset):
                 self._n_current_features = f['features'].shape[1]
                 self.feature_indices = [(0, self._n_current_features)]
             else:
+                logging.info('Getting features indices...')
                 self.feature_indices = self.get_feature_indices()
+                logging.info('Done.')
                 self._n_current_features = sum(j-i for i, j in
                                                self.feature_indices)
             if dct_toggle:
@@ -237,13 +242,19 @@ class H5Dataset(torch.utils.data.Dataset):
                 self.n_labels = f['labels'].shape[1]
                 self.label_indices = [(0, self.n_labels)]
             else:
+                logging.info('Getting label indices...')
                 self.label_indices = self.get_label_indices()
+                logging.info('Done.')
                 self.n_labels = sum(j-i for i, j in self.label_indices)
             if self.load:
+                logging.info('Loading dataset into memory...')
                 self.datasets = (f['features'][:], f['labels'][:])
+                logging.info('Done.')
                 self.filenum_array = f['indexes'][:]
                 if self.prestack:
+                    logging.info('Prestacking...')
                     self.datasets = self[:]
+                    logging.info('Done.')
                     self._prestacked = True
 
     def get_feature_indices(self):

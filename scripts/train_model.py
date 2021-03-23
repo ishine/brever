@@ -31,7 +31,9 @@ def set_logger(output_dir):
     logfile = os.path.join(output_dir, 'log.txt')
     filehandler = logging.FileHandler(logfile, mode='w')
     streamhandler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
+    formatter = logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(levelname)s] - %(message)s',
+    )
     filehandler.setFormatter(formatter)
     streamhandler.setFormatter(formatter)
     logger.addHandler(filehandler)
@@ -117,12 +119,14 @@ def main(model_dir, force, no_cuda):
     }))
 
     # check that there are no overlapping files between train and val sets
+    logging.info('Checking if any material files are overlapping')
     check_overlapping_files(config.POST.PATH.TRAIN, config.POST.PATH.VAL)
 
     # seed for reproducibility
     torch.manual_seed(config.MODEL.SEED)
 
     # initialize datasets
+    logging.info('Initializing training dataset')
     train_dataset = H5Dataset(
         dirpath=config.POST.PATH.TRAIN,
         features=config.POST.FEATURES,
@@ -135,6 +139,7 @@ def main(model_dir, force, no_cuda):
         file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
         prestack=config.POST.PRESTACK,
     )
+    logging.info('Initializing validation dataset')
     val_dataset = H5Dataset(
         dirpath=config.POST.PATH.VAL,
         features=config.POST.FEATURES,
@@ -150,6 +155,7 @@ def main(model_dir, force, no_cuda):
     logging.info(f'Number of features: {train_dataset.n_features}')
 
     # initialize dataloaders
+    logging.info('Initializing training dataloader')
     train_dataloader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=config.MODEL.BATCHSIZE,
@@ -157,6 +163,7 @@ def main(model_dir, force, no_cuda):
         num_workers=config.MODEL.NWORKERS,
         drop_last=True,
     )
+    logging.info('Initializing validation dataloader')
     val_dataloader = torch.utils.data.DataLoader(
         dataset=val_dataset,
         batch_size=config.MODEL.BATCHSIZE,
