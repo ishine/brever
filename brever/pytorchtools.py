@@ -12,9 +12,10 @@ from .utils import dct
 
 
 def get_mean_and_std(dataset, dataloader, uniform_stats_features):
-    if dataset.load:
-        mean = dataset[:][0].mean(axis=0)
-        std = dataset[:][0].std(axis=0)
+    if dataset.load and dataset.prestack:
+        data, _ = dataset[:]
+        mean = data.mean(axis=0)
+        std = data.std(axis=0)
     else:
         mean = 0
         for data, _ in dataloader:
@@ -70,10 +71,10 @@ def unify_stats(mean, std, dataset, uniform_stats_features):
     return mean, std
 
 
-def evaluate(model, criterion, dataloader, load, cuda):
+def evaluate(model, criterion, dataloader, cuda):
     model.eval()
     with torch.no_grad():
-        if load:
+        if dataloader.dataset.load and dataloader.dataset.prestack:
             data, target = dataloader.dataset[:]
             data, target = torch.from_numpy(data), torch.from_numpy(target)
             if cuda:

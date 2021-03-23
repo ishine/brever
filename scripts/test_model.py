@@ -144,7 +144,6 @@ def main(model_dir, args):
                 model=model,
                 criterion=criterion,
                 dataloader=test_dataloader,
-                load=config.POST.LOAD,
                 cuda=config.MODEL.CUDA and not args.no_cuda,
             )
 

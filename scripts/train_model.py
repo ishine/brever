@@ -309,14 +309,12 @@ def main(model_dir, force, no_cuda):
             model=model,
             criterion=criterion,
             dataloader=train_dataloader,
-            load=config.POST.LOAD,
             cuda=config.MODEL.CUDA and not no_cuda,
         )
         val_loss = evaluate(
             model=model,
             criterion=criterion,
             dataloader=val_dataloader,
-            load=config.POST.LOAD,
             cuda=config.MODEL.CUDA and not no_cuda,
         )
         test_loss = 0
@@ -325,7 +323,6 @@ def main(model_dir, force, no_cuda):
                 model=model,
                 criterion=criterion,
                 dataloader=test_dataloader,
-                load=config.POST.LOAD,
                 cuda=config.MODEL.CUDA and not no_cuda,
             )
         test_loss /= len(test_dataloaders)
