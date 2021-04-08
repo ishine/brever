@@ -46,16 +46,16 @@ POST:
   DCT:
     NCOEFF: 5
     'ON': false
-  PRESTACK: false
+  PRESTACK: true
 PRE:
   FEATURES: !!set
     # ild: null
     # itd_ic: null
     # logpdf: null
-    logmfcc: null
-    cubicmfcc: null
+    # logmfcc: null
+    # cubicmfcc: null
     # pdf: null
-    pdfcc: null
+    # pdfcc: null
     logfbe: null
   FILTERBANK:
     FMAX: 8000
