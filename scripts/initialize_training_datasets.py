@@ -53,9 +53,9 @@ if __name__ == '__main__':
                         help='dataset alias')
     parser.add_argument('-f', '--force', action='store_true',
                         help='overwrite config file if already exists')
-    parser.add_argument('--n-train', type=int, default=1000,
+    parser.add_argument('--n-train', type=int, default=10000,
                         help='number of training mixture, defaults to 1000')
-    parser.add_argument('--n-val', type=int, default=200,
+    parser.add_argument('--n-val', type=int, default=2000,
                         help='number of validation mixture, defaults to 200')
     parser.add_argument('--seed-value-train', type=int, default=0,
                         help='seed for the training dataset')
