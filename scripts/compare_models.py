@@ -278,9 +278,9 @@ def main(models, args, filter_):
     models, values = check_models(models, dimensions)
     groups, group_values = group_by_dimension(models, values, args.group_by)
     load_scores(groups)
-    if args.sort_by != 'dims':
+    if args.sort_by is not None and args.sort_by != 'dims':
         groups = sort_groups_by(groups, args.sort_by)
-    else:
+    elif args.sort_by == 'dims':
         if dimensions is not None:
             group_values_copy = group_values.copy()
             for dim in reversed(list(group_values[0].keys())):
