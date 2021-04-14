@@ -7,6 +7,6 @@ do
     then
         echo "dataset already created: $input "
     else
-        bash jobs/send.sh jobs/job.sh "python scripts/create_dataset.py $input$FORCE"
+        bash jobs/send.sh jobs/job_hpc.sh "python scripts/create_dataset.py $input$FORCE"
     fi
 done
