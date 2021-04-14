@@ -30,6 +30,9 @@ def check_models(models, dims):
         mat_file = os.path.join('models', model, 'scores.mat')
         npz_file = os.path.join('models', model, 'scores.npz')
         config_file = os.path.join('models', model, 'config_full.yaml')
+        if not os.path.exists(config_file):
+            print(f'Model {model} is not trained!')
+            continue
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
         if not os.path.exists(mat_file) or not os.path.exists(npz_file):
@@ -313,7 +316,7 @@ def main(models, args, filter_):
     metrics = ['pesq', 'stoi', 'segSSNR', 'segBR']
     ylabels = [r'$\Delta PESQ$', r'$\Delta STOI$', 'segSSNR', 'segBR']
     rows, cols = 1, len(metrics)
-    fig, axes = plt.subplots(rows, cols)
+    fig, axes = plt.subplots(rows, cols, figsize=args.figsize)
     for ax, metric, ylabel in zip(axes.flatten(), metrics, ylabels):
         model_count = 0
         for i, group in enumerate(groups):
