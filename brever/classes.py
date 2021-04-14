@@ -304,8 +304,9 @@ class ContinuousRandomGenerator:
 
 class RandomMixtureMaker:
     def __init__(self, fs, rooms, target_datasets,
-                 target_snr_dist_name, target_snr_dist_args, dir_noise_nums,
-                 dir_noise_types, dir_noise_snrs,
+                 target_snr_dist_name, target_snr_dist_args, target_angle_min,
+                 target_angle_max, dir_noise_nums, dir_noise_types,
+                 dir_noise_snrs, dir_noise_angle_min, dir_noise_angle_max,
                  diffuse_noise_on, diffuse_noise_color, diffuse_noise_ltas_eq,
                  mixture_pad, mixture_rb, mixture_rms_jitter_on,
                  mixture_rms_jitters, filelims_target, filelims_dir_noise,
@@ -323,11 +324,15 @@ class RandomMixtureMaker:
         self.target_snrs = ContinuousRandomGenerator(target_snr_dist_name,
                                                      target_snr_dist_args,
                                                      seeder.get())
+        self.target_angle_min = target_angle_min
+        self.target_angle_max = target_angle_max
         self.dir_noise_snrs = RandomPool(dir_noise_snrs, seeder.get())
         self.dir_noise_nums = RandomPool(dir_noise_nums, seeder.get())
         self.dir_noise_types = MultiRandomPool(dir_noise_types,
                                                max(dir_noise_nums),
                                                seeder.get())
+        self.dir_noise_angle_min = dir_noise_angle_min
+        self.dir_noise_angle_max = dir_noise_angle_max
         self.diffuse_noise_on = diffuse_noise_on
         self.diffuse_noise_color = diffuse_noise_color
         self.diffuse_noise_ltas_eq = diffuse_noise_ltas_eq
@@ -400,7 +405,9 @@ class RandomMixtureMaker:
         return decayer, metadata
 
     def add_random_target(self, mixture, metadata, room, decayer):
-        self.target_angles.set_pool(get_available_angles(room))
+        angles = [a for a in get_available_angles(room)
+                  if self.target_angle_min <= a <= self.target_angle_max]
+        self.target_angles.set_pool(angles)
         angle = self.target_angles.get()
         brir = self._load_brirs(room, angle)
         brir = decayer.run(brir)
@@ -426,7 +433,9 @@ class RandomMixtureMaker:
     def add_random_dir_noises(self, mixture, metadata, room, decayer):
         number = self.dir_noise_nums.get()
         types = self.dir_noise_types.get(number)
-        self.dir_noise_angles.set_pool(get_available_angles(room))
+        angles = [a for a in get_available_angles(room)
+                  if self.dir_noise_angle_min <= a <= self.dir_noise_angle_max]
+        self.dir_noise_angles.set_pool(angles)
         angles = self.dir_noise_angles.get(number)
         noises, files, indices = self._load_noises(
             types,

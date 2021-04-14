@@ -76,6 +76,8 @@ def main(dataset_dir, force):
         target_datasets=config.PRE.MIXTURES.RANDOM.TARGET.DATASETS,
         target_snr_dist_name=config.PRE.MIXTURES.RANDOM.TARGET.SNR.DISTNAME,
         target_snr_dist_args=config.PRE.MIXTURES.RANDOM.TARGET.SNR.DISTARGS,
+        target_angle_min=config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MIN,
+        target_angle_max=config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MAX,
         dir_noise_nums=range(
             config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MIN,
             config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MAX + 1,
@@ -85,6 +87,8 @@ def main(dataset_dir, force):
             config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN,
             config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MAX + 1,
         ),
+        dir_noise_angle_min=config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MIN,
+        dir_noise_angle_max=config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MAX,
         diffuse_noise_on=config.PRE.MIXTURES.DIFFUSE.ON,
         diffuse_noise_color=config.PRE.MIXTURES.DIFFUSE.COLOR,
         diffuse_noise_ltas_eq=config.PRE.MIXTURES.DIFFUSE.LTASEQ,
