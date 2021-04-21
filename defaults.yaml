@@ -162,3 +162,4 @@ PATH:
   HUDDERSFIELD: data/external/Huddersfield/
   LIBRI: data/external/LibriSpeech/
   IEEE: data/external/IEEE/
+  ASH: data/external/ASH/

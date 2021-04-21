@@ -112,6 +112,7 @@ def load_brirs(room_alias, angles, fs=16e3):
             - 'huddersfield_lw4m'
             - 'huddersfield_lw6m'
             - 'huddersfield_lw8m'
+            - 'ash_rXX' with XX ranging from 01 to 39
         angles:
             Angles from which the BRIRs were recorded.
         fs:
@@ -124,12 +125,7 @@ def load_brirs(room_alias, angles, fs=16e3):
             BRIRs sampling frequency.
     '''
     if angles is None:
-        if room_alias.startswith('surrey_'):
-            angles = np.linspace(-90, 90, 37)
-        elif room_alias.startswith('huddersfield_'):
-            angles = np.arange(100)/100*360
-        else:
-            raise ValueError(f'wrong room alias: {room_alias}')
+        angles = get_available_angles(room_alias)
         return load_brirs(room_alias, angles, fs)
     iterable = True
     try:
@@ -195,6 +191,20 @@ def load_brirs(room_alias, angles, fs=16e3):
         ir_r = HRTF.Data.IR.get_values({'M': measurement, 'R': 1})
         brir = np.vstack((ir_l, ir_r)).T
         fs_ = HRTF.Data.SamplingRate.get_values(indices={'M': measurement})
+    elif room_alias.startswith('ash_'):
+        dirpath = get_path('ASH')
+        m = re.match('^ash_r(.*)$', room_alias)
+        if m is None:
+            raise ValueError(f'wrong room alias: {room_alias}')
+        room_number = m.group(1)
+        if room_number in ['05a', '05b', '05A', '05B']:
+            room_number = room_number.upper()
+            dirpath = os.path.join(dirpath, 'BRIRs', f'R05')
+        else:
+            dirpath = os.path.join(dirpath, 'BRIRs', f'R{room_number}')
+        filename = f'BRIR_R{room_number}_P1_E0_A{angle}.wav'
+        filepath = os.path.join(dirpath, filename)
+        brir, fs_ = sf.read(filepath)
     else:
         raise ValueError(f'wrong room alias: {room_alias}')
     if fs_ != fs:
@@ -300,7 +310,6 @@ def get_available_angles(room_alias):
         r = re.compile(r'CortexBRIR_.*s_(-?\d{1,2})deg_16k\.wav')
         filenames = list(filter(r.match, os.listdir(room_dir)))
         angles = sorted(set(int(r.match(fn).group(1)) for fn in filenames))
-        return angles
     elif room_alias.startswith('huddersfield_'):
         dirpath = get_path('HUDDERSFIELD')
         m = re.match('^huddersfield_(.*)m$', room_alias)
@@ -312,6 +321,26 @@ def get_available_angles(room_alias):
         HRTF = sofa.Database.open(filepath)
         positions = HRTF.Source.Position.get_values(system='spherical')
         angles = positions[:, 0]
-        return angles
+    elif room_alias.startswith('ash_'):
+        angles = []
+        dirpath = get_path('ASH')
+        m = re.match('^ash_r(.*)$', room_alias)
+        if m is None:
+            raise ValueError(f'wrong room alias: {room_alias}')
+        room_number = m.group(1)
+        if room_number in ['05a', '05b', '05A', '05B']:
+            room_number = room_number.upper()
+            dirpath = os.path.join(dirpath, 'BRIRs', f'R05')
+        else:
+            dirpath = os.path.join(dirpath, 'BRIRs', f'R{room_number}')
+        for filename in os.listdir(dirpath):
+            if filename.endswith('.wav'):
+                m = re.match(f'BRIR_R{room_number}_P1_E0_A(.*).wav', filename)
+                if m is None:
+                    continue
+                angles.append(int(m.group(1)))
+        if not angles:
+            raise ValueError(f'no brir found for room {room_alias}')
     else:
         raise ValueError(f'wrong room alias: {room_alias}')
+    return angles
