@@ -353,6 +353,15 @@ def main(models, args, filter_):
         ax.set_ylabel(ylabel)
         xmin, xmax = ax.get_xlim()
         ax.set_xlim(xmin*1.5, xmax*1.5)
+        if metric == 'pesq':
+            if args.ymax is not None:
+                ymin, _ = ax.get_ylim()
+                ax.set_ylim(ymin, args.ymax)
+            if args.ymin is not None:
+                _, ymax = ax.get_ylim()
+                ax.set_ylim(args.ymin, ymax)
+        ax.grid(linestyle='dotted')
+        ax.set_axisbelow(True)
     LegendFormatter(fig, ncol=args.ncol)
 
     if args.train_curve:
@@ -363,6 +372,8 @@ def main(models, args, filter_):
                 label = f'{model["val"]}'
                 ax.plot(model['train_curve'], label=label, color=color)
                 ax.plot(model['val_curve'], '--', color=color)
+        ax.grid(linestyle='dotted')
+        ax.set_axisbelow(True)
         LegendFormatter(fig, ncol=args.ncol)
 
     if args.summary:
@@ -422,8 +433,15 @@ def main(models, args, filter_):
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
             ax.yaxis.set_tick_params(labelleft=True)
-            if metric == 'pesq' and args.ymax is not None:
-                ax.set_ylim(0, args.ymax)
+            if metric == 'pesq':
+                if args.ymax is not None:
+                    ymin, _ = ax.get_ylim()
+                    ax.set_ylim(ymin, args.ymax)
+                if args.ymin is not None:
+                    _, ymax = ax.get_ylim()
+                    ax.set_ylim(args.ymin, ymax)
+            ax.grid(linestyle='dotted')
+            ax.set_axisbelow(True)
         LegendFormatter(fig, ncol=args.ncol)
 
     symbols = ['o', 's', '^', 'v', '<', '>']
@@ -436,6 +454,7 @@ def main(models, args, filter_):
             )):
         ax_legend_handles = []
         ax_legend_labels = []
+        model_count = 0
         for i, group in enumerate(groups):
             color = color_cycle[i % len(color_cycle)]
             for j, model in enumerate(group):
@@ -444,8 +463,12 @@ def main(models, args, filter_):
                 line, = ax.plot(x, y, linestyle='--',
                                 color=color)
                 if axis == 0:
+                    if args.legend is None:
+                        label = f'{model["val"]}'
+                    else:
+                        label = args.legend[model_count]
                     fig_legend_handles.append(line)
-                    fig_legend_labels.append(f'{model["val"]}')
+                    fig_legend_labels.append(label)
                 for k, (x_, y_) in enumerate(zip(x, y)):
                     ax.plot(x_, y_, marker=symbols[k], markersize=10,
                             linestyle='', color=color)
@@ -459,9 +482,12 @@ def main(models, args, filter_):
                         else:
                             label = f'SNR = {labels[k]} dB'
                         ax_legend_labels.append(label)
+                model_count += 1
         ax.legend(ax_legend_handles, ax_legend_labels)
         ax.set_xlabel('segBR (dB)')
         ax.set_ylabel('segSSNR (dB)')
+        ax.grid(linestyle='dotted')
+        ax.set_axisbelow(True)
     lh = fig.legend(fig_legend_handles, fig_legend_labels)
     LegendFormatter(fig, lh=lh)
 
@@ -490,10 +516,12 @@ if __name__ == '__main__':
                         help='use default parameters to filter models')
     parser.add_argument('--summary', action='store_true',
                         help='plot only the summary of scores')
-    parser.add_argument('--figsize', nargs=2, type=int,
+    parser.add_argument('--figsize', nargs=2, type=float,
                         help='figure size')
     parser.add_argument('--ymax', type=float,
                         help='pesq y axis upper limits')
+    parser.add_argument('--ymin', type=float,
+                        help='pesq y axis lower limits')
     parser.add_argument('--train-curve', action='store_true',
                         help='plot training curves')
     parser.add_argument('--oracle', action='store_true',
