@@ -344,3 +344,86 @@ def get_available_angles(room_alias):
     else:
         raise ValueError(f'wrong room alias: {room_alias}')
     return angles
+
+
+def get_rooms(regexps):
+    avail_rooms = [
+        'surrey_anechoic',
+        'surrey_room_a',
+        'surrey_room_b',
+        'surrey_room_c',
+        'surrey_room_d',
+        'huddersfield_c1m',
+        'huddersfield_c2m',
+        'huddersfield_c4m',
+        'huddersfield_c6m',
+        'huddersfield_c8m',
+        'huddersfield_l1m',
+        'huddersfield_l2m',
+        'huddersfield_l4m',
+        'huddersfield_l6m',
+        'huddersfield_l8m',
+        'huddersfield_lw1m',
+        'huddersfield_lw2m',
+        'huddersfield_lw4m',
+        'huddersfield_lw6m',
+        'huddersfield_lw8m',
+        'ash_r01',
+        'ash_r02',
+        'ash_r03',
+        'ash_r04',
+        'ash_r05a',
+        'ash_r05b',
+        'ash_r06',
+        'ash_r07',
+        'ash_r08',
+        'ash_r09',
+        'ash_r10',
+        'ash_r11',
+        'ash_r12',
+        'ash_r13',
+        'ash_r14',
+        'ash_r15',
+        'ash_r16',
+        'ash_r17',
+        'ash_r18',
+        'ash_r19',
+        'ash_r20',
+        'ash_r21',
+        'ash_r22',
+        'ash_r23',
+        'ash_r24',
+        'ash_r25',
+        'ash_r26',
+        'ash_r27',
+        'ash_r28',
+        'ash_r29',
+        'ash_r30',
+        'ash_r31',
+        'ash_r32',
+        'ash_r33',
+        'ash_r34',
+        'ash_r35',
+        'ash_r36',
+        'ash_r37',
+        'ash_r38',
+        'ash_r39',
+    ]
+    output = set()
+    for regexp in regexps:
+        if not regexp.startswith('^'):
+            regexp = f'^{regexp}'
+        if not regexp.endswith('$'):
+            regexp = f'{regexp}$'
+        r = re.compile(regexp)
+        rooms = list(filter(r.match, avail_rooms))
+        if not rooms:
+            raise ValueError(f'regular expression {regexp} does not match '
+                             'with any room')
+        for room in rooms:
+            if room in output:
+                raise ValueError('the list of supplied regular expressions '
+                                 'for room aliases leads to sets of found '
+                                 f'rooms that are not disjoint: {regexps}')
+            output.add(room)
+    return output

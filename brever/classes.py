@@ -11,7 +11,7 @@ from .utils import pca, frame, rms
 from .filters import mel_filterbank, gammatone_filterbank
 from .mixture import Mixture, colored_noise, add_decay
 from .io import (load_random_target, load_brirs, load_random_noise,
-                 get_available_angles)
+                 get_available_angles, get_rooms)
 from .config import defaults
 from . import features as features_module
 from . import labels as labels_module
@@ -319,7 +319,7 @@ class RandomMixtureMaker:
         seeder = Seeder(seed_value, 100)
 
         self.fs = fs
-        self.rooms = RandomPool(rooms, seeder.get())
+        self.rooms = RandomPool(get_rooms(rooms), seeder.get())
         self.target_datasets = RandomPool(target_datasets, seeder.get())
         self.target_snrs = ContinuousRandomGenerator(target_snr_dist_name,
                                                      target_snr_dist_args,
