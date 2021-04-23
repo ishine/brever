@@ -687,6 +687,8 @@ class DatasetInitArgParser(ExtendableArgParser):
         'rooms': ['PRE', 'MIXTURES', 'RANDOM', 'ROOMS'],
         'noise_types': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'TYPES'],
         'random_rms': ['PRE', 'MIXTURES', 'RANDOM', 'RMSDB', 'ON'],
+        'rms_min': ['PRE', 'MIXTURES', 'RANDOM', 'RMSDB', 'MIN'],
+        'rms_max': ['PRE', 'MIXTURES', 'RANDOM', 'RMSDB', 'MAX'],
         'scale_rms': ['PRE', 'MIXTURES', 'SCALERMS'],
         'n_sources_min': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'NUMBER', 'MIN'],
         'n_sources_max': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'NUMBER', 'MAX'],
@@ -763,6 +765,16 @@ class DatasetInitArgParser(ExtendableArgParser):
             '--random-rms',
             type=lambda x: bool(int(x)),
             help='rms randomization toggle',
+        )
+        self.add_base_argument(
+            '--rms-min',
+            type=int,
+            help='minimum rms offset',
+        )
+        self.add_base_argument(
+            '--rms-max',
+            type=int,
+            help='maximum rms offset',
         )
         self.add_base_argument(
             '--scale-rms',
