@@ -37,6 +37,7 @@ def main(args, params):
                 config_file = os.path.join(model, 'config_full.yaml')
                 with open(config_file, 'r') as f:
                     config = yaml.safe_load(f)
+                set_config_field(config, key, val)
                 new_config_file = os.path.join(dst, 'config_full.yaml')
                 with open(new_config_file, 'w') as f:
                     yaml.dump(config, f)
