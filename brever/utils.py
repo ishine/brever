@@ -236,7 +236,7 @@ def pca(X, n_components=None, fve=None):
         else:
             n_components = np.argmax(np.cumsum(ve)/np.sum(ve) >= fve) + 1
     components = components[:, :n_components]
-    ve = ve[:, :n_components]
+    ve = ve[:n_components]
     return components, ve, means
 
 
