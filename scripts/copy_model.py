@@ -28,10 +28,19 @@ def main(args, params):
                 if args.force and os.path.exists(dst):
                     shutil.rmtree(dst)
                 shutil.copytree(model, dst)
+                print(f'Copied to {dst}')
+
                 new_config_file = os.path.join(dst, 'config.yaml')
                 with open(new_config_file, 'w') as f:
                     yaml.dump(config, f)
-                print(f'Copied to {dst}')
+
+                config_file = os.path.join(model, 'config_full.yaml')
+                with open(config_file, 'r') as f:
+                    config = yaml.safe_load(f)
+                new_config_file = os.path.join(dst, 'config_full.yaml')
+                with open(new_config_file, 'w') as f:
+                    yaml.dump(config, f)
+
                 os.remove(os.path.join(dst, 'scores.npz'))
                 os.remove(os.path.join(dst, 'scores.mat'))
 
