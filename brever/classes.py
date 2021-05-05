@@ -474,7 +474,7 @@ class RandomMixtureMaker:
     def set_random_dir_to_diff_snr(self, mixture, metadata):
         snr = self.dir_noise_snrs.get()
         if metadata['directional']['number'] == 0:
-            return
+            return mixture, metadata
         if self.diffuse_noise_on:
             mixture.adjust_dir_to_diff_snr(snr)
             metadata['directional']['snr'] = snr
@@ -484,7 +484,7 @@ class RandomMixtureMaker:
         snr = self.target_snrs.get()
         if metadata['directional']['number'] == 0:
             if not self.diffuse_noise_on:
-                return
+                return mixture, metadata
         mixture.adjust_target_snr(snr)
         metadata['target']['snr'] = snr
         return mixture, metadata
