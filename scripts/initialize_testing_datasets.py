@@ -16,23 +16,12 @@ def main(args, params):
                 'PRE': {
                     'MIXTURES': {
                         'NUMBER': args.n_test,
-                        'DIFFUSE': {
-                            'ON': False,
-                        },
-                        'DECAY': {
-                            'ON': False,
-                        },
                         'FILELIMITS': {
                             'NOISE': [0.85, 1.0],
                             'TARGET': [0.85, 1.0]
                         },
                         'SAVE': True,
                         'RANDOM': {
-                            'SOURCES': {
-                                'NUMBER': {
-                                    'MIN': 1
-                                }
-                            },
                             'ROOMS': {room_alias},
                             'TARGET': {
                                 'SNR': {
