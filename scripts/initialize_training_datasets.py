@@ -22,9 +22,6 @@ def main(alias, params):
                         'NOISE': filelims.copy(),
                         'TARGET': filelims.copy(),
                     },
-                    'RANDOM': {
-                        'ROOMS': {'surrey_anechoic'},
-                    }
                 }
             }
         }
