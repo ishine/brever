@@ -268,6 +268,14 @@ def fit_plots(n, aspect=(16, 9)):
     return rows, cols
 
 
+def remove_patches(fig, axes):
+    if args.format != 'svg':
+        return
+    for ax in axes:
+        ax.patch.set_visible(False)
+    fig.patch.set_visible(False)
+
+
 def main(models, args, filter_):
     if args.default:
         set_default_parameters(filter_, args.dims, args.group_by)
@@ -312,11 +320,19 @@ def main(models, args, filter_):
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
     hatch_cycle = ['', '////', '\\\\\\', 'xxxx']
 
+    figs = {}
+
     # summary plot
     metrics = ['pesq', 'stoi', 'segSSNR', 'segBR']
-    ylabels = [r'$\Delta PESQ$', r'$\Delta STOI$', 'segSSNR', 'segBR']
+    if args.format == 'svg':
+        ylabels = [r'\$\Delta PESQ\$', r'\$\Delta STOI\$', 'segSSNR', 'segBR']
+    else:
+        ylabels = [r'$\Delta PESQ$', r'$\Delta STOI$', 'segSSNR', 'segBR']
     rows, cols = 1, len(metrics)
     fig, axes = plt.subplots(rows, cols, figsize=args.figsize)
+    if not hasattr(axes, 'flatten'):
+        axes = np.array([axes])
+    remove_patches(fig, axes)
     for ax, metric, ylabel in zip(axes.flatten(), metrics, ylabels):
         model_count = 0
         for i, group in enumerate(groups):
@@ -351,8 +367,6 @@ def main(models, args, filter_):
         ax.set_xticklabels([])
         ax.set_xticks([])
         ax.set_ylabel(ylabel)
-        xmin, xmax = ax.get_xlim()
-        ax.set_xlim(xmin*1.5, xmax*1.5)
         if metric == 'pesq':
             if args.ymax is not None:
                 ymin, _ = ax.get_ylim()
@@ -363,9 +377,11 @@ def main(models, args, filter_):
         ax.grid(linestyle='dotted')
         ax.set_axisbelow(True)
     LegendFormatter(fig, ncol=args.ncol)
+    figs['summary'] = fig
 
     if args.train_curve:
         fig, ax = plt.subplots(1, 1)
+        remove_patches(fig, [ax])
         for i, group in enumerate(groups):
             color = color_cycle[i % len(color_cycle)]
             for j, model in enumerate(group):
@@ -375,15 +391,20 @@ def main(models, args, filter_):
         ax.grid(linestyle='dotted')
         ax.set_axisbelow(True)
         LegendFormatter(fig, ncol=args.ncol)
+        figs['train_curve'] = fig
 
     if args.summary:
         plt.show()
+        if args.output_dir is not None:
+            for key, fig in figs.items():
+                fig.savefig(f'{args.output_dir}/{key}.{args.format}')
         return
 
     ylabels = ['MSE', r'$\Delta PESQ$', 'STOI', 'segSSNR', 'segBR', 'segNR', 'segRR']
     metrics = ['mse', 'pesq', 'stoi', 'segSSNR', 'segBR', 'segNR', 'segRR']
     for ylabel, metric in zip(ylabels, metrics):
         fig, axes = plt.subplots(1, 2, sharey=True, figsize=args.figsize)
+        remove_patches(fig, axes)
         for axis, (ax, xticklabels, xlabel) in enumerate(zip(
                     axes[::-1],
                     [rooms, snrs],
@@ -443,9 +464,11 @@ def main(models, args, filter_):
             ax.grid(linestyle='dotted')
             ax.set_axisbelow(True)
         LegendFormatter(fig, ncol=args.ncol)
+        figs[metric] = fig
 
     symbols = ['o', 's', '^', 'v', '<', '>']
     fig, axes = plt.subplots(1, 2, sharey=True, sharex=True)
+    remove_patches(fig, axes)
     fig_legend_handles = []
     fig_legend_labels = []
     for axis, (ax, labels) in enumerate(zip(
@@ -490,8 +513,14 @@ def main(models, args, filter_):
         ax.set_axisbelow(True)
     lh = fig.legend(fig_legend_handles, fig_legend_labels)
     LegendFormatter(fig, lh=lh)
+    figs['segmental'] = fig
 
     plt.show()
+
+    if args.output_dir is not None:
+        for key, fig in figs.items():
+            fig.savefig(f'{args.output_dir}/{key}.{args.format}',
+                        transparent=True)
 
 
 if __name__ == '__main__':
@@ -526,6 +555,10 @@ if __name__ == '__main__':
                         help='plot training curves')
     parser.add_argument('--oracle', action='store_true',
                         help='plot oracle scores')
+    parser.add_argument('--output_dir',
+                        help='output directory where to save the figures')
+    parser.add_argument('--format', default='png',
+                        help='output figure format')
     filter_args, args = parser.parse_args()
 
     model_dirs = []
