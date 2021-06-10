@@ -1,8 +1,9 @@
 import numpy as np
 import soundfile as sf
 from resampy import resample
+import scipy.signal
 
-from .utils import frame
+from .utils import frame, wola
 from .filters import gammatone_filt, mel_triangle_filterbank
 
 
@@ -27,7 +28,7 @@ def load(filepath, fs=16e3, **kwargs):
 
 
 def stft(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
-         onesided=True, center=False, normalization=False):
+         onesided=True, center=False):
     '''
     STFT computation.
 
@@ -58,10 +59,6 @@ def stft(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
             If True, the first frame is centered at the first sample by
             zero-padding at the beginning of x, such that the frame of index i
             is centered at i*hop_length.
-        normalization:
-            If True, the output is divided by n_fft**0.5. This ensures
-            Parseval's theorem, i.e. the energy (sum of squares) in each frame
-            is the same in both the time domain and the frequency domain.
 
     Returns:
         X:
@@ -77,9 +74,31 @@ def stft(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
         X = np.fft.rfft(frames, n_fft, axis=1)
     else:
         X = np.fft.fft(frames, n_fft, axis=1)
-    if normalization:
-        X /= n_fft**0.5
     return X.squeeze()
+
+
+def istft(X, frame_length=512, hop_length=256, window='hann', onesided=True,
+          center=False, trim=None):
+    if callable(window):
+        window = window(frame_length)
+    elif isinstance(window, str):
+        window = scipy.signal.get_window(window, frame_length)
+    if onesided:
+        frames = np.fft.irfft(X, frame_length, axis=1)
+    else:
+        frames = np.fft.ifft(X, frame_length, axis=1)
+    n_frames = len(frames)
+    n_samples = (n_frames-1)*hop_length + frame_length
+    output_shape = np.zeros(X.ndim - 1, int)
+    output_shape[0] = n_samples
+    output_shape[1:] = X.shape[2:]
+    x = np.zeros(output_shape)
+    for i in range(n_frames):
+        j = i*hop_length
+        x[j:j+frame_length] += window*frames[i]
+    if trim is not None:
+        x = x[:trim]
+    return x
 
 
 def spectrogram(x, n_fft=512, hop_length=256, frame_length=None, window='hann',
