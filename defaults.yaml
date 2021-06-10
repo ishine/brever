@@ -51,7 +51,7 @@ PRE:
   FEATURES: !!set
     # ild: null
     # itd_ic: null
-    logpdf: null
+    # logpdf: null
     # logmfcc: null
     # cubicmfcc: null
     # pdf: null
@@ -76,7 +76,7 @@ PRE:
   MIXTURES:
     DECAY:
       COLOR: white
-      'ON': true
+      'ON': false
     DIFFUSE:
       COLOR: white
       LTASEQ: true
