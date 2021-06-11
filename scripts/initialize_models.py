@@ -11,7 +11,9 @@ from brever.modelmanagement import (get_unique_id, set_config_field, flatten,
                                     get_config_field)
 
 
-def check_if_path_exists(configs, path_type='train'):
+def check_if_path_exists(configs, path_type):
+    if path_type not in ['train', 'val']:
+        raise ValueError('path_type must be train or val')
     defaults_ = defaults().to_dict()
     default_path = get_config_field(defaults_, f'{path_type}_path')
     for config in configs:
@@ -32,7 +34,9 @@ def check_if_path_exists(configs, path_type='train'):
     return True
 
 
-def check_trailing_slashes(configs, path_type='train'):
+def check_trailing_slashes(configs, path_type):
+    if path_type not in ['train', 'val']:
+        raise ValueError('path_type must be train or val')
     for config in configs:
         path = get_config_field(config, f'{path_type}_path')
         if path is not None and not path.endswith(('\\', '/')):
