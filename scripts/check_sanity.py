@@ -14,7 +14,7 @@ def format_slashes(x):
 
 
 def shorten(long_str):
-    return long_str[:6] + '...'
+    return long_str[:6] + '...' + long_str[-6:]
 
 
 def main():
