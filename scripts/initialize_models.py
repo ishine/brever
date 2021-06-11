@@ -1,7 +1,6 @@
 import os
 import shutil
 import itertools
-import re
 
 import yaml
 
@@ -51,28 +50,23 @@ def check_trailing_slashes(configs, path_type):
 
 def check_if_test_datasets_exist(configs):
     defaults_ = defaults().to_dict()
-    default_path = get_config_field(defaults_, 'test_path')
+    default_paths = get_config_field(defaults_, 'test_path')
     for config in configs:
-        path = get_config_field(config, 'test_path')
-        if path is None:
-            path = default_path
-            msg = 'No base test path specified, and the default base test '\
-                  'path does not correspond to any test dataset directory in '\
-                  'the filesystem'
+        paths = get_config_field(config, 'test_path')
+        if paths is None:
+            paths = default_paths
+            msg = 'No test paths specified, and not all the default test '\
+                  'paths exist'
         else:
-            msg = 'The specified base test path does not correspond to any '\
-                  'existing test dataset directory in the filesystem'
-        basename = os.path.basename(path)
-        dirname = os.path.dirname(path)
-        r = re.compile(fr'^{basename}_(snr-?\d{{1,2}})_(.*)$')
-        dirs_ = [dir_ for dir_ in filter(r.match, os.listdir(dirname))]
-        if not dirs_:
-            print(msg)
-            resp = input('Do you wish to continue? y/n')
-            if resp == 'y':
-                return True
-            else:
-                return False
+            msg = 'The specified test paths do not all exist'
+        for path in paths:
+            if not os.path.exists(path):
+                print(msg)
+                resp = input('Do you wish to continue? y/n')
+                if resp == 'y':
+                    return True
+                else:
+                    return False
     return True
 
 
@@ -105,11 +99,15 @@ def main(args):
         print('Aborting')
         return
 
+    models_dir = defaults().PATH.MODELS
+
     new_configs = []
     skipped = 0
     for config in configs:
         unique_id = get_unique_id(config)
-        if unique_id not in os.listdir('models'):
+        if not os.path.exists(models_dir):
+            os.mkdir(models_dir)
+        if unique_id not in os.listdir(models_dir):
             defaults().update(config)  # throws an error if config is not valid
             uni_features = get_config_field(config, 'uni_norm_features', None)
             features = get_config_field(config, 'features', None)
@@ -129,7 +127,7 @@ def main(args):
         if resp == 'y':
             for config in new_configs:
                 unique_id = get_unique_id(config)
-                dirpath = os.path.join('models', unique_id)
+                dirpath = os.path.join(models_dir, unique_id)
                 if os.path.exists(dirpath):
                     shutil.rmtree(dirpath)
                 os.makedirs(dirpath)

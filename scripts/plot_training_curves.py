@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from brever.modelmanagement import ModelFilterArgParser, find_model
+from brever.config import defaults
 
 
 def smooth(data, sigma=50):
@@ -26,6 +27,7 @@ def main(models, **kwargs):
     plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True)
     plt.rc('grid', color='w', linestyle='solid')
 
+    models_dir = defaults().PATH.MODELS
     models = paths_to_dirnames(models)
     possible_models = find_model(**kwargs)
     models = [model for model in models if model in possible_models]
@@ -33,7 +35,7 @@ def main(models, **kwargs):
     plt.figure(figsize=(16, 8))
     for i, model_id in enumerate(models):
         print(model_id)
-        path = os.path.join('models', model_id, 'losses.npz')
+        path = os.path.join(models_dir, model_id, 'losses.npz')
         data = np.load(path)
         l, = plt.plot(data['train'], label=f'{model_id[:3]}...')
         _, = plt.plot(data['val'], '--', color=l.get_color())
@@ -58,7 +60,8 @@ def main(models, **kwargs):
         for i in range(len(data)-strip):
             x = np.arange(strip)
             y = data[i:i+strip]
-            slope[i+strip] = np.sum((x - x.mean())*(y - y.mean()))/np.sum((x - x.mean())*(x - x.mean()))
+            slope[i+strip] = (np.sum((x - x.mean())*(y - y.mean())) /
+                              np.sum((x - x.mean())*(x - x.mean())))
         plt.plot(np.log10(abs(slope)))
     plt.grid()
 

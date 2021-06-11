@@ -3,7 +3,9 @@ import os
 
 import yaml
 
-from brever.modelmanagement import ModelFilterArgParser, set_config_field, get_unique_id
+from brever.modelmanagement import (ModelFilterArgParser, set_config_field,
+                                    get_unique_id)
+from brever.config import defaults
 
 
 def shorten(long_str):
@@ -13,8 +15,15 @@ def shorten(long_str):
 def main(args, params):
     model = args.input
 
+    if not params:
+        print('No parameters given. No model to copy.')
+
+    copied = False
+    models_dir = defaults().PATH.MODELS
+
     for key, values in params.items():
         if values is not None:
+            copied = True
             for val in values:
                 config_file = os.path.join(model, 'config.yaml')
                 with open(config_file, 'r') as f:
@@ -23,7 +32,7 @@ def main(args, params):
 
                 new_id = get_unique_id(config)
 
-                dst = os.path.join('models', new_id)
+                dst = os.path.join(models_dir, new_id)
 
                 if args.force and os.path.exists(dst):
                     shutil.rmtree(dst)
@@ -44,6 +53,9 @@ def main(args, params):
 
                 os.remove(os.path.join(dst, 'scores.npz'))
                 os.remove(os.path.join(dst, 'scores.mat'))
+
+    if not copied:
+        print('No model was copied as no parameters were given')
 
 
 if __name__ == '__main__':

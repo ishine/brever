@@ -12,6 +12,8 @@ def main(delete=False, set_field=None, **kwargs):
     if delete and set_field:
         raise ValueError('Can\'t use both --delete and --set-field')
 
+    models_dir = defaults().PATH.MODELS
+
     models = find_model(**kwargs)
 
     tested = []
@@ -19,8 +21,8 @@ def main(delete=False, set_field=None, **kwargs):
     untrained = []
 
     for model_id in models:
-        score_file = os.path.join('models', model_id, 'scores.mat')
-        loss_file = os.path.join('models', model_id, 'losses.npz')
+        score_file = os.path.join(models_dir, model_id, 'scores.mat')
+        loss_file = os.path.join(models_dir, model_id, 'losses.npz')
         if os.path.exists(score_file):
             tested.append(model_id)
         elif os.path.exists(loss_file):
@@ -44,7 +46,7 @@ def main(delete=False, set_field=None, **kwargs):
         resp = input('Do you want to continue? y/n')
         if resp == 'y':
             for model_id in models:
-                model_dir = os.path.join('models', model_id)
+                model_dir = os.path.join(models_dir, model_id)
                 shutil.rmtree(model_dir)
                 print(f'Deleted {model_dir}')
         else:
@@ -67,7 +69,7 @@ def main(delete=False, set_field=None, **kwargs):
                 else:
                     filenames = ['config.yaml']
                 for filename in filenames:
-                    config_path = os.path.join('models', model_id, filename)
+                    config_path = os.path.join(models_dir, model_id, filename)
                     with open(config_path, 'r') as f:
                         config = yaml.safe_load(f)
                     set_config_field(config, tag, value)

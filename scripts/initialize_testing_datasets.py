@@ -3,9 +3,12 @@ import os
 import yaml
 
 from brever.modelmanagement import set_dict_field, DatasetInitArgParser
+from brever.config import defaults
 
 
 def main(args, params):
+
+    processed_dir = defaults().PATH.PROCESSED
 
     configs = []
     dirpaths = []
@@ -43,7 +46,7 @@ def main(args, params):
                 dirname = f'testing_snr{snr}_{room_alias}'
             else:
                 dirname = f'testing_{args.alias}_snr{snr}_{room_alias}'
-            dirpath = os.path.join('data', 'processed', dirname)
+            dirpath = os.path.join(processed_dir, dirname)
 
             configs.append(config)
             dirpaths.append(dirpath)

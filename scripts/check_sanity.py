@@ -20,10 +20,13 @@ def shorten(long_str):
 def main():
     full_configs = []
     full_configs_ids = []
+    models_dir = defaults().PATH.MODELS
+    sane = True
 
-    for model_id in os.listdir('models'):
-        model_dirpath = os.path.join('models', model_id)
-        config_filepath = os.path.join(model_dirpath, 'config.yaml')
+    for model_id in os.listdir(models_dir):
+
+        model_dir = os.path.join(models_dir, model_id)
+        config_filepath = os.path.join(model_dir, 'config.yaml')
         with open(config_filepath, 'r') as f:
             config = yaml.safe_load(f)
 
@@ -33,61 +36,65 @@ def main():
         if train_path is not None and val_path is not None:
             train_path = format_slashes(train_path)
             val_path = format_slashes(val_path)
-            base_train_path = os.path.join('data', 'processed', 'training')
-            base_val_path = os.path.join('data', 'processed', 'validation')
-            base_train_path = format_slashes(base_train_path)
-            base_val_path = format_slashes(base_val_path)
-            if not train_path.startswith(base_train_path):
-                print((f'Model {shorten(model_id)} has wrong train path! '
-                       f'{train_path}'))
-            if not val_path.startswith(base_val_path):
-                print((f'Model {shorten(model_id)} has wrong val path! '
-                       f'{val_path}'))
-            train_path_strip = train_path.replace(base_train_path, '')
-            val_path_strip = val_path.replace(base_val_path, '')
-            if train_path_strip != val_path_strip:
-                print((f'Model {shorten(model_id)} has unconsistent datasets '
-                       f'paths!'))
-                print(f'{train_path_strip}')
-                print(f'{val_path_strip}')
-        elif train_path is not None or val_path is not None:
-            print((f'Model {shorten(model_id)} has unconsistent datasets '
-                   f'paths!'))
-            print(f'{train_path}')
-            print(f'{val_path}')
+            train_basename = os.path.basename(train_path)
+            val_basename = os.path.basename(val_path)
+            if not train_basename.startswith('train'):
+                print(f'Model {shorten(model_id)}\'s train basename does not '
+                      f'start with "train"! Got {train_path}')
+                sane = False
+            if not val_basename.startswith('val'):
+                print(f'Model {shorten(model_id)}\'s val basename does not '
+                      f'start with "val"! Got {val_path}')
+                sane = False
+            train_alias = train_path.replace(train_basename, '')
+            val_alias = val_path.replace(val_basename, '')
+            if train_alias != val_alias:
+                print(f'Model {shorten(model_id)}\'s train and val paths are '
+                      f'unconsistent! Got basenames {train_basename} and '
+                      f'{val_basename}')
+                sane = False
+        elif train_path is not None:
+            print(f'Model {shorten(model_id)} has a train path but no val '
+                  'path!')
+            sane = False
+        elif val_path is not None:
+            print(f'Model {shorten(model_id)} has a val path but no train '
+                  'path!')
+            sane = False
 
         full_config = defaults()
         full_config.update(config)
         full_config = full_config.to_dict()
         if full_config in full_configs:
             index = full_configs.index(full_config)
-            duplicate_id = full_configs_ids[index]
-            print((f'Models {shorten(model_id)} and {shorten(duplicate_id)} '
-                   f'are duplicates'))
-            pesqfile = os.path.join('models', model_id, 'pesq_scores.mat')
-            pesqfile_ = os.path.join('models', duplicate_id, 'pesq_scores.mat')
-            if not os.path.exists(pesqfile) or os.path.exists(pesqfile_):
-                if not os.path.exists(pesqfile):
-                    print((f'Model {shorten(model_id)} is untrained'))
-                elif os.path.exists(pesqfile_):
-                    print((f'Models {shorten(model_id)} and '
-                           f'{shorten(duplicate_id)} are both trained'))
-                resp = input((f'Would you like to delete model '
-                              f'{shorten(model_id)}? y/n'))
+            duple_id = full_configs_ids[index]
+            duple_dir = os.path.join(models_dir, duple_id)
+            print(f'Models {shorten(model_id)} and {shorten(duple_id)} '
+                  f'are duplicates!')
+            sane = False
+            scores = os.path.join(model_dir, 'scores.mat')
+            scores_dup = os.path.join(duple_dir, 'scores.mat')
+            if not os.path.exists(scores) or os.path.exists(scores_dup):
+                if not os.path.exists(scores):
+                    print(f'Model {shorten(model_id)} is untrained')
+                elif os.path.exists(scores_dup):
+                    print(f'Models {shorten(model_id)} and '
+                          f'{shorten(duple_id)} are both trained')
+                resp = input(f'Would you like to delete model '
+                             f'{shorten(model_id)}? y/n')
                 if resp == 'y':
-                    shutil.rmtree(model_dirpath)
+                    shutil.rmtree(model_dir)
                     print(f'Deleted {shorten(model_id)}')
                     continue
                 else:
                     print('Model was not deleted')
             else:
-                print((f'Model {shorten(duplicate_id)} is untrained'))
-                resp = input((f'Would you like to delete model '
-                              f'{shorten(duplicate_id)}? y/n'))
+                print(f'Model {shorten(duple_id)} is untrained')
+                resp = input(f'Would you like to delete model '
+                             f'{shorten(duple_id)}? y/n')
                 if resp == 'y':
-                    model_dirpath_ = os.path.join('models', duplicate_id)
-                    shutil.rmtree(model_dirpath_)
-                    print(f'Deleted model {shorten(duplicate_id)}')
+                    shutil.rmtree(duple_dir)
+                    print(f'Deleted model {shorten(duple_id)}')
                     full_configs[index] = full_config
                     full_configs_ids[index] = model_id
                 else:
@@ -99,13 +106,17 @@ def main():
         new_id = get_unique_id(config)
         if new_id != model_id:
             print(f'Model {shorten(model_id)} has wrong ID!')
+            sane = False
             resp = input('Would you like to rename it? y/n')
             if resp == 'y':
-                new_dirpath = os.path.join('models', new_id)
-                os.rename(model_dirpath, new_dirpath)
+                new_dir = os.path.join(models_dir, new_id)
+                os.rename(model_dir, new_dir)
                 print(f'Renamed model {shorten(model_id)} to {new_id}')
             else:
                 print('Model was not renamed')
+
+    if sane:
+        print('Models directory is sane')
 
 
 if __name__ == '__main__':

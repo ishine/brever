@@ -13,11 +13,12 @@ from brever.config import defaults
 
 
 def check_models(models, dims):
+    models_dir = defaults().PATH.MODELS
     if dims is None:
         models_ = []
         for model in models:
-            mat_file = os.path.join('models', model, 'scores.mat')
-            npz_file = os.path.join('models', model, 'scores.npz')
+            mat_file = os.path.join(models_dir, model, 'scores.mat')
+            npz_file = os.path.join(models_dir, model, 'scores.npz')
             if not os.path.exists(mat_file) or not os.path.exists(npz_file):
                 print(f'Model {model} is not evaluated!')
                 continue
@@ -27,9 +28,9 @@ def check_models(models, dims):
     models_ = []
     configs_ = []
     for model in models:
-        mat_file = os.path.join('models', model, 'scores.mat')
-        npz_file = os.path.join('models', model, 'scores.npz')
-        config_file = os.path.join('models', model, 'config_full.yaml')
+        mat_file = os.path.join(models_dir, model, 'scores.mat')
+        npz_file = os.path.join(models_dir, model, 'scores.npz')
+        config_file = os.path.join(models_dir, model, 'config_full.yaml')
         if not os.path.exists(config_file):
             print(f'Model {model} is not trained!')
             continue
@@ -113,11 +114,12 @@ def group_by_dimension(models, values, dimensions):
 
 
 def load_scores(groups):
+    models_dir = defaults().PATH.MODELS
     for group in groups:
         for i in range(len(group)):
             # load mat scores
             model = group[i]['model']
-            filepath = os.path.join('models', model, 'scores.mat')
+            filepath = os.path.join(models_dir, model, 'scores.mat')
             scores = scipy.io.loadmat(filepath)
             pesq = scores['pesqs']
             pesq_oracle = scores['pesqs_oracle']
@@ -125,7 +127,7 @@ def load_scores(groups):
             stoi_oracle = scores['stois_oracle']
 
             # load npz scores
-            filepath = os.path.join('models', model, 'scores.npz')
+            filepath = os.path.join(models_dir, model, 'scores.npz')
             scores = np.load(filepath)
             mse = scores['mse']
             mse_oracle = np.zeros(mse.shape)
@@ -150,7 +152,7 @@ def load_scores(groups):
             group[i]['oracle']['segRR'] = seg_oracle[:, :, :, 3]
 
             # load loss curves
-            filepath = os.path.join('models', model, 'losses.npz')
+            filepath = os.path.join(models_dir, model, 'losses.npz')
             curves = np.load(filepath)
             group[i]['train_curve'] = curves['train']
             group[i]['val_curve'] = curves['val']
@@ -197,11 +199,12 @@ def merge_lists(dimensions, group_by):
 
 
 def get_snrs_and_rooms(models):
+    models_dir = defaults().PATH.MODELS
     snrss = []
     roomss = []
     for model in models:
         # load npz scores
-        filepath = os.path.join('models', model, 'scores.npz')
+        filepath = os.path.join(models_dir, model, 'scores.npz')
         scores = np.load(filepath)
         snrss.append(scores['snrs'].tolist())
         roomss.append(scores['rooms'].tolist())
@@ -400,7 +403,8 @@ def main(models, args, filter_):
                 fig.savefig(f'{args.output_dir}/{key}.{args.format}')
         return
 
-    ylabels = ['MSE', r'$\Delta PESQ$', 'STOI', 'segSSNR', 'segBR', 'segNR', 'segRR']
+    ylabels = ['MSE', r'$\Delta PESQ$', r'$\Delta PESQ$', 'segSSNR', 'segBR',
+               'segNR', 'segRR']
     metrics = ['mse', 'pesq', 'stoi', 'segSSNR', 'segBR', 'segNR', 'segRR']
     for ylabel, metric in zip(ylabels, metrics):
         fig, axes = plt.subplots(1, 2, sharey=True, figsize=args.figsize)
@@ -440,7 +444,7 @@ def main(models, args, filter_):
                                 label = args.legend[model_count]
                         else:
                             label = None
-                        x = np.arange(len(mean)) + (model_count - (n-1)/2)*width
+                        x = np.arange(len(mean)) + (model_count-(n-1)/2)*width
                         x[-1] = x[-1] + 2*width
                         ax.bar(x=x, height=mean, width=width, label=label,
                                color=color, hatch=hatch, yerr=err)

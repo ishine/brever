@@ -39,7 +39,8 @@ POST:
     UNIFORMFEATURES: !!set {}
   LOAD: true
   PATH:
-    TEST: data/processed/testing
+    TEST:
+      - data/processed/testing/
     TRAIN: data/processed/training/
     VAL: data/processed/validation/
   STACK: 0
@@ -156,6 +157,8 @@ PRE:
     'ON': true
     VALUE: 0
 PATH:
+  MODELS: 'models/'
+  PROCESSED: 'data/processed'
   DCASE: data/external/DCASE/
   SURREY: data/external/SURREY/
   TIMIT: data/external/TIMIT/TRAIN/

@@ -4,6 +4,8 @@ import argparse
 
 import yaml
 
+from brever.config import defaults
+
 
 def sorted_dict(input_dict):
     """
@@ -299,11 +301,12 @@ def find_model(**kwargs):
         to the model directories. To obtain the paths to the model directories,
         these should be joined with the project model directory path.
     """
+    models_dir = defaults().PATH.MODELS
     models = []
-    for model_id in os.listdir('models'):
-        config_file = os.path.join('models', model_id, 'config_full.yaml')
+    for model_id in os.listdir(models_dir):
+        config_file = os.path.join(models_dir, model_id, 'config_full.yaml')
         if not os.path.exists(config_file):
-            config_file = os.path.join('models', model_id, 'config.yaml')
+            config_file = os.path.join(models_dir, model_id, 'config.yaml')
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
         valid = True
