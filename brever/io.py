@@ -5,7 +5,7 @@ import random
 import yaml
 import numpy as np
 import soundfile as sf
-from resampy import resample
+from scipy.signal import resample
 import sofa
 
 from brever.config import defaults

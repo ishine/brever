@@ -1,6 +1,6 @@
 import numpy as np
 import soundfile as sf
-from resampy import resample
+from scipy.signal import resample
 import scipy.signal
 
 from .utils import frame, wola
