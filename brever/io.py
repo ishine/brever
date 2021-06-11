@@ -199,7 +199,7 @@ def load_brirs(room_alias, angles, fs=16e3):
         room_number = m.group(1)
         if room_number in ['05a', '05b', '05A', '05B']:
             room_number = room_number.upper()
-            dirpath = os.path.join(dirpath, 'BRIRs', f'R05')
+            dirpath = os.path.join(dirpath, 'BRIRs', 'R05')
         else:
             dirpath = os.path.join(dirpath, 'BRIRs', f'R{room_number}')
         filename = f'BRIR_R{room_number}_P1_E0_A{angle}.wav'
@@ -330,7 +330,7 @@ def get_available_angles(room_alias):
         room_number = m.group(1)
         if room_number in ['05a', '05b', '05A', '05B']:
             room_number = room_number.upper()
-            dirpath = os.path.join(dirpath, 'BRIRs', f'R05')
+            dirpath = os.path.join(dirpath, 'BRIRs', 'R05')
         else:
             dirpath = os.path.join(dirpath, 'BRIRs', f'R{room_number}')
         for filename in os.listdir(dirpath):

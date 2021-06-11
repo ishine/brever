@@ -3,7 +3,7 @@ import soundfile as sf
 from scipy.signal import resample
 import scipy.signal
 
-from .utils import frame, wola
+from .utils import frame
 from .filters import gammatone_filt, mel_triangle_filterbank
 
 
