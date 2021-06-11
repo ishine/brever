@@ -7,6 +7,6 @@ do
     then
         echo "model already tested: $input "
     else
-        bash jobs/send.sh jobs/job.sh "python scripts/test_model.py $input$FORCE"
+        bash jobs/send.sh jobs/job_hpc.sh "python scripts/test_model.py $input$FORCE --no-cuda"
     fi
 done
