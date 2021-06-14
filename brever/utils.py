@@ -117,13 +117,14 @@ def wola(X, frame_length=512, hop_length=256, window='hann', trim=None):
     """
     Weighted overlap-add (WOLA).
 
-    Reconstructs a 1-D array from a sequence of overlapping frames using the
-    Weighted overlap-add (WOLA) method.
+    Extrapolates a mu1ti-channel input using the overlap-add (WOLA) method.
+    Used to extrapolate a gain function defined on channel frames to then be
+    able to apply it on a sample level.
 
     Parameters
     ----------
     X : array_like
-        Input framed array with shape `(n_frames, frame_length)`.
+        Input array with shape `(n_frames, n_channels)`.
     frame_length : int, optional
         Frame length in samples. Default is 512.
     hop_length : int, optional
@@ -144,7 +145,7 @@ def wola(X, frame_length=512, hop_length=256, window='hann', trim=None):
     Returns
     -------
     x : array_like
-        Reconstructed 1-D array.
+        Extrapolated 2-D array wth shape `(n_frames, n_samples)`.
     """
     if callable(window):
         window = window(frame_length)
