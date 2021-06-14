@@ -20,7 +20,7 @@ def main(alias, params):
                     'ON': True,
                     'VALUE': seed,
                 },
-                'MIXTURES': {
+                'MIX': {
                     'NUMBER': number,
                     'FILELIMITS': {
                         'NOISE': filelims.copy(),

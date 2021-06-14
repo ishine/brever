@@ -5,18 +5,16 @@ import itertools
 import yaml
 
 from brever.config import defaults
-from brever.modelmanagement import (get_unique_id, set_config_field, flatten,
-                                    unflatten, ModelFilterArgParser,
-                                    get_config_field)
+import brever.modelmanagement as bmm
 
 
 def check_if_path_exists(configs, path_type):
     if path_type not in ['train', 'val']:
         raise ValueError('path_type must be train or val')
     defaults_ = defaults().to_dict()
-    default_path = get_config_field(defaults_, f'{path_type}_path')
+    default_path = bmm.get_config_field(defaults_, f'{path_type}_path')
     for config in configs:
-        path = get_config_field(config, f'{path_type}_path')
+        path = bmm.get_config_field(config, f'{path_type}_path')
         if path is None:
             path = default_path
             msg = f'No {path_type} path specified, and default path does not '\
@@ -37,7 +35,7 @@ def check_trailing_slashes(configs, path_type):
     if path_type not in ['train', 'val']:
         raise ValueError('path_type must be train or val')
     for config in configs:
-        path = get_config_field(config, f'{path_type}_path')
+        path = bmm.get_config_field(config, f'{path_type}_path')
         if path is not None and not path.endswith(('\\', '/')):
             print(f'The specified {path_type} path has no trailing slashes')
             resp = input('Do you wish to continue? y/n')
@@ -50,23 +48,23 @@ def check_trailing_slashes(configs, path_type):
 
 def check_if_test_datasets_exist(configs):
     defaults_ = defaults().to_dict()
-    default_paths = get_config_field(defaults_, 'test_path')
+    default_paths = bmm.get_config_field(defaults_, 'test_path')
     for config in configs:
-        paths = get_config_field(config, 'test_path')
+        paths = bmm.get_config_field(config, 'test_path')
         if paths is None:
             paths = default_paths
             msg = 'No test paths specified, and not all the default test '\
                   'paths exist'
         else:
             msg = 'The specified test paths do not all exist'
-        for path in paths:
-            if not os.path.exists(path):
-                print(msg)
-                resp = input('Do you wish to continue? y/n')
-                if resp == 'y':
-                    return True
-                else:
-                    return False
+        paths = bmm.globbed(paths)
+        if not paths or any(not os.path.exists(path) for path in paths):
+            print(msg)
+            resp = input('Do you wish to continue? y/n')
+            if resp == 'y':
+                return True
+            else:
+                return False
     return True
 
 
@@ -82,15 +80,15 @@ def check_paths(configs):
 
 def main(args):
     to_combine = {}
-    for key in ModelFilterArgParser.arg_to_keys_map.keys():
+    for key in bmm.ModelFilterArgParser.arg_to_keys_map.keys():
         value = args.__getattribute__(key)
         if value is not None:
-            set_config_field(to_combine, key, value)
+            bmm.set_config_field(to_combine, key, value)
 
     if to_combine:
-        to_combine = flatten(to_combine)
+        to_combine = bmm.flatten(to_combine)
         keys, values = zip(*to_combine.items())
-        configs = unflatten(keys, itertools.product(*values))
+        configs = bmm.unflatten(keys, itertools.product(*values))
     else:
         configs = [{}]
 
@@ -104,15 +102,15 @@ def main(args):
     new_configs = []
     skipped = 0
     for config in configs:
-        unique_id = get_unique_id(config)
+        unique_id = bmm.get_unique_id(config)
         if not os.path.exists(models_dir):
             os.mkdir(models_dir)
         if unique_id not in os.listdir(models_dir):
             defaults().update(config)  # throws an error if config is not valid
-            uni_features = get_config_field(config, 'uni_norm_features', None)
-            features = get_config_field(config, 'features', None)
-            if (uni_features is not None and features is not None
-                    and not uni_features.issubset(features)):
+            uni_feats = bmm.get_config_field(config, 'uni_norm_features', None)
+            features = bmm.get_config_field(config, 'features', None)
+            if (uni_feats is not None and features is not None
+                    and not uni_feats.issubset(features)):
                 skipped += 1
             else:
                 new_configs.append(config)
@@ -126,7 +124,7 @@ def main(args):
         resp = input(f'{len(new_configs)} will be initialized. Continue? y/n')
         if resp == 'y':
             for config in new_configs:
-                unique_id = get_unique_id(config)
+                unique_id = bmm.get_unique_id(config)
                 dirpath = os.path.join(models_dir, unique_id)
                 if os.path.exists(dirpath):
                     shutil.rmtree(dirpath)
@@ -139,6 +137,6 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = ModelFilterArgParser(description='initialize models')
+    parser = bmm.ModelFilterArgParser(description='initialize models')
     args, _ = parser.parse_args()
     main(args)

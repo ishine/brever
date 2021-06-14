@@ -18,9 +18,7 @@ import soundfile as sf
 
 from brever.config import defaults
 from brever.utils import wola, segmental_scores
-from brever.pytorchtools import (Feedforward, H5Dataset, TensorStandardizer,
-                                 evaluate, get_files_mean_and_std,
-                                 StateTensorStandardizer)
+import brever.pytorchtools as bptt
 from brever.classes import MultiThreadFilterbank
 
 
@@ -61,7 +59,7 @@ def main(model_dir, args):
     # initialize and load network
     logging.info('Loading model...')
     model_args_path = os.path.join(model_dir, 'model_args.yaml')
-    model = Feedforward.build(model_args_path)
+    model = bptt.Feedforward.build(model_args_path)
     state_file = os.path.join(model_dir, 'checkpoint.pt')
     model.load_state_dict(torch.load(state_file, map_location='cpu'))
     if config.MODEL.CUDA and not args.no_cuda:
@@ -109,7 +107,7 @@ def main(model_dir, args):
             )
 
             # initialize dataset and dataloader
-            test_dataset = H5Dataset(
+            test_dataset = bptt.H5Dataset(
                 dirpath=test_dataset_dir,
                 features=config.POST.FEATURES,
                 labels=config.POST.LABELS,
@@ -129,18 +127,18 @@ def main(model_dir, args):
                 drop_last=True,
             )
             if config.POST.STANDARDIZATION.FILEBASED:
-                test_means, test_stds = get_files_mean_and_std(
+                test_means, test_stds = bptt.get_files_mean_and_std(
                     test_dataset,
                     config.POST.STANDARDIZATION.UNIFORMFEATURES,
                 )
-                test_dataset.transform = StateTensorStandardizer(
+                test_dataset.transform = bptt.StateTensorStandardizer(
                     test_means,
                     test_stds,
                 )
             else:
-                test_dataset.transform = TensorStandardizer(mean, std)
+                test_dataset.transform = bptt.TensorStandardizer(mean, std)
             logging.info('Calculating MSE...')
-            MSE[i, j] = evaluate(
+            MSE[i, j] = bptt.evaluate(
                 model=model,
                 criterion=criterion,
                 dataloader=test_dataloader,
@@ -301,7 +299,7 @@ def main(model_dir, args):
         '-batch',
         'addpath matlab; '
         'addpath matlab/loizou; '
-        f'testModel {model_dir} {config.PRE.FS} {config.PRE.MIXTURES.PADDING} '
+        f'testModel {model_dir} {config.PRE.FS} {config.PRE.MIX.PADDING} '
         f'\'{" ".join([str(snr) for snr in snrs])}\' '
         f'\'{" ".join(rooms)}\''
     ])

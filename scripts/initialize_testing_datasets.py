@@ -17,7 +17,7 @@ def main(args, params):
         for room_alias in args.test_rooms:
             config = {
                 'PRE': {
-                    'MIXTURES': {
+                    'MIX': {
                         'NUMBER': args.n_test,
                         'FILELIMITS': {
                             'NOISE': [0.85, 1.0],

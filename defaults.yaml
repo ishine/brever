@@ -39,8 +39,8 @@ POST:
     UNIFORMFEATURES: !!set {}
   LOAD: true
   PATH:
-    TEST:
-      - data/processed/testing/
+    TEST: !!set
+      data/processed/testing/ : null
     TRAIN: data/processed/training/
     VAL: data/processed/validation/
   STACK: 0
@@ -74,7 +74,7 @@ PRE:
     tmr : null
     # tnr : null
     # trr : null
-  MIXTURES:
+  MIX:
     DECAY:
       COLOR: white
       'ON': false

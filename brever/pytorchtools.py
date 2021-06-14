@@ -134,8 +134,9 @@ class ProgressTracker:
 
     def slope(self, data):
         x = np.arange(len(data))
-        cov = lambda x, y: np.sum((x - x.mean())*(y - y.mean()))
-        return cov(x, data)/cov(x, x)
+        x = x - x.mean()
+        y = data - data.mean()
+        return np.sum(x*y)/np.sum(x*x)
 
     def __call__(self, loss, model, checkpoint_path):
         self.losses.append(loss)

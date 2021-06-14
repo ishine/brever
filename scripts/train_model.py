@@ -5,7 +5,6 @@ import time
 import json
 from glob import glob
 import sys
-import re
 
 import yaml
 import numpy as np
@@ -13,10 +12,8 @@ import matplotlib.pyplot as plt
 import torch
 
 from brever.config import defaults
-from brever.pytorchtools import (EarlyStopping, TensorStandardizer,
-                                 StateTensorStandardizer, H5Dataset,
-                                 Feedforward, evaluate, get_mean_and_std,
-                                 get_files_mean_and_std, ProgressTracker)
+import brever.pytorchtools as bptt
+from brever.modelmanagement import globbed
 
 
 def clear_logger():
@@ -127,7 +124,7 @@ def main(model_dir, force, no_cuda):
 
     # initialize datasets
     logging.info('Initializing training dataset')
-    train_dataset = H5Dataset(
+    train_dataset = bptt.H5Dataset(
         dirpath=config.POST.PATH.TRAIN,
         features=config.POST.FEATURES,
         labels=config.POST.LABELS,
@@ -140,7 +137,7 @@ def main(model_dir, force, no_cuda):
         prestack=config.POST.PRESTACK,
     )
     logging.info('Initializing validation dataset')
-    val_dataset = H5Dataset(
+    val_dataset = bptt.H5Dataset(
         dirpath=config.POST.PATH.VAL,
         features=config.POST.FEATURES,
         labels=config.POST.LABELS,
@@ -175,24 +172,24 @@ def main(model_dir, force, no_cuda):
     # set normalization transform
     logging.info('Calculating mean and std')
     if config.POST.STANDARDIZATION.FILEBASED:
-        train_means, train_stds = get_files_mean_and_std(
+        train_means, train_stds = bptt.get_files_mean_and_std(
             train_dataset,
             config.POST.STANDARDIZATION.UNIFORMFEATURES,
         )
-        train_dataset.transform = StateTensorStandardizer(
+        train_dataset.transform = bptt.StateTensorStandardizer(
             train_means,
             train_stds,
         )
-        val_means, val_stds = get_files_mean_and_std(
+        val_means, val_stds = bptt.get_files_mean_and_std(
             val_dataset,
             config.POST.STANDARDIZATION.UNIFORMFEATURES,
         )
-        val_dataset.transform = StateTensorStandardizer(
+        val_dataset.transform = bptt.StateTensorStandardizer(
             val_means,
             val_stds,
         )
     else:
-        mean, std = get_mean_and_std(
+        mean, std = bptt.get_mean_and_std(
             train_dataset,
             train_dataloader,
             config.POST.STANDARDIZATION.UNIFORMFEATURES,
@@ -200,19 +197,14 @@ def main(model_dir, force, no_cuda):
         to_save = np.vstack((mean, std))
         stat_path = os.path.join(model_dir, 'statistics.npy')
         np.save(stat_path, to_save)
-        train_dataset.transform = TensorStandardizer(mean, std)
-        val_dataset.transform = TensorStandardizer(mean, std)
+        train_dataset.transform = bptt.TensorStandardizer(mean, std)
+        val_dataset.transform = bptt.TensorStandardizer(mean, std)
 
     # initialize test dataset and dataloaders
-    basename = os.path.basename(config.POST.PATH.TEST)
-    dirname = os.path.dirname(config.POST.PATH.TEST)
-    r = re.compile(fr'^{basename}_(snr-?\d{{1,2}})_(.*)$')
-    dirs_ = [dir_ for dir_ in filter(r.match, os.listdir(dirname))]
-    dirs_ = [os.path.join(dirname, dir_) for dir_ in dirs_]
     test_dataloaders = []
-    for test_dataset_dir in dirs_:
+    for test_dataset_dir in globbed(config.POST.PATH.TEST):
         # initialize dataset and dataloader
-        test_dataset = H5Dataset(
+        test_dataset = bptt.H5Dataset(
             dirpath=test_dataset_dir,
             features=config.POST.FEATURES,
             labels=config.POST.LABELS,
@@ -234,16 +226,16 @@ def main(model_dir, force, no_cuda):
 
         # set normalization transform
         if config.POST.STANDARDIZATION.FILEBASED:
-            test_means, test_stds = get_files_mean_and_std(
+            test_means, test_stds = bptt.get_files_mean_and_std(
                 test_dataset,
                 config.POST.STANDARDIZATION.UNIFORMFEATURES,
             )
-            test_dataset.transform = StateTensorStandardizer(
+            test_dataset.transform = bptt.StateTensorStandardizer(
                 test_means,
                 test_stds,
             )
         else:
-            test_dataset.transform = TensorStandardizer(mean, std)
+            test_dataset.transform = bptt.TensorStandardizer(mean, std)
 
         # add to list of dataloaders
         test_dataloaders.append(test_dataloader)
@@ -260,7 +252,7 @@ def main(model_dir, force, no_cuda):
         'batchnorm_momentum': config.MODEL.BATCHNORM.MOMENTUM,
         'hidden_sizes': config.MODEL.HIDDENSIZES,
     }
-    model = Feedforward(**model_args)
+    model = bptt.Feedforward(**model_args)
     model_args_path = os.path.join(model_dir, 'model_args.yaml')
     with open(model_args_path, 'w') as f:
         yaml.dump(model_args, f)
@@ -276,14 +268,14 @@ def main(model_dir, force, no_cuda):
     )
 
     # initialize early stopper
-    earlyStop = EarlyStopping(
+    earlyStop = bptt.EarlyStopping(
         patience=config.MODEL.EARLYSTOP.PATIENCE,
         verbose=config.MODEL.EARLYSTOP.VERBOSE,
         delta=config.MODEL.EARLYSTOP.DELTA,
     )
 
     # initialize progress tracker
-    progressTracker = ProgressTracker(
+    progressTracker = bptt.ProgressTracker(
         strip=config.MODEL.PROGRESS.STRIP,
         threshold=config.MODEL.PROGRESS.THRESHOLD,
     )
@@ -306,27 +298,26 @@ def main(model_dir, force, no_cuda):
         )
 
         # evaluate
-        train_loss = evaluate(
+        train_loss = bptt.evaluate(
             model=model,
             criterion=criterion,
             dataloader=train_dataloader,
             cuda=config.MODEL.CUDA and not no_cuda,
         )
-        val_loss = evaluate(
+        val_loss = bptt.evaluate(
             model=model,
             criterion=criterion,
             dataloader=val_dataloader,
             cuda=config.MODEL.CUDA and not no_cuda,
         )
-        test_loss = 0
-        for test_dataloader in test_dataloaders:
-            test_loss += evaluate(
+        test_loss = np.mean([
+            bptt.evaluate(
                 model=model,
                 criterion=criterion,
                 dataloader=test_dataloader,
                 cuda=config.MODEL.CUDA and not no_cuda,
             )
-        test_loss /= len(test_dataloaders)
+            for test_dataloader in test_dataloaders])
 
         # log and store errors
         total_time = time.time() - start_time

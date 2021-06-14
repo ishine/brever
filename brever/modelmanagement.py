@@ -1,10 +1,25 @@
 import os
 import hashlib
 import argparse
+from glob import glob
 
 import yaml
 
 from brever.config import defaults
+
+
+def globbed(paths):
+    """
+    Transforms a list of paths with wildcards into a concatenated list with all
+    the paths matching the wildcards.
+
+    Example: `globbed(['*.wav'. 'foo.png'])` returns `['a.wav', 'b.wav',
+    'foo.png']` if the current working directory is populated with those files.
+    """
+    output = []
+    for path in paths:
+        output += glob(path)
+    return output
 
 
 def sorted_dict(input_dict):
@@ -459,6 +474,29 @@ def arg_list_type(input_str, post_caster):
     return output_list
 
 
+def arg_path_set_type(input_str):
+    """
+    A convenience function that casts the input string of paths separated by
+    spaces into a set of paths. Handles backward slashes by replacing them
+    with forward slashes. Used to parse arguments as set of paths.
+
+    Parameters
+    ----------
+    input_str : input_str
+        Input string consisting of paths separated by spaces.
+
+    Returns
+    -------
+    output_set: set of str
+        Set of paths.
+    """
+    output_set = set(input_str.split(' '))
+    while '' in output_set:
+        output_set.remove('')
+    output_set = set(item.replace('\\', '/') for item in output_set)
+    return output_set
+
+
 class ModelFilterArgParser(ExtendableArgParser):
     """
     Model filter argument parser.
@@ -573,7 +611,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         )
         self.add_base_argument(
             '--test-path',
-            type=lambda x: x.replace('\\', '/'),
+            type=arg_path_set_type,
             nargs='+',
             help='testing dataset path',
         )
@@ -679,37 +717,37 @@ class DatasetInitArgParser(ExtendableArgParser):
     """
 
     arg_to_keys_map = {
-        'decay': ['PRE', 'MIXTURES', 'DECAY', 'ON'],
-        'decay_color': ['PRE', 'MIXTURES', 'DECAY', 'COLOR'],
-        'diffuse': ['PRE', 'MIXTURES', 'DIFFUSE', 'ON'],
-        'diffuse_color': ['PRE', 'MIXTURES', 'DIFFUSE', 'COLOR'],
-        'rt60_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MIN'],
-        'rt60_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'RT60', 'MAX'],
-        'delay_min': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MIN'],
-        'delay_max': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DELAY', 'MAX'],
-        'rooms': ['PRE', 'MIXTURES', 'RANDOM', 'ROOMS'],
-        'noise_types': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'TYPES'],
-        'random_rms': ['PRE', 'MIXTURES', 'RANDOM', 'RMSDB', 'ON'],
-        'rms_min': ['PRE', 'MIXTURES', 'RANDOM', 'RMSDB', 'MIN'],
-        'rms_max': ['PRE', 'MIXTURES', 'RANDOM', 'RMSDB', 'MAX'],
-        'scale_rms': ['PRE', 'MIXTURES', 'SCALERMS'],
-        'n_sources_min': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'NUMBER', 'MIN'],
-        'n_sources_max': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'NUMBER', 'MAX'],
-        'filelims_noise': ['PRE', 'MIXTURES', 'FILELIMITS', 'NOISE'],
-        'filelims_target': ['PRE', 'MIXTURES', 'FILELIMITS', 'TARGET'],
+        'decay': ['PRE', 'MIX', 'DECAY', 'ON'],
+        'decay_color': ['PRE', 'MIX', 'DECAY', 'COLOR'],
+        'diffuse': ['PRE', 'MIX', 'DIFFUSE', 'ON'],
+        'diffuse_color': ['PRE', 'MIX', 'DIFFUSE', 'COLOR'],
+        'rt60_min': ['PRE', 'MIX', 'RANDOM', 'DECAY', 'RT60', 'MIN'],
+        'rt60_max': ['PRE', 'MIX', 'RANDOM', 'DECAY', 'RT60', 'MAX'],
+        'delay_min': ['PRE', 'MIX', 'RANDOM', 'DECAY', 'DELAY', 'MIN'],
+        'delay_max': ['PRE', 'MIX', 'RANDOM', 'DECAY', 'DELAY', 'MAX'],
+        'rooms': ['PRE', 'MIX', 'RANDOM', 'ROOMS'],
+        'noise_types': ['PRE', 'MIX', 'RANDOM', 'SOURCES', 'TYPES'],
+        'random_rms': ['PRE', 'MIX', 'RANDOM', 'RMSDB', 'ON'],
+        'rms_min': ['PRE', 'MIX', 'RANDOM', 'RMSDB', 'MIN'],
+        'rms_max': ['PRE', 'MIX', 'RANDOM', 'RMSDB', 'MAX'],
+        'scale_rms': ['PRE', 'MIX', 'SCALERMS'],
+        'n_sources_min': ['PRE', 'MIX', 'RANDOM', 'SOURCES', 'NUMBER', 'MIN'],
+        'n_sources_max': ['PRE', 'MIX', 'RANDOM', 'SOURCES', 'NUMBER', 'MAX'],
+        'filelims_noise': ['PRE', 'MIX', 'FILELIMITS', 'NOISE'],
+        'filelims_target': ['PRE', 'MIX', 'FILELIMITS', 'TARGET'],
         'features': ['PRE', 'FEATURES'],
         'seed': ['PRE', 'SEED', 'ON'],
         'seed_value': ['PRE', 'SEED', 'VALUE'],
-        'snr_dist_name': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'DISTNAME'],
-        'snr_dist_args': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'SNR', 'DISTARGS'],
-        'drr_dist_name': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'DISTNAME'],
-        'drr_dist_args': ['PRE', 'MIXTURES', 'RANDOM', 'DECAY', 'DRR', 'DISTARGS'],
-        'uniform_tmr': ['PRE', 'MIXTURES', 'RANDOM', 'UNIFORMTMR'],
-        'target_angle_min': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'ANGLE', 'MIN'],
-        'target_angle_max': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'ANGLE', 'MAX'],
-        'target_datasets': ['PRE', 'MIXTURES', 'RANDOM', 'TARGET', 'DATASETS'],
-        'noise_angle_min': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'ANGLE', 'MIN'],
-        'noise_angle_max': ['PRE', 'MIXTURES', 'RANDOM', 'SOURCES', 'ANGLE', 'MAX'],
+        'snr_dist_name': ['PRE', 'MIX', 'RANDOM', 'TARGET', 'SNR', 'DISTNAME'],
+        'snr_dist_args': ['PRE', 'MIX', 'RANDOM', 'TARGET', 'SNR', 'DISTARGS'],
+        'drr_dist_name': ['PRE', 'MIX', 'RANDOM', 'DECAY', 'DRR', 'DISTNAME'],
+        'drr_dist_args': ['PRE', 'MIX', 'RANDOM', 'DECAY', 'DRR', 'DISTARGS'],
+        'uniform_tmr': ['PRE', 'MIX', 'RANDOM', 'UNIFORMTMR'],
+        'target_angle_min': ['PRE', 'MIX', 'RANDOM', 'TARGET', 'ANGLE', 'MIN'],
+        'target_angle_max': ['PRE', 'MIX', 'RANDOM', 'TARGET', 'ANGLE', 'MAX'],
+        'target_datasets': ['PRE', 'MIX', 'RANDOM', 'TARGET', 'DATASETS'],
+        'noise_angle_min': ['PRE', 'MIX', 'RANDOM', 'SOURCES', 'ANGLE', 'MIN'],
+        'noise_angle_max': ['PRE', 'MIX', 'RANDOM', 'SOURCES', 'ANGLE', 'MAX'],
     }
 
     def __init__(self, *args, **kwargs):

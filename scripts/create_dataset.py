@@ -72,61 +72,61 @@ def main(dataset_dir, force):
     # mixture maker
     randomMixtureMaker = RandomMixtureMaker(
         fs=config.PRE.FS,
-        rooms=config.PRE.MIXTURES.RANDOM.ROOMS,
-        target_datasets=config.PRE.MIXTURES.RANDOM.TARGET.DATASETS,
-        target_snr_dist_name=config.PRE.MIXTURES.RANDOM.TARGET.SNR.DISTNAME,
-        target_snr_dist_args=config.PRE.MIXTURES.RANDOM.TARGET.SNR.DISTARGS,
-        target_angle_min=config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MIN,
-        target_angle_max=config.PRE.MIXTURES.RANDOM.TARGET.ANGLE.MAX,
+        rooms=config.PRE.MIX.RANDOM.ROOMS,
+        target_datasets=config.PRE.MIX.RANDOM.TARGET.DATASETS,
+        target_snr_dist_name=config.PRE.MIX.RANDOM.TARGET.SNR.DISTNAME,
+        target_snr_dist_args=config.PRE.MIX.RANDOM.TARGET.SNR.DISTARGS,
+        target_angle_min=config.PRE.MIX.RANDOM.TARGET.ANGLE.MIN,
+        target_angle_max=config.PRE.MIX.RANDOM.TARGET.ANGLE.MAX,
         dir_noise_nums=range(
-            config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MIN,
-            config.PRE.MIXTURES.RANDOM.SOURCES.NUMBER.MAX + 1,
+            config.PRE.MIX.RANDOM.SOURCES.NUMBER.MIN,
+            config.PRE.MIX.RANDOM.SOURCES.NUMBER.MAX + 1,
         ),
-        dir_noise_types=config.PRE.MIXTURES.RANDOM.SOURCES.TYPES,
+        dir_noise_types=config.PRE.MIX.RANDOM.SOURCES.TYPES,
         dir_noise_snrs=range(
-            config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MIN,
-            config.PRE.MIXTURES.RANDOM.SOURCES.SNR.MAX + 1,
+            config.PRE.MIX.RANDOM.SOURCES.SNR.MIN,
+            config.PRE.MIX.RANDOM.SOURCES.SNR.MAX + 1,
         ),
-        dir_noise_angle_min=config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MIN,
-        dir_noise_angle_max=config.PRE.MIXTURES.RANDOM.SOURCES.ANGLE.MAX,
-        diffuse_noise_on=config.PRE.MIXTURES.DIFFUSE.ON,
-        diffuse_noise_color=config.PRE.MIXTURES.DIFFUSE.COLOR,
-        diffuse_noise_ltas_eq=config.PRE.MIXTURES.DIFFUSE.LTASEQ,
-        mixture_pad=config.PRE.MIXTURES.PADDING,
-        mixture_rb=config.PRE.MIXTURES.REFLECTIONBOUNDARY,
-        mixture_rms_jitter_on=config.PRE.MIXTURES.RANDOM.RMSDB.ON,
+        dir_noise_angle_min=config.PRE.MIX.RANDOM.SOURCES.ANGLE.MIN,
+        dir_noise_angle_max=config.PRE.MIX.RANDOM.SOURCES.ANGLE.MAX,
+        diffuse_noise_on=config.PRE.MIX.DIFFUSE.ON,
+        diffuse_noise_color=config.PRE.MIX.DIFFUSE.COLOR,
+        diffuse_noise_ltas_eq=config.PRE.MIX.DIFFUSE.LTASEQ,
+        mixture_pad=config.PRE.MIX.PADDING,
+        mixture_rb=config.PRE.MIX.REFLECTIONBOUNDARY,
+        mixture_rms_jitter_on=config.PRE.MIX.RANDOM.RMSDB.ON,
         mixture_rms_jitters=range(
-            config.PRE.MIXTURES.RANDOM.RMSDB.MIN,
-            config.PRE.MIXTURES.RANDOM.RMSDB.MAX + 1,
+            config.PRE.MIX.RANDOM.RMSDB.MIN,
+            config.PRE.MIX.RANDOM.RMSDB.MAX + 1,
         ),
-        filelims_dir_noise=config.PRE.MIXTURES.FILELIMITS.NOISE,
-        filelims_target=config.PRE.MIXTURES.FILELIMITS.TARGET,
-        decay_on=config.PRE.MIXTURES.DECAY.ON,
-        decay_color=config.PRE.MIXTURES.DECAY.COLOR,
+        filelims_dir_noise=config.PRE.MIX.FILELIMITS.NOISE,
+        filelims_target=config.PRE.MIX.FILELIMITS.TARGET,
+        decay_on=config.PRE.MIX.DECAY.ON,
+        decay_color=config.PRE.MIX.DECAY.COLOR,
         decay_rt60s=np.arange(
-            config.PRE.MIXTURES.RANDOM.DECAY.RT60.MIN,
-            config.PRE.MIXTURES.RANDOM.DECAY.RT60.MAX
-            + config.PRE.MIXTURES.RANDOM.DECAY.RT60.STEP,
-            config.PRE.MIXTURES.RANDOM.DECAY.RT60.STEP,
+            config.PRE.MIX.RANDOM.DECAY.RT60.MIN,
+            config.PRE.MIX.RANDOM.DECAY.RT60.MAX
+            + config.PRE.MIX.RANDOM.DECAY.RT60.STEP,
+            config.PRE.MIX.RANDOM.DECAY.RT60.STEP,
             dtype=float,
         ),
-        decay_drr_dist_name=config.PRE.MIXTURES.RANDOM.DECAY.DRR.DISTNAME,
-        decay_drr_dist_args=config.PRE.MIXTURES.RANDOM.DECAY.DRR.DISTARGS,
+        decay_drr_dist_name=config.PRE.MIX.RANDOM.DECAY.DRR.DISTNAME,
+        decay_drr_dist_args=config.PRE.MIX.RANDOM.DECAY.DRR.DISTARGS,
         decay_delays=np.arange(
-            config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MIN,
-            config.PRE.MIXTURES.RANDOM.DECAY.DELAY.MAX
-            + config.PRE.MIXTURES.RANDOM.DECAY.DELAY.STEP,
-            config.PRE.MIXTURES.RANDOM.DECAY.DELAY.STEP,
+            config.PRE.MIX.RANDOM.DECAY.DELAY.MIN,
+            config.PRE.MIX.RANDOM.DECAY.DELAY.MAX
+            + config.PRE.MIX.RANDOM.DECAY.DELAY.STEP,
+            config.PRE.MIX.RANDOM.DECAY.DELAY.STEP,
             dtype=float,
         ),
         seed_on=config.PRE.SEED.ON,
         seed_value=config.PRE.SEED.VALUE,
-        uniform_tmr=config.PRE.MIXTURES.RANDOM.UNIFORMTMR,
+        uniform_tmr=config.PRE.MIX.RANDOM.UNIFORMTMR,
     )
 
     # scaler
     scaler = UnitRMSScaler(
-        active=config.PRE.MIXTURES.SCALERMS,
+        active=config.PRE.MIX.SCALERMS,
     )
 
     # filterbank
@@ -159,10 +159,10 @@ def main(dataset_dir, force):
 
     # initialize hdf5 datasets
     h5f = h5py.File(datasets_output_path, 'w')
-    dset_features = h5f.create_dataset('features', (0, 0), maxshape=(None, None))
+    dset_feats = h5f.create_dataset('features', (0, 0), maxshape=(None, None))
     dset_labels = h5f.create_dataset('labels', (0, 0), maxshape=(None, None))
     dset_indexes = h5f.create_dataset('indexes', (0,), maxshape=(None,))
-    if config.PRE.MIXTURES.SAVE:
+    if config.PRE.MIX.SAVE:
         vlen_dsets = {}
         component_names = [
             'mixture',
@@ -198,30 +198,30 @@ def main(dataset_dir, force):
     i_start = 0
     total_time = 0
     start_time = time.time()
-    n_examples = min(10, config.PRE.MIXTURES.NUMBER)
+    n_examples = min(10, config.PRE.MIX.NUMBER)
     examples = []
-    examples_index = random.Random(0).sample(range(config.PRE.MIXTURES.NUMBER),
+    examples_index = random.Random(0).sample(range(config.PRE.MIX.NUMBER),
                                              n_examples)
     examples_index.sort()
 
     # main loop
-    for i in range(config.PRE.MIXTURES.NUMBER):
+    for i in range(config.PRE.MIX.NUMBER):
 
         # estimate time remaining and show progress
         if i == 0:
             logging.info((f'Processing mixture '
-                          f'{i+1}/{config.PRE.MIXTURES.NUMBER}...'))
+                          f'{i+1}/{config.PRE.MIX.NUMBER}...'))
         else:
             time_per_mix = total_time/i
-            etr = (config.PRE.MIXTURES.NUMBER-i)*total_time/i
+            etr = (config.PRE.MIX.NUMBER-i)*total_time/i
             logging.info((f'Processing mixture '
-                          f'{i+1}/{config.PRE.MIXTURES.NUMBER}... '
+                          f'{i+1}/{config.PRE.MIX.NUMBER}... '
                           f'ETR: {int(etr/60)} m {int(etr%60)} s, '
                           f'Time per mix.: {time_per_mix:.2f} s'))
 
         # make mixture and save
         mixObject, metadata = randomMixtureMaker.make()
-        if config.PRE.MIXTURES.SAVE:
+        if config.PRE.MIX.SAVE:
             for name in component_names:
                 add_to_vlen_dset(
                     vlen_dsets[name],
@@ -240,7 +240,7 @@ def main(dataset_dir, force):
         mixObject.transform(filterbank.filt)
 
         # reverse filter to obtain reference signals and save
-        if config.PRE.MIXTURES.SAVE:
+        if config.PRE.MIX.SAVE:
             mixRef = copy.deepcopy(mixObject)
             mixRef.transform(filterbank.rfilt)
             for name in component_names:
@@ -251,7 +251,7 @@ def main(dataset_dir, force):
             del mixRef
 
         # keep a copy of the mixture object for later
-        if config.PRE.MIXTURES.SAVE:
+        if config.PRE.MIX.SAVE:
             mixCopy = copy.deepcopy(mixObject)
 
         # frame
@@ -264,7 +264,7 @@ def main(dataset_dir, force):
         labels = labelExtractor.run(mixObject)
 
         # apply label and reverse filter to obtain oracle signals
-        if config.PRE.MIXTURES.SAVE:
+        if config.PRE.MIX.SAVE:
             for (j_start, j_end), label in zip(labelExtractor.indices,
                                                labelExtractor.labels):
                 mixOracle = copy.deepcopy(mixCopy)
@@ -286,7 +286,7 @@ def main(dataset_dir, force):
 
         # save features and labels
         for dset, data in zip(
-                    [dset_features, dset_labels, dset_indexes],
+                    [dset_feats, dset_labels, dset_indexes],
                     [features, labels, indexes],
                 ):
             add_to_dset(dset, data)
