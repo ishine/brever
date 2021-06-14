@@ -158,7 +158,7 @@ PRE:
     VALUE: 0
 PATH:
   MODELS: 'models/'
-  PROCESSED: 'data/processed'
+  PROCESSED: 'data/processed/'
   DCASE: data/external/DCASE/
   SURREY: data/external/SURREY/
   TIMIT: data/external/TIMIT/TRAIN/
