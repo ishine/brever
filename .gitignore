@@ -7,3 +7,4 @@ ltas.npy
 brever.egg-info/
 matlab/scores
 jobs/logs
+defaults_user.yaml
