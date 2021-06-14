@@ -4,9 +4,6 @@ from glob import glob
 import pickle
 import logging
 import sys
-import re
-import subprocess
-import shutil
 import time
 
 import yaml
@@ -15,11 +12,13 @@ import torch
 import numpy as np
 import h5py
 import soundfile as sf
+from pesq import pesq
+from pystoi import stoi
 
 from brever.config import defaults
 from brever.utils import wola, segmental_scores
 import brever.pytorchtools as bptt
-from brever.classes import MultiThreadFilterbank
+from brever.modelmanagement import globbed
 
 
 def main(model_dir, args):
@@ -68,245 +67,303 @@ def main(model_dir, args):
     # initialize criterion
     criterion = getattr(torch.nn, config.MODEL.CRITERION)()
 
-    # get snrs and rooms grid
-    basename = os.path.basename(config.POST.PATH.TEST)
-    dirname = os.path.dirname(config.POST.PATH.TEST)
-    r = re.compile(fr'^{basename}_snr(-?\d{{1,2}})_(.*)$')
-    dirs_ = [dir_ for dir_ in filter(r.match, os.listdir(dirname))]
-    snrs = sorted(set(int(r.match(dir_).group(1)) for dir_ in dirs_))
-    rooms = sorted(set(r.match(dir_).group(2) for dir_ in dirs_))
-
     # main loop
     enhancement_time = 0
     n_mixtures_enhanced = 0
-    MSE = np.empty((len(snrs), len(rooms)))
-    seg_scores = np.empty((len(snrs), len(rooms)), dtype=object)
-    seg_scores_oracle = np.empty((len(snrs), len(rooms)), dtype=object)
-    for i, snr in enumerate(snrs):
-        for j, room in enumerate(rooms):
-            # build dataset directory name
-            suffix = f'snr{snr}_{room}'
-            test_dataset_dir = f'{config.POST.PATH.TEST}_{suffix}'
-            logging.info(f'Processing {test_dataset_dir}:')
+    scores = {}
+    for test_dir in globbed(config.POST.PATH.TEST):
+        # verbose and initialize scores field
+        logging.info(f'Processing {test_dir}:')
+        scores[test_dir] = {
+            'enhanced': {
+                'segSSNR': [],
+                'segBR': [],
+                'segNR': [],
+                'segRR': [],
+                'PESQ': [],
+                'STOI': [],
+            },
+            'oracle': {
+                'segSSNR': [],
+                'segBR': [],
+                'segNR': [],
+                'segRR': [],
+                'PESQ': [],
+                'STOI': [],
+            },
+            'ref': {
+                'segSSNR': [],
+                'segBR': [],
+                'segNR': [],
+                'segRR': [],
+                'PESQ': [],
+                'STOI': [],
+            }
+        }
 
-            # load pipes
-            logging.info('Loading pipes...')
-            pipes_file = os.path.join(test_dataset_dir, 'pipes.pkl')
-            with open(pipes_file, 'rb') as f:
-                pipes = pickle.load(f)
-            scaler = pipes['scaler']
-            filterbank = pipes['filterbank']
+        # load pipes
+        logging.info('Loading pipes...')
+        pipes_file = os.path.join(test_dir, 'pipes.pkl')
+        with open(pipes_file, 'rb') as f:
+            pipes = pickle.load(f)
+        scaler = pipes['scaler']
+        filterbank = pipes['filterbank']
 
-            filterbank = MultiThreadFilterbank(
-                kind=filterbank.kind,
-                n_filters=filterbank.n_filters,
-                f_min=filterbank.f_min,
-                f_max=filterbank.f_max,
-                fs=filterbank.fs,
-                order=filterbank.order,
-            )
+        # initialize dataset and dataloader
+        test_dataset = bptt.H5Dataset(
+            dirpath=test_dir,
+            features=config.POST.FEATURES,
+            labels=config.POST.LABELS,
+            load=config.POST.LOAD,
+            stack=config.POST.STACK,
+            decimation=1,  # there must not be decimation during testing
+            dct_toggle=config.POST.DCT.ON,
+            n_dct=config.POST.DCT.NCOEFF,
+            file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
+            prestack=config.POST.PRESTACK,
+        )
+        test_dataloader = torch.utils.data.DataLoader(
+            dataset=test_dataset,
+            batch_size=config.MODEL.BATCHSIZE,
+            shuffle=config.MODEL.SHUFFLE,
+            num_workers=config.MODEL.NWORKERS,
+            drop_last=True,
+        )
 
-            # initialize dataset and dataloader
-            test_dataset = bptt.H5Dataset(
-                dirpath=test_dataset_dir,
-                features=config.POST.FEATURES,
-                labels=config.POST.LABELS,
-                load=config.POST.LOAD,
-                stack=config.POST.STACK,
-                decimation=1,  # there must not be decimation during testing
-                dct_toggle=config.POST.DCT.ON,
-                n_dct=config.POST.DCT.NCOEFF,
-                file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
-                prestack=config.POST.PRESTACK,
+        # set normalization transform
+        if config.POST.STANDARDIZATION.FILEBASED:
+            test_means, test_stds = bptt.get_files_mean_and_std(
+                test_dataset,
+                config.POST.STANDARDIZATION.UNIFORMFEATURES,
             )
-            test_dataloader = torch.utils.data.DataLoader(
-                dataset=test_dataset,
-                batch_size=config.MODEL.BATCHSIZE,
-                shuffle=config.MODEL.SHUFFLE,
-                num_workers=config.MODEL.NWORKERS,
-                drop_last=True,
+            test_dataset.transform = bptt.StateTensorStandardizer(
+                test_means,
+                test_stds,
             )
-            if config.POST.STANDARDIZATION.FILEBASED:
-                test_means, test_stds = bptt.get_files_mean_and_std(
-                    test_dataset,
-                    config.POST.STANDARDIZATION.UNIFORMFEATURES,
-                )
-                test_dataset.transform = bptt.StateTensorStandardizer(
-                    test_means,
-                    test_stds,
-                )
+        else:
+            test_dataset.transform = bptt.TensorStandardizer(mean, std)
+
+        # calculate MSE
+        logging.info('Calculating MSE...')
+        scores[test_dir]['enhanced']['mse'] = bptt.evaluate(
+            model=model,
+            criterion=criterion,
+            dataloader=test_dataloader,
+            cuda=config.MODEL.CUDA and not args.no_cuda,
+        )
+
+        # open hdf5 file to load mixtures for objective metrics calculation
+        h5f = h5py.File(test_dataset.filepath, 'r')
+
+        # loop over mixtures
+        n = len(h5f['mixture'])
+        for k in range(n):
+            start_time = time.time()
+            if k == 0:
+                logging.info(f'Enhancing mixture {k}/{n}...')
             else:
-                test_dataset.transform = bptt.TensorStandardizer(mean, std)
-            logging.info('Calculating MSE...')
-            MSE[i, j] = bptt.evaluate(
-                model=model,
-                criterion=criterion,
-                dataloader=test_dataloader,
-                cuda=config.MODEL.CUDA and not args.no_cuda,
+                time_per_mix = enhancement_time/n_mixtures_enhanced
+                logging.info(f'Enhancing mixture {k}/{n}... '
+                             f'Average enhancement time: '
+                             f'{time_per_mix:.2f}')
+
+            # load mixture
+            mixture = h5f['mixture'][k].reshape(-1, 2)
+            foreground = h5f['foreground'][k].reshape(-1, 2)
+            background = h5f['background'][k].reshape(-1, 2)
+            noise = h5f['noise'][k].reshape(-1, 2)
+            reverb = h5f['late_target'][k].reshape(-1, 2)
+            i_start, i_end = test_dataset.file_indices[k]
+
+            # scale signal
+            scaler.fit(mixture)
+            mixture = scaler.scale(mixture)
+            foreground = scaler.scale(foreground)
+            background = scaler.scale(background)
+            noise = scaler.scale(noise)
+            reverb = scaler.scale(reverb)
+            scaler.__init__(scaler.active)
+
+            # apply filterbank
+            mixture_filt = filterbank.filt(mixture)
+            foreground_filt = filterbank.filt(foreground)
+            background_filt = filterbank.filt(background)
+            noise_filt = filterbank.filt(noise)
+            reverb_filt = filterbank.filt(reverb)
+
+            # extract features
+            features, IRM = test_dataset[i_start:i_end]
+            features = torch.from_numpy(features).float()
+            if config.MODEL.CUDA and not args.no_cuda:
+                features = features.cuda()
+
+            # make mask prediction
+            model.eval()
+            with torch.no_grad():
+                PRM = model(features)
+                if config.MODEL.CUDA and not args.no_cuda:
+                    PRM = PRM.cpu()
+                PRM = PRM.numpy()
+
+            # extrapolate predicted mask
+            PRM = wola(PRM, trim=len(mixture_filt))[:, :, np.newaxis]
+
+            # apply predicted mask and reverse filter
+            mixture_enhanced = filterbank.rfilt(mixture_filt*PRM)
+            foreground_enhanced = filterbank.rfilt(foreground_filt*PRM)
+            background_enhanced = filterbank.rfilt(background_filt*PRM)
+            noise_enhanced = filterbank.rfilt(noise_filt*PRM)
+            reverb_enhanced = filterbank.rfilt(reverb_filt*PRM)
+
+            # load reference signals
+            mixture_ref = h5f['mixture_ref'][k].reshape(-1, 2)
+            foreground_ref = h5f['foreground_ref'][k].reshape(-1, 2)
+            background_ref = h5f['background_ref'][k].reshape(-1, 2)
+            noise_ref = h5f['noise_ref'][k].reshape(-1, 2)
+            reverb_ref = h5f['late_target_ref'][k].reshape(-1, 2)
+
+            # segmental SNRs
+            segSSNR, segBR, segNR, segRR = segmental_scores(
+                foreground_ref,
+                foreground_enhanced,
+                background_ref,
+                background_enhanced,
+                noise_ref,
+                noise_enhanced,
+                reverb_ref,
+                reverb_enhanced,
             )
+            scores[test_dir]['enhanced']['segSSNR'].append(segSSNR)
+            scores[test_dir]['enhanced']['segBR'].append(segBR)
+            scores[test_dir]['enhanced']['segNR'].append(segNR)
+            scores[test_dir]['enhanced']['segRR'].append(segRR)
 
-            # enhance mixtures for PESQ calculation
-            with h5py.File(test_dataset.filepath, 'r') as f:
-                n = len(f['mixture'])
-                seg_scores_i_j = np.zeros((n, 4))
-                seg_scores_oracle_i_j = np.zeros((n, 4))
-                for k in range(n):
-                    start_time = time.time()
-                    if k == 0:
-                        logging.info(f'Enhancing mixture {k}/{n}...')
-                    else:
-                        time_per_mix = enhancement_time/n_mixtures_enhanced
-                        logging.info(f'Enhancing mixture {k}/{n}... '
-                                     f'Average enhancement time: '
-                                     f'{time_per_mix:.2f}')
+            # write mixtures
+            if args.save:
+                gain = 1/mixture.max()
+                dir_name = os.path.basename(test_dir)
+                output_dir = os.path.join(model_dir, 'audio', dir_name)
+                # TODO: testing a model on two datasets having the same
+                # basename but different absolute paths will result in
+                # identical output audio directories! Risk of overwriting
+                # files unintentionally
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+                sf.write(
+                    os.path.join(output_dir, f'mixture_enhanced_{k}.wav'),
+                    mixture_enhanced*gain,
+                    config.PRE.FS,
+                )
+                # sf.write(
+                #     os.path.join(output_dir, f'mixture_ref_{k}.wav'),
+                #     mixture_ref*gain,
+                #     config.PRE.FS,
+                # )
+                # sf.write(
+                #     os.path.join(output_dir, f'foreground_ref_{k}.wav'),
+                #     foreground_ref*gain,
+                #     config.PRE.FS,
+                # )
 
-                    # load mixture
-                    mixture = f['mixture'][k].reshape(-1, 2)
-                    foreground = f['foreground'][k].reshape(-1, 2)
-                    background = f['background'][k].reshape(-1, 2)
-                    noise = f['noise'][k].reshape(-1, 2)
-                    reverb = f['late_target'][k].reshape(-1, 2)
-                    i_start, i_end = test_dataset.file_indices[k]
+            # load oracle signals
+            _tag = f'oracle_{next(iter(config.POST.LABELS))}'
+            mixture_o = h5f[f'mixture_{_tag}'][k].reshape(-1, 2)
+            foreground_o = h5f[f'foreground_{_tag}'][k].reshape(-1, 2)
+            background_o = h5f[f'background_{_tag}'][k].reshape(-1, 2)
+            noise_o = h5f[f'noise_{_tag}'][k].reshape(-1, 2)
+            reverb_o = h5f[f'late_target_{_tag}'][k].reshape(-1, 2)
 
-                    # scale signal
-                    scaler.fit(mixture)
-                    mixture = scaler.scale(mixture)
-                    foreground = scaler.scale(foreground)
-                    background = scaler.scale(background)
-                    noise = scaler.scale(noise)
-                    reverb = scaler.scale(reverb)
-                    scaler.__init__(scaler.active)
+            # segmental SNRs
+            segSSNR, segBR, segNR, segRR = segmental_scores(
+                foreground_ref,
+                foreground_o,
+                background_ref,
+                background_o,
+                noise_ref,
+                noise_o,
+                reverb_ref,
+                reverb_o,
+            )
+            scores[test_dir]['oracle']['segSSNR'].append(segSSNR)
+            scores[test_dir]['oracle']['segBR'].append(segBR)
+            scores[test_dir]['oracle']['segNR'].append(segNR)
+            scores[test_dir]['oracle']['segRR'].append(segRR)
 
-                    # apply filterbank
-                    mixture_filt = filterbank.filt(mixture)
-                    foreground_filt = filterbank.filt(foreground)
-                    background_filt = filterbank.filt(background)
-                    noise_filt = filterbank.filt(noise)
-                    reverb_filt = filterbank.filt(reverb)
+            # write oracle enhanced mixture
+            if args.save_oracle:
+                gain = 1/mixture.max()
+                dir_name = os.path.basename(test_dir)
+                output_dir = os.path.join(model_dir, 'audio', dir_name)
+                # TODO: testing a model on two datasets having the same
+                # basename but different absolute paths will result in
+                # identical output audio directories! Risk of overwriting
+                # files unintentionally
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+                sf.write(
+                    os.path.join(output_dir, f'mixture_oracle_{k}.wav'),
+                    mixture_o*gain,
+                    config.PRE.FS,
+                )
 
-                    # extract features
-                    features, IRM = test_dataset[i_start:i_end]
-                    features = torch.from_numpy(features).float()
-                    if config.MODEL.CUDA and not args.no_cuda:
-                        features = features.cuda()
+            # calculate PESQ
+            scores[test_dir]['enhanced']['PESQ'].append(pesq(
+                config.PRE.FS,
+                foreground_ref,
+                mixture_enhanced,
+                'wb',
+            ))
+            scores[test_dir]['oracle']['PESQ'].append(pesq(
+                config.PRE.FS,
+                foreground_ref,
+                mixture_o,
+                'wb',
+            ))
+            scores[test_dir]['ref']['PESQ'].append(pesq(
+                config.PRE.FS,
+                foreground_ref,
+                mixture_ref,
+                'wb',
+            ))
 
-                    # make mask prediction
-                    model.eval()
-                    with torch.no_grad():
-                        PRM = model(features)
-                        if config.MODEL.CUDA and not args.no_cuda:
-                            PRM = PRM.cpu()
-                        PRM = PRM.numpy()
+            # calculate STOI
+            scores[test_dir]['enhanced']['STOI'].append(stoi(
+                foreground_ref,
+                mixture_enhanced,
+                config.PRE.FS,
+            ))
+            scores[test_dir]['oracle']['STOI'].append(stoi(
+                foreground_ref,
+                mixture_o,
+                config.PRE.FS,
+            ))
+            scores[test_dir]['ref']['STOI'].append(stoi(
+                foreground_ref,
+                mixture_ref,
+                config.PRE.FS,
+            ))
 
-                    # extrapolate predicted mask
-                    PRM = wola(PRM, trim=len(mixture_filt))[:, :, np.newaxis]
+            # measure time
+            enhancement_time += time.time() - start_time
+            n_mixtures_enhanced += 1
 
-                    # apply predicted mask and reverse filter
-                    mixture_enhanced = filterbank.rfilt(mixture_filt*PRM)
-                    foreground_enhanced = filterbank.rfilt(foreground_filt*PRM)
-                    background_enhanced = filterbank.rfilt(background_filt*PRM)
-                    noise_enhanced = filterbank.rfilt(noise_filt*PRM)
-                    reverb_enhanced = filterbank.rfilt(reverb_filt*PRM)
+    # close hdf5 file
+    h5f.close()
 
-                    # load reference signals
-                    mixture_ref = f['mixture_ref'][k].reshape(-1, 2)
-                    foreground_ref = f['foreground_ref'][k].reshape(-1, 2)
-                    background_ref = f['background_ref'][k].reshape(-1, 2)
-                    noise_ref = f['noise_ref'][k].reshape(-1, 2)
-                    reverb_ref = f['late_target_ref'][k].reshape(-1, 2)
+    # round all floats before saving scores
+    def round_dict(d, digits=4):
+        for key, val in d.items():
+            if isinstance(val, dict):
+                d[key] = round_dict(val, digits)
+            elif isinstance(val, list):
+                d[key] = [round(x, digits) for x in val]
+            elif isinstance(val, float):
+                d[key] = round(val, digits)
+    round_dict(scores)
 
-                    # segmental SNRs
-                    segSSNR, segBR, segNR, segRR = segmental_scores(
-                        foreground_ref,
-                        foreground_enhanced,
-                        background_ref,
-                        background_enhanced,
-                        noise_ref,
-                        noise_enhanced,
-                        reverb_ref,
-                        reverb_enhanced,
-                    )
-                    seg_scores_i_j[k, :] = segSSNR, segBR, segNR, segRR
-
-                    # write mixtures
-                    gain = 1/mixture.max()
-                    output_dir = os.path.join(model_dir, 'audio', suffix)
-                    if not os.path.exists(output_dir):
-                        os.makedirs(output_dir)
-                    sf.write(
-                        os.path.join(output_dir, f'mixture_enhanced_{k}.wav'),
-                        mixture_enhanced*gain,
-                        config.PRE.FS,
-                    )
-                    sf.write(
-                        os.path.join(output_dir, f'mixture_ref_{k}.wav'),
-                        mixture_ref*gain,
-                        config.PRE.FS,
-                    )
-                    sf.write(
-                        os.path.join(output_dir, f'foreground_ref_{k}.wav'),
-                        foreground_ref*gain,
-                        config.PRE.FS,
-                    )
-
-                    # load oracle signals
-                    _tag = f'oracle_{next(iter(config.POST.LABELS))}'
-                    mixture_o = f[f'mixture_{_tag}'][k].reshape(-1, 2)
-                    foreground_o = f[f'foreground_{_tag}'][k].reshape(-1, 2)
-                    background_o = f[f'background_{_tag}'][k].reshape(-1, 2)
-                    noise_o = f[f'noise_{_tag}'][k].reshape(-1, 2)
-                    reverb_o = f[f'late_target_{_tag}'][k].reshape(-1, 2)
-
-                    # segmental SNRs
-                    segSSNR, segBR, segNR, segRR = segmental_scores(
-                        foreground_ref,
-                        foreground_o,
-                        background_ref,
-                        background_o,
-                        noise_ref,
-                        noise_o,
-                        reverb_ref,
-                        reverb_o,
-                    )
-                    seg_scores_oracle_i_j[k, :] = segSSNR, segBR, segNR, segRR
-
-                    # write oracle enhanced mixture
-                    output_dir = os.path.join(model_dir, 'audio', suffix)
-                    if not os.path.exists(output_dir):
-                        os.makedirs(output_dir)
-                    sf.write(
-                        os.path.join(output_dir, f'mixture_oracle_{k}.wav'),
-                        mixture_o*gain,
-                        config.PRE.FS,
-                    )
-
-                    # measure time
-                    enhancement_time += time.time() - start_time
-                    n_mixtures_enhanced += 1
-
-            seg_scores[i, j] = seg_scores_i_j
-            seg_scores_oracle[i, j] = seg_scores_oracle_i_j
-    seg_scores = np.array(seg_scores.tolist())
-    seg_scores_oracle = np.array(seg_scores_oracle.tolist())
-
-    # save MSE and segmental scores
-    np.savez(output_npz_path, mse=MSE, seg=seg_scores,
-             seg_oracle=seg_scores_oracle, snrs=snrs, rooms=rooms)
-
-    # calculate PESQ on matlab
-    subprocess.call([
-        'matlab',
-        '-batch',
-        'addpath matlab; '
-        'addpath matlab/loizou; '
-        f'testModel {model_dir} {config.PRE.FS} {config.PRE.MIX.PADDING} '
-        f'\'{" ".join([str(snr) for snr in snrs])}\' '
-        f'\'{" ".join(rooms)}\''
-    ])
-
-    # delete audio files
-    if not args.no_delete:
-        shutil.rmtree(os.path.join(model_dir, 'audio'))
+    # save scores
+    with open(os.path.join(), 'r') as f:
+        yaml.dump(scores, f)
 
 
 if __name__ == '__main__':
@@ -317,8 +374,10 @@ if __name__ == '__main__':
                         help='test even if already tested')
     parser.add_argument('--no-cuda', action='store_true',
                         help='force testing on cpu')
-    parser.add_argument('--no-delete', action='store_true',
-                        help='disable audio file deletion')
+    parser.add_argument('--save', action='store_true',
+                        help='write enhanced signals')
+    parser.add_argument('--save-oracle', action='store_true',
+                        help='write oracle signals')
     args = parser.parse_args()
 
     logging.basicConfig(
