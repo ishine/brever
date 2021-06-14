@@ -202,10 +202,10 @@ def main(model_dir, force, no_cuda):
 
     # initialize test dataset and dataloaders
     test_dataloaders = []
-    for test_dataset_dir in globbed(config.POST.PATH.TEST):
+    for test_dir in globbed(config.POST.PATH.TEST):
         # initialize dataset and dataloader
         test_dataset = bptt.H5Dataset(
-            dirpath=test_dataset_dir,
+            dirpath=test_dir,
             features=config.POST.FEATURES,
             labels=config.POST.LABELS,
             load=config.POST.LOAD,
