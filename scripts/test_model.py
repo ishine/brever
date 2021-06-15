@@ -7,7 +7,6 @@ import sys
 import time
 
 import yaml
-import numba  # noqa: F401
 import torch
 import numpy as np
 import h5py
