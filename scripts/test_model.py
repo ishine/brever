@@ -309,37 +309,37 @@ def main(model_dir, args):
             # calculate PESQ
             scores[test_dir]['enhanced']['PESQ'].append(pesq(
                 config.PRE.FS,
-                foreground_ref,
-                mixture_enhanced,
+                foreground_ref.mean(axis=1),
+                mixture_enhanced.mean(axis=1),
                 'wb',
             ))
             scores[test_dir]['oracle']['PESQ'].append(pesq(
                 config.PRE.FS,
-                foreground_ref,
-                mixture_o,
+                foreground_ref.mean(axis=1),
+                mixture_o.mean(axis=1),
                 'wb',
             ))
             scores[test_dir]['ref']['PESQ'].append(pesq(
                 config.PRE.FS,
-                foreground_ref,
-                mixture_ref,
+                foreground_ref.mean(axis=1),
+                mixture_ref.mean(axis=1),
                 'wb',
             ))
 
             # calculate STOI
             scores[test_dir]['enhanced']['STOI'].append(stoi(
-                foreground_ref,
-                mixture_enhanced,
+                foreground_ref.mean(axis=1),
+                mixture_enhanced.mean(axis=1),
                 config.PRE.FS,
             ))
             scores[test_dir]['oracle']['STOI'].append(stoi(
-                foreground_ref,
-                mixture_o,
+                foreground_ref.mean(axis=1),
+                mixture_o.mean(axis=1),
                 config.PRE.FS,
             ))
             scores[test_dir]['ref']['STOI'].append(stoi(
-                foreground_ref,
-                mixture_ref,
+                foreground_ref.mean(axis=1),
+                mixture_ref.mean(axis=1),
                 config.PRE.FS,
             ))
 
