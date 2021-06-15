@@ -361,7 +361,7 @@ def main(model_dir, args):
     round_dict(scores)
 
     # save scores
-    with open(os.path.join(), 'r') as f:
+    with open(os.path.join(model_dir, 'scores.yaml'), 'w') as f:
         yaml.dump(scores, f)
 
 
