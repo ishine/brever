@@ -21,6 +21,7 @@ def main(alias, params):
                     'VALUE': seed,
                 },
                 'MIX': {
+                    'SAVE': False,
                     'NUMBER': number,
                     'FILELIMITS': {
                         'NOISE': filelims.copy(),
