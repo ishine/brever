@@ -175,21 +175,20 @@ def main(dataset_dir, force):
             vlen_dsets[name] = h5f.create_dataset(
                 name,
                 (0,),
-                dtype=h5py.vlen_dtype(float),
+                dtype=h5py.vlen_dtype('f4'),
                 maxshape=(None,),
-
             )
             vlen_dsets[f'{name}_ref'] = h5f.create_dataset(
                 f'{name}_ref',
                 (0,),
-                dtype=h5py.vlen_dtype(float),
+                dtype=h5py.vlen_dtype('f4'),
                 maxshape=(None,),
             )
             for label in labelExtractor.labels:
                 vlen_dsets[f'{name}_oracle_{label}'] = h5f.create_dataset(
                     f'{name}_oracle_{label}',
                     (0,),
-                    dtype=h5py.vlen_dtype(float),
+                    dtype=h5py.vlen_dtype('f4'),
                     maxshape=(None,),
                 )
 
