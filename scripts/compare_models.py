@@ -12,8 +12,7 @@ from brever.modelmanagement import (get_config_field, ModelFilterArgParser,
 from brever.config import defaults
 
 
-def check_models(models, dims):
-    models_dir = defaults().PATH.MODELS
+def check_models(models, dims, models_dir):
     if dims is None:
         models_ = []
         for model in models:
@@ -113,8 +112,7 @@ def group_by_dimension(models, values, dimensions):
     return groups, group_outer_values
 
 
-def load_scores(groups):
-    models_dir = defaults().PATH.MODELS
+def load_scores(groups, models_dir):
     for group in groups:
         for i in range(len(group)):
             # load mat scores
@@ -289,9 +287,10 @@ def main(models, args, filter_):
 
     dimensions = merge_lists(args.dims, args.group_by)
 
-    models, values = check_models(models, dimensions)
+    models_dir = defaults().PATH.MODELS
+    models, values = check_models(models, dimensions, models_dir)
     groups, group_values = group_by_dimension(models, values, args.group_by)
-    load_scores(groups)
+    load_scores(groups, models_dir)
     if args.sort_by is not None and args.sort_by != 'dims':
         groups = sort_groups_by(groups, args.sort_by)
     elif args.sort_by == 'dims':

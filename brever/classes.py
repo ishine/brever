@@ -360,6 +360,7 @@ class RandomMixtureMaker:
         self.target_angles = RandomPool([], seeder.get())
         self.dir_noise_angles = MultiRandomPool([], max(dir_noise_nums),
                                                 seeder.get())
+        self.def_cfg = defaults()
 
     def make(self):
         mixture = Mixture()
@@ -405,7 +406,7 @@ class RandomMixtureMaker:
         return decayer, metadata
 
     def add_random_target(self, mixture, metadata, room, decayer):
-        angles = [a for a in get_available_angles(room)
+        angles = [a for a in get_available_angles(room, self.def_cfg)
                   if self.target_angle_min <= a <= self.target_angle_max]
         self.target_angles.set_pool(angles)
         angle = self.target_angles.get()
@@ -417,6 +418,7 @@ class RandomMixtureMaker:
             self.filelims_target,
             self.fs,
             randomizer=self.target_filename_randomizer.random,
+            def_cfg=self.def_cfg,
         )
         mixture.add_target(
             x=target,
@@ -433,14 +435,13 @@ class RandomMixtureMaker:
     def add_random_dir_noises(self, mixture, metadata, room, decayer):
         number = self.dir_noise_nums.get()
         types = self.dir_noise_types.get(number)
-        angles = [a for a in get_available_angles(room)
+        angles = [a for a in get_available_angles(room, self.def_cfg)
                   if self.dir_noise_angle_min <= a <= self.dir_noise_angle_max]
         self.dir_noise_angles.set_pool(angles)
         angles = self.dir_noise_angles.get(number)
         noises, files, indices = self._load_noises(
             types,
             len(mixture),
-            randomizers=self.noise_filename_randomizer.randoms,
         )
         brirs = self._load_brirs(room, angles)
         brirs = [decayer.run(brir) for brir in brirs]
@@ -527,21 +528,14 @@ class RandomMixtureMaker:
         return metadata
 
     def _load_brirs(self, room, angles=None):
-        brirs, fs = load_brirs(room, angles)
-        if fs != self.fs:
-            pass
-        if fs is not None and fs != self.fs:
-            raise ValueError(('the brir samplerate obtained from '
-                              'load_brirs(%s, %s) does not match the '
-                              'RandomMixtureMaker instance samplerate '
-                              'attribute (%i vs %i)'
-                              % (room, angles, fs, self.fs)))
+        brirs, _ = load_brirs(room, angles, self.fs, self.def_cfg)
         return brirs
 
-    def _load_noises(self, types, n_samples, randomizers):
+    def _load_noises(self, types, n_samples):
         if not types:
             return [], [], []
         zipped = []
+        randomizers = self.noise_filename_randomizer.randoms
         for type_, randomizer in zip(types, randomizers):
             if type_ is None:
                 x, filepath, indices = None, None, None
@@ -557,6 +551,7 @@ class RandomMixtureMaker:
                     self.filelims_dir_noise,
                     self.fs,
                     randomizer=randomizer,
+                    def_cfg=self.def_cfg,
                 )
             else:
                 raise ValueError(('type_ must start with noise_ or '

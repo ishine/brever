@@ -2,7 +2,6 @@ import os
 import re
 import random
 
-import yaml
 import numpy as np
 import soundfile as sf
 from scipy.signal import resample
@@ -11,22 +10,18 @@ import sofa
 from brever.config import defaults
 
 
-def get_path(field_name):
-    if os.path.exists('user_paths.yaml'):
-        with open('user_paths.yaml') as f:
-            user_paths = yaml.load(f)
-        if user_paths[field_name] is not None:
-            output = user_paths[field_name]
-    else:
-        config = defaults()
-        output = getattr(config.PATH, field_name)
+def get_path(field_name, def_cfg=None):
+    if def_cfg is None:
+        def_cfg = defaults()
+    output = getattr(def_cfg.PATH, field_name)
     if not os.path.exists(output):
         raise ValueError('the following dataset path was not found in the '
                          f'filesystem: {output}')
     return output
 
 
-def load_random_target(target_alias, lims=None, fs=16e3, randomizer=None):
+def load_random_target(target_alias, lims=None, fs=16e3, randomizer=None,
+                       def_cfg=None):
     '''
     Load a random target signal from the target speech database.
 
@@ -45,6 +40,10 @@ def load_random_target(target_alias, lims=None, fs=16e3, randomizer=None):
             original sampling rate, the signal is returned as is.
         randomizer:
             Custom random.Random instance. Useful for seeding.
+        def_cfg:
+            Default configuration `~.config.AttrDict` object usually returned
+            by `~.config.defaults`. Default is `None` which means
+            `~.config.defaults` will be called.
 
     Returns:
         x:
@@ -58,7 +57,7 @@ def load_random_target(target_alias, lims=None, fs=16e3, randomizer=None):
         'ieee': 'IEEE',
     }
     if target_alias in alias_to_key_map.keys():
-        dirpath = get_path(alias_to_key_map[target_alias])
+        dirpath = get_path(alias_to_key_map[target_alias], def_cfg)
     else:
         raise ValueError(f'wrong target alias: {target_alias}')
     if not os.path.exists(dirpath):
@@ -85,7 +84,7 @@ def load_random_target(target_alias, lims=None, fs=16e3, randomizer=None):
     return x, filepath
 
 
-def load_brirs(room_alias, angles, fs=16e3):
+def load_brirs(room_alias, angles=None, fs=16e3, def_cfg=None):
     '''
     Load BRIRs from a given room alias and a list of angles.
 
@@ -117,16 +116,20 @@ def load_brirs(room_alias, angles, fs=16e3):
             Angles from which the BRIRs were recorded.
         fs:
             Sampling frequency to resample the BRIR to.
+        def_cfg:
+            Default configuration `~.config.AttrDict` object usually returned
+            by `~.config.defaults`. Default is `None` which means
+            `~.config.defaults` will be called.
 
     Returns:
         brirs:
             List of BRIRs.
         fs:
-            BRIRs sampling frequency.
+            BRIRs original sampling frequency.
     '''
     if angles is None:
-        angles = get_available_angles(room_alias)
-        return load_brirs(room_alias, angles, fs)
+        angles = get_available_angles(room_alias, def_cfg)
+        return load_brirs(room_alias, angles, fs, def_cfg)
     iterable = True
     try:
         iter(angles)
@@ -136,7 +139,7 @@ def load_brirs(room_alias, angles, fs=16e3):
         brirs = []
         fss = []
         for angle in angles:
-            brir, fs_ = load_brirs(room_alias, angle, fs)
+            brir, fs_ = load_brirs(room_alias, angle, fs, def_cfg)
             brirs.append(brir)
             fss.append(fs_)
         if not brirs:
@@ -145,7 +148,7 @@ def load_brirs(room_alias, angles, fs=16e3):
         return brirs, fss[0]
     angle = angles
     if room_alias.startswith('surrey_'):
-        dirpath = get_path('SURREY')
+        dirpath = get_path('SURREY', def_cfg)
         m = re.match('^surrey_(.*)$', room_alias)
         if m is None:
             raise ValueError(f'wrong room alias: {room_alias}')
@@ -170,7 +173,7 @@ def load_brirs(room_alias, angles, fs=16e3):
         filepath = os.path.join(room_dir, filenames[0])
         brir, fs_ = sf.read(filepath)
     elif room_alias.startswith('huddersfield_'):
-        dirpath = get_path('HUDDERSFIELD')
+        dirpath = get_path('HUDDERSFIELD', def_cfg)
         m = re.match('^huddersfield_(.*)m$', room_alias)
         if m is None:
             raise ValueError(f'wrong room alias: {room_alias}')
@@ -192,7 +195,7 @@ def load_brirs(room_alias, angles, fs=16e3):
         brir = np.vstack((ir_l, ir_r)).T
         fs_ = HRTF.Data.SamplingRate.get_values(indices={'M': measurement})
     elif room_alias.startswith('ash_'):
-        dirpath = get_path('ASH')
+        dirpath = get_path('ASH', def_cfg)
         m = re.match('^ash_r(.*)$', room_alias)
         if m is None:
             raise ValueError(f'wrong room alias: {room_alias}')
@@ -209,11 +212,11 @@ def load_brirs(room_alias, angles, fs=16e3):
         raise ValueError(f'wrong room alias: {room_alias}')
     if fs_ != fs:
         brir = resample(brir, fs_, fs, axis=0)
-    return brir, fs
+    return brir, fs_
 
 
 def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
-                      randomizer=None):
+                      randomizer=None, def_cfg=None):
     '''
     Load a random noise recording.
 
@@ -241,6 +244,10 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
             Sampling frequency to resample the noise signal to.
         randomizer:
             Custom random.Random instance. Useful for seeding.
+        def_cfg:
+            Default configuration `~.config.AttrDict` object usually returned
+            by `~.config.defaults`. Default is `None` which means
+            `~.config.defaults` will be called.
 
     Returns:
         x:
@@ -252,7 +259,7 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
             filepath.
     '''
     if noise_alias.startswith('dcase_'):
-        dirpath = get_path('DCASE')
+        dirpath = get_path('DCASE', def_cfg)
         all_filepaths = []
         m = re.match('^dcase_(.*)$', noise_alias)
         if m is None:
@@ -292,9 +299,9 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
         raise ValueError(f'wrong noise alias: {noise_alias}')
 
 
-def get_available_angles(room_alias):
+def get_available_angles(room_alias, def_cfg=None):
     if room_alias.startswith('surrey_'):
-        dirpath = get_path('SURREY')
+        dirpath = get_path('SURREY', def_cfg)
         m = re.match('^surrey_(.*)$', room_alias)
         if m is None:
             raise ValueError(f'wrong room alias: {room_alias}')
@@ -312,7 +319,7 @@ def get_available_angles(room_alias):
         filenames = list(filter(r.match, os.listdir(room_dir)))
         angles = sorted(set(int(r.match(fn).group(1)) for fn in filenames))
     elif room_alias.startswith('huddersfield_'):
-        dirpath = get_path('HUDDERSFIELD')
+        dirpath = get_path('HUDDERSFIELD', def_cfg)
         m = re.match('^huddersfield_(.*)m$', room_alias)
         if m is None:
             raise ValueError(f'wrong room alias: {room_alias}')
@@ -324,7 +331,7 @@ def get_available_angles(room_alias):
         angles = positions[:, 0]
     elif room_alias.startswith('ash_'):
         angles = []
-        dirpath = get_path('ASH')
+        dirpath = get_path('ASH', def_cfg)
         m = re.match('^ash_r(.*)$', room_alias)
         if m is None:
             raise ValueError(f'wrong room alias: {room_alias}')

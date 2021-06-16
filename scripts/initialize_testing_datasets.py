@@ -9,7 +9,8 @@ from brever.config import defaults
 
 def main(args, params):
 
-    processed_dir = defaults().PATH.PROCESSED
+    def_cfg = defaults()
+    processed_dir = def_cfg.PATH.PROCESSED
 
     new_configs = []
     new_paths = []
@@ -60,7 +61,7 @@ def main(args, params):
                 key_list = bmm.DatasetInitArgParser.arg_to_keys_map[param]
                 bmm.set_dict_field(config, key_list, value)
 
-        defaults().update(config)  # throws an error if config is not valid
+        def_cfg.update(config)  # throws an error if config is not valid
 
         dset_id = bmm.get_unique_id(config)
         dset_name = f'autoinit_{dset_id[:6]}'

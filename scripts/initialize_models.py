@@ -8,11 +8,10 @@ from brever.config import defaults
 import brever.modelmanagement as bmm
 
 
-def check_if_path_exists(configs, path_type):
+def check_if_path_exists(configs, path_type, def_cfg):
     if path_type not in ['train', 'val']:
         raise ValueError('path_type must be train or val')
-    defaults_ = defaults().to_dict()
-    default_path = bmm.get_config_field(defaults_, f'{path_type}_path')
+    default_path = bmm.get_config_field(def_cfg, f'{path_type}_path')
     for config in configs:
         path = bmm.get_config_field(config, f'{path_type}_path')
         if path is None:
@@ -46,9 +45,8 @@ def check_trailing_slashes(configs, path_type):
     return True
 
 
-def check_if_test_datasets_exist(configs):
-    defaults_ = defaults().to_dict()
-    default_paths = bmm.get_config_field(defaults_, 'test_path')
+def check_if_test_datasets_exist(configs, def_cfg):
+    default_paths = bmm.get_config_field(def_cfg, 'test_path')
     for config in configs:
         paths = bmm.get_config_field(config, 'test_path')
         if paths is None:
@@ -68,13 +66,13 @@ def check_if_test_datasets_exist(configs):
     return True
 
 
-def check_paths(configs):
+def check_paths(configs, def_cfg):
     return (
-        check_if_path_exists(configs, 'train')
-        and check_if_path_exists(configs, 'val')
+        check_if_path_exists(configs, 'train', def_cfg)
+        and check_if_path_exists(configs, 'val', def_cfg)
         and check_trailing_slashes(configs, 'train')
         and check_trailing_slashes(configs, 'val')
-        and check_if_test_datasets_exist(configs)
+        and check_if_test_datasets_exist(configs, def_cfg)
     )
 
 
@@ -92,12 +90,13 @@ def main(args):
     else:
         configs = [{}]
 
-    result = check_paths(configs)
+    def_cfg = defaults()
+    models_dir = def_cfg.PATH.MODELS
+
+    result = check_paths(configs, def_cfg.to_dict())
     if not result:
         print('Aborting')
         return
-
-    models_dir = defaults().PATH.MODELS
 
     new_configs = []
     skipped = 0
@@ -106,7 +105,7 @@ def main(args):
         if not os.path.exists(models_dir):
             os.mkdir(models_dir)
         if unique_id not in os.listdir(models_dir):
-            defaults().update(config)  # throws an error if config is not valid
+            def_cfg.update(config)  # throws an error if config is not valid
             uni_feats = bmm.get_config_field(config, 'uni_norm_features', None)
             features = bmm.get_config_field(config, 'features', None)
             if (uni_feats is not None and features is not None
