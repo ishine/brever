@@ -1,10 +1,10 @@
-__pycache__/
-.ipynb_checkpoints/
-venv/
-data/
-models/
+__pycache__
+.ipynb_checkpoints
+venv
+data
+models
 ltas.npy
-brever.egg-info/
+brever.egg-info
 matlab/scores
 jobs/logs
 defaults_user.yaml
