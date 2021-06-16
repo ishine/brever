@@ -40,9 +40,9 @@ POST:
   LOAD: true
   PATH:
     TEST: !!set
-      data/processed/testing/ : null
-    TRAIN: data/processed/training/
-    VAL: data/processed/validation/
+      data/processed/test/default/ : null
+    TRAIN: data/processed/train/default/
+    VAL: data/processed/val/default
   STACK: 0
   DCT:
     NCOEFF: 5
@@ -110,7 +110,7 @@ PRE:
       RMSDB:
         MAX: 0
         MIN: -20
-        'ON': true
+        'ON': false
       ROOMS: !!set
         surrey_room_a: null
         surrey_room_b: null
@@ -130,6 +130,7 @@ PRE:
           dcase_airport: null
           dcase_bus: null
           dcase_metro: null
+          dcase_metro_station: null
           dcase_park: null
           dcase_public_square: null
           dcase_shopping_mall: null
