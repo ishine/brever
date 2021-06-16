@@ -74,7 +74,8 @@ def main(model_dir, args):
         # verbose and initialize scores field
         logging.info(f'Processing {test_dir}:')
         scores[test_dir] = {
-            'enhanced': {
+            'model': {
+                'MSE': [],
                 'segSSNR': [],
                 'segBR': [],
                 'segNR': [],
@@ -91,10 +92,6 @@ def main(model_dir, args):
                 'STOI': [],
             },
             'ref': {
-                'segSSNR': [],
-                'segBR': [],
-                'segNR': [],
-                'segRR': [],
                 'PESQ': [],
                 'STOI': [],
             }
@@ -121,13 +118,6 @@ def main(model_dir, args):
             file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
             prestack=config.POST.PRESTACK,
         )
-        test_dataloader = torch.utils.data.DataLoader(
-            dataset=test_dataset,
-            batch_size=config.MODEL.BATCHSIZE,
-            shuffle=config.MODEL.SHUFFLE,
-            num_workers=config.MODEL.NWORKERS,
-            drop_last=True,
-        )
 
         # set normalization transform
         if config.POST.STANDARDIZATION.FILEBASED:
@@ -142,16 +132,7 @@ def main(model_dir, args):
         else:
             test_dataset.transform = bptt.TensorStandardizer(mean, std)
 
-        # calculate MSE
-        logging.info('Calculating MSE...')
-        scores[test_dir]['enhanced']['mse'] = bptt.evaluate(
-            model=model,
-            criterion=criterion,
-            dataloader=test_dataloader,
-            cuda=config.MODEL.CUDA and not args.no_cuda,
-        )
-
-        # open hdf5 file to load mixtures for objective metrics calculation
+        # open hdf5 file
         h5f = h5py.File(test_dataset.filepath, 'r')
 
         # loop over mixtures
@@ -193,18 +174,22 @@ def main(model_dir, args):
             # extract features
             features, IRM = test_dataset[i_start:i_end]
             features = torch.from_numpy(features).float()
+            IRM = torch.from_numpy(IRM).float()
             if config.MODEL.CUDA and not args.no_cuda:
                 features = features.cuda()
+                IRM = IRM.cuda()
 
-            # make mask prediction
+            # make mask prediction and calculate MSE
             model.eval()
             with torch.no_grad():
                 PRM = model(features)
-                if config.MODEL.CUDA and not args.no_cuda:
-                    PRM = PRM.cpu()
-                PRM = PRM.numpy()
+                loss = criterion(PRM, IRM)
+                scores[test_dir]['model']['MSE'].append(loss.item())
 
             # extrapolate predicted mask
+            if config.MODEL.CUDA and not args.no_cuda:
+                PRM = PRM.cpu()
+            PRM = PRM.numpy()
             PRM = wola(PRM, trim=len(mixture_filt))[:, :, np.newaxis]
 
             # apply predicted mask and reverse filter
@@ -232,10 +217,10 @@ def main(model_dir, args):
                 reverb_ref,
                 reverb_enhanced,
             )
-            scores[test_dir]['enhanced']['segSSNR'].append(segSSNR)
-            scores[test_dir]['enhanced']['segBR'].append(segBR)
-            scores[test_dir]['enhanced']['segNR'].append(segNR)
-            scores[test_dir]['enhanced']['segRR'].append(segRR)
+            scores[test_dir]['model']['segSSNR'].append(segSSNR)
+            scores[test_dir]['model']['segBR'].append(segBR)
+            scores[test_dir]['model']['segNR'].append(segNR)
+            scores[test_dir]['model']['segRR'].append(segRR)
 
             # write mixtures
             if args.save:
@@ -306,7 +291,7 @@ def main(model_dir, args):
                 )
 
             # calculate PESQ
-            scores[test_dir]['enhanced']['PESQ'].append(pesq(
+            scores[test_dir]['model']['PESQ'].append(pesq(
                 config.PRE.FS,
                 foreground_ref.mean(axis=1),
                 mixture_enhanced.mean(axis=1),
@@ -326,7 +311,7 @@ def main(model_dir, args):
             ))
 
             # calculate STOI
-            scores[test_dir]['enhanced']['STOI'].append(stoi(
+            scores[test_dir]['model']['STOI'].append(stoi(
                 foreground_ref.mean(axis=1),
                 mixture_enhanced.mean(axis=1),
                 config.PRE.FS,
@@ -349,16 +334,27 @@ def main(model_dir, args):
     # close hdf5 file
     h5f.close()
 
-    # round all floats before saving scores
-    def round_dict(d, digits=4):
-        for key, val in d.items():
-            if isinstance(val, dict):
-                d[key] = round_dict(val, digits)
-            elif isinstance(val, list):
-                d[key] = [round(x, digits) for x in val]
-            elif isinstance(val, float):
-                d[key] = round(val, digits)
-    round_dict(scores)
+    # round and cast to built-in float type before saving scores
+    def significant_figures(x, n):
+        if x == 0:
+            return x
+        else:
+            return round(x, -int(np.floor(np.log10(abs(x)))) + (n - 1))
+
+    def format_scores(x, figures=4):
+        if isinstance(x, dict):
+            x = {key: format_scores(val) for key, val in x.items()}
+        elif isinstance(x, list):
+            x = [format_scores(val) for val in x]
+        elif isinstance(x, np.floating):
+            x = significant_figures(x.item(), figures)
+        elif isinstance(x, float):
+            x = significant_figures(x, figures)
+        else:
+            raise ValueError(f'got unexpected type {type(x)}')
+        return x
+
+    scores = format_scores(scores)
 
     # save scores
     with open(os.path.join(model_dir, 'scores.yaml'), 'w') as f:
