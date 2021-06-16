@@ -223,6 +223,7 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
             - 'dcase_airport'
             - 'dcase_bus'
             - 'dcase_metro'
+            - 'dcase_metro_station'
             - 'dcase_park'
             - 'dcase_public_square'
             - 'dcase_shopping_mall'
@@ -256,7 +257,7 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
         m = re.match('^dcase_(.*)$', noise_alias)
         if m is None:
             raise ValueError('type_ should start with dcase_')
-        prefix = m.group(1)
+        prefix = f'{m.group(1)}-'
         for root, dirs, files in os.walk(dirpath):
             for file in files:
                 if file.endswith(('.wav', '.WAV')) and file.startswith(prefix):
