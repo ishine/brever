@@ -37,8 +37,8 @@ def main(args, params):
                         'ROOMS': room,
                         'TARGET': {
                             'ANGLE': {
-                                'MAX': angle[0],
-                                'MIN': angle[1]
+                                'MIN': angle[0],
+                                'MAX': angle[1]
                             },
                             'SNR': {
                                 'DISTARGS': [snr[0], snr[1]],
