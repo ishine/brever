@@ -87,7 +87,7 @@ def plot_losses(train_losses, val_losses, test_losses, output_dir):
     plot_output_path = os.path.join(output_dir, 'training.png')
     fig.tight_layout()
     fig.savefig(plot_output_path)
-    fig.close()
+    plt.close(fig)
 
 
 def main(model_dir, force, no_cuda):
