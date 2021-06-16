@@ -11,8 +11,8 @@ def main(alias, params):
     processed_dir = defaults().PATH.PROCESSED
 
     for basename, filelims, number, seed in [
-                ('training', [0.0, 0.7], args.n_train, args.seed_value_train),
-                ('validation', [0.7, 0.85], args.n_val, args.seed_value_val),
+                ('train', [0.0, 0.7], args.n_train, args.seed_value_train),
+                ('val', [0.7, 0.85], args.n_val, args.seed_value_val),
             ]:
         config = {
             'PRE': {
@@ -36,8 +36,7 @@ def main(alias, params):
                 key_list = DatasetInitArgParser.arg_to_keys_map[param]
                 set_dict_field(config, key_list, value)
 
-        dirname = f'{basename}_{args.alias}'
-        dirpath = os.path.join(processed_dir, dirname)
+        dirpath = os.path.join(processed_dir, basename, args.alias)
         if not os.path.exists(dirpath):
             os.makedirs(dirpath)
         config_filepath = os.path.join(dirpath, 'config.yaml')

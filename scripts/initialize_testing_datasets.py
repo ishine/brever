@@ -63,8 +63,9 @@ def main(args, params):
         defaults().update(config)  # throws an error if config is not valid
 
         dset_id = bmm.get_unique_id(config)
-        dset_name = f'testing_{dset_id[:6]}'
-        dset_path = os.path.join(processed_dir, dset_name)
+        dset_name = f'autoinit_{dset_id[:6]}'
+        test_dir = os.path.join(processed_dir, 'test')
+        dset_path = os.path.join(test_dir, dset_name)
 
         if not os.path.exists(dset_path):
             new_configs.append(config)
@@ -106,33 +107,33 @@ if __name__ == '__main__':
                         type=bmm.arg_set_type,
                         default=[
                             {'surrey_room_a'},
-                            # {'surrey_room_b'},
-                            # {'surrey_room_c'},
-                            # {'surrey_room_d'},
+                            {'surrey_room_b'},
+                            {'surrey_room_c'},
+                            {'surrey_room_d'},
                         ],
                         help='rooms for the grid of test conditions')
     parser.add_argument('--test-snrs', nargs='+',
                         type=lambda x: bmm.arg_list_type(x, int),
                         default=[
-                            # [-5, 5],
+                            [-5, 5],
                             [0, 0],
-                            # [5, 5],
-                            # [10, 10],
+                            [5, 5],
+                            [10, 10],
                         ],
                         help='snr limits for the grid of test conditions')
     parser.add_argument('--test-noises', nargs='+',
                         type=bmm.arg_set_type,
                         default=[
                             {'dcase_airport'},
-                            # {'dcase_bus'},
-                            # {'dcase_metro'},
-                            # {'dcase_metro_station'},
-                            # {'dcase_park'},
-                            # {'dcase_public_square'},
-                            # {'dcase_shopping_mall'},
-                            # {'dcase_street_pedestrian'},
-                            # {'dcase_street_traffic'},
-                            # {'dcase_tram'},
+                            {'dcase_bus'},
+                            {'dcase_metro'},
+                            {'dcase_metro_station'},
+                            {'dcase_park'},
+                            {'dcase_public_square'},
+                            {'dcase_shopping_mall'},
+                            {'dcase_street_pedestrian'},
+                            {'dcase_street_traffic'},
+                            {'dcase_tram'},
                         ],
                         help='noises for the grid of test conditions')
     parser.add_argument('--test-angles', nargs='+',
