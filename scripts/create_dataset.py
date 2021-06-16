@@ -377,6 +377,7 @@ def main(dataset_dir, force):
         peek_output_path = os.path.join(dataset_dir, filename)
         fig.tight_layout()
         fig.savefig(peek_output_path)
+        fig.close()
 
     if config.PRE.PLOT.ON:
         x = features[:config.PRE.PLOT.NSAMPLES]
