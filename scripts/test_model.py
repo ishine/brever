@@ -5,6 +5,7 @@ import pickle
 import logging
 import sys
 import time
+import json
 
 import yaml
 import torch
@@ -356,8 +357,8 @@ def main(model_dir, args):
     scores = format_scores(scores)
 
     # save scores
-    with open(os.path.join(model_dir, 'scores.yaml'), 'w') as f:
-        yaml.dump(scores, f)
+    with open(os.path.join(model_dir, 'scores.json'), 'w') as f:
+        json.dump(scores, f)
 
 
 if __name__ == '__main__':
