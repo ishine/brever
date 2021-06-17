@@ -67,10 +67,11 @@ def main(model_dir, args):
     criterion = getattr(torch.nn, config.MODEL.CRITERION)()
 
     # main loop
-    enhancement_time = 0
-    n_mixtures_enhanced = 0
     scores = {}
     for test_dir in globbed(config.POST.PATH.TEST):
+
+        start_time = time.time()
+
         # verbose and initialize scores field
         logging.info(f'Processing {test_dir}:')
         scores[test_dir] = {
@@ -137,12 +138,12 @@ def main(model_dir, args):
 
         # loop over mixtures
         n = len(h5f['mixture'])
+        start_time_enhancement = time.time()
         for k in range(n):
-            start_time = time.time()
             if k == 0:
                 logging.info(f'Enhancing mixture {k}/{n}...')
             else:
-                time_per_mix = enhancement_time/n_mixtures_enhanced
+                time_per_mix = (time.time() - start_time_enhancement)/k
                 logging.info(f'Enhancing mixture {k}/{n}... '
                              f'Average enhancement time: '
                              f'{time_per_mix:.2f}')
@@ -327,9 +328,7 @@ def main(model_dir, args):
                 config.PRE.FS,
             ))
 
-            # measure time
-            enhancement_time += time.time() - start_time
-            n_mixtures_enhanced += 1
+        logging.info(f'Time spent: {time.time() - start_time:.2f}')
 
     # close hdf5 file
     h5f.close()
