@@ -12,41 +12,36 @@ from brever.modelmanagement import (get_config_field, ModelFilterArgParser,
 from brever.config import defaults
 
 
-def check_models(models, dims, models_dir):
-    if dims is None:
-        models_ = []
-        for model in models:
-            mat_file = os.path.join(models_dir, model, 'scores.mat')
-            npz_file = os.path.join(models_dir, model, 'scores.npz')
-            if not os.path.exists(mat_file) or not os.path.exists(npz_file):
-                print(f'Model {model} is not evaluated!')
-                continue
-            models_.append(model)
-        return models_, models_
-    values = []
-    models_ = []
-    configs_ = []
+def check_models(models, dims):
+    values = []  # list of dicts of output models values along dims
+    models_out = []  # output models
+    configs = []  # output model config dicts, used to check duplicates
     for model in models:
-        mat_file = os.path.join(models_dir, model, 'scores.mat')
-        npz_file = os.path.join(models_dir, model, 'scores.npz')
-        config_file = os.path.join(models_dir, model, 'config_full.yaml')
+        # check if model is trained
+        config_file = os.path.join(model, 'config_full.yaml')
         if not os.path.exists(config_file):
             print(f'Model {model} is not trained!')
             continue
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
-        if not os.path.exists(mat_file) or not os.path.exists(npz_file):
+        # check if model is evaluated
+        scores_file = os.path.join(model, 'scores.yaml')
+        if not os.path.exists(scores_file):
             print(f'Model {model} is not evaluated!')
             continue
-        val = {dim: get_config_field(config, dim)
-               for dim in dims}
+        # check if all models are different in the subspace of dimensions
+        if dims is None:
+            models_out.append(model)  # if no dims just return all models
+            values.append(model)  # the value is just the model name
+            continue
+        val = {dim: get_config_field(config, dim) for dim in dims}
         if val not in values:
             values.append(val)
-            models_.append(model)
-            configs_.append(config)
+            models_out.append(model)
+            configs.append(config)
         else:
-            duplicate_config = configs_[values.index(val)]
-            duplicate_model = models_[values.index(val)]
+            duplicate_config = configs[values.index(val)]
+            duplicate_model = models_out[values.index(val)]
             if duplicate_config == config:
                 print((f'Models {model} and {duplicate_model} both have the '
                        f'following parameters: {val}. One model configuration '
@@ -60,98 +55,47 @@ def check_models(models, dims, models_dir):
                                   'Consider using the --default option to set '
                                   'the rest of the parameters to their '
                                   'default value.'))
-    return models_, values
+    return models_out, values
 
 
-def group_by_dimension(models, values, dimensions):
+def group_by_dim(models, values, all_dims, group_dims):
     # first make groups
-    if dimensions is None:
-        groups = []
-        group_outer_values = []
-        for model, val in zip(models, values):
+    groups = []  # models grouped
+    group_vals = []  # values describing each group
+    for model, val in zip(models, values):
+        if group_dims is None:
+            # if no dimension specified, make as many groups as models
             groups.append([{'model': model, 'val': val}])
-            if val not in group_outer_values:
-                group_outer_values.append(val)
-    else:
-        group_outer_values = []
-        groups = []
-        group_inner_values = []
-        for model, val in zip(models, values):
-            group_outer_val = {}
-            for dimension in dimensions:
-                group_outer_val[dimension] = val[dimension]
-            if group_outer_val not in group_outer_values:
-                group_outer_values.append(group_outer_val)
+            if val not in group_vals:
+                group_vals.append(val)
+        else:
+            group_outer_val = {dim: val[dim] for dim in group_dims}
+            if group_outer_val not in group_vals:
+                # create a new group
+                group_vals.append(group_outer_val)
                 groups.append([{'model': model, 'val': val}])
             else:
-                index = group_outer_values.index(group_outer_val)
+                # add model to existing group
+                index = group_vals.index(group_outer_val)
                 groups[index].append({'model': model, 'val': val})
-            group_inner_val = val.copy()
-            for dimension in dimensions:
-                group_inner_val.pop(dimension)
-            if group_inner_val not in group_inner_values:
-                group_inner_values.append(group_inner_val)
-    if dimensions is None:
-        return groups, group_outer_values
-    # then match order across groups
-    # first sort the list of values
-    for dim in group_inner_values[0].keys():
-        group_inner_values = sorted(group_inner_values, key=lambda x: x[dim])
-    # then make all groups have that order
-    for i, group in enumerate(groups):
-        group_sorted = []
-        group_inner_vals_local = [model['val'].copy() for model in group]
-        for val in group_inner_vals_local:
-            for dimension in dimensions:
-                val.pop(dimension)
-        for group_inner_val in group_inner_values:
-            if group_inner_val in group_inner_vals_local:
-                index = group_inner_vals_local.index(group_inner_val)
-                group_sorted.append(group[index])
-        groups[i] = group_sorted
-    return groups, group_outer_values
+    # then sort each group so order is consistent across groups
+    if all_dims is not None and group_dims is not None:
+        for i in range(len(groups)):
+            for dim in all_dims:
+                if dim not in group_dims:
+                    groups[i] = sorted(groups[i], key=lambda x: x['val'][dim])
+    return groups, group_vals
 
 
-def load_scores(groups, models_dir):
+def load_scores(groups):
     for group in groups:
         for i in range(len(group)):
-            # load mat scores
             model = group[i]['model']
-            filepath = os.path.join(models_dir, model, 'scores.mat')
-            scores = scipy.io.loadmat(filepath)
-            pesq = scores['pesqs']
-            pesq_oracle = scores['pesqs_oracle']
-            stoi = scores['stois']
-            stoi_oracle = scores['stois_oracle']
-
-            # load npz scores
-            filepath = os.path.join(models_dir, model, 'scores.npz')
-            scores = np.load(filepath)
-            mse = scores['mse']
-            mse_oracle = np.zeros(mse.shape)
-            seg = scores['seg']
-            seg_oracle = scores['seg_oracle']
-
-            # assign
-            group[i]['pesq'] = pesq
-            group[i]['stoi'] = stoi
-            group[i]['mse'] = mse
-            group[i]['segSSNR'] = seg[:, :, :, 0]
-            group[i]['segBR'] = seg[:, :, :, 1]
-            group[i]['segNR'] = seg[:, :, :, 2]
-            group[i]['segRR'] = seg[:, :, :, 3]
-            group[i]['oracle'] = {}
-            group[i]['oracle']['pesq'] = pesq_oracle
-            group[i]['oracle']['stoi'] = stoi_oracle
-            group[i]['oracle']['mse'] = mse_oracle
-            group[i]['oracle']['segSSNR'] = seg_oracle[:, :, :, 0]
-            group[i]['oracle']['segBR'] = seg_oracle[:, :, :, 1]
-            group[i]['oracle']['segNR'] = seg_oracle[:, :, :, 2]
-            group[i]['oracle']['segRR'] = seg_oracle[:, :, :, 3]
-
+            # load scores
+            with open(os.path.join(model, 'scores.yaml')) as f:
+                group[i]['scores'] = yaml.safe_load(f)
             # load loss curves
-            filepath = os.path.join(models_dir, model, 'losses.npz')
-            curves = np.load(filepath)
+            curves = np.load(os.path.join(model, 'losses.npz'))
             group[i]['train_curve'] = curves['train']
             group[i]['val_curve'] = curves['val']
 
@@ -169,13 +113,6 @@ def sort_groups_by(groups, metric):
     return groups
 
 
-def paths_to_dirnames(paths):
-    dirnames = []
-    for path in paths:
-        dirnames.append(os.path.basename(os.path.normpath(path)))
-    return dirnames
-
-
 def set_default_parameters(filter_, dimensions, group_by):
     default_config = defaults().to_dict()
     for key, value in filter_.items():
@@ -191,7 +128,7 @@ def merge_lists(dimensions, group_by):
             dimensions = group_by.copy()
         else:
             for dimension in group_by:
-                if dimensions not in group_by:
+                if dimension not in dimensions:
                     dimensions.append(dimension)
     return dimensions
 
@@ -252,23 +189,6 @@ class LegendFormatter:
                 pass
 
 
-def fit_plots(n, aspect=(16, 9)):
-    width = aspect[0]
-    height = aspect[1]
-    area = width*height*1.0
-    factor = (n/area)**(1/2.0)
-    cols = math.floor(width*factor)
-    rows = math.floor(height*factor)
-    row_first = width < height
-    while rows*cols < n:
-        if row_first:
-            rows += 1
-        else:
-            cols += 1
-        row_first = not(row_first)
-    return rows, cols
-
-
 def remove_patches(fig, axes):
     if args.format != 'svg':
         return
@@ -281,20 +201,20 @@ def main(models, args, filter_):
     if args.default:
         set_default_parameters(filter_, args.dims, args.group_by)
 
-    models = paths_to_dirnames(models)
     possible_models = find_model(**filter_)
     models = [model for model in models if model in possible_models]
 
-    dimensions = merge_lists(args.dims, args.group_by)
+    dims = merge_lists(args.dims, args.group_by)
 
-    models_dir = defaults().PATH.MODELS
-    models, values = check_models(models, dimensions, models_dir)
-    groups, group_values = group_by_dimension(models, values, args.group_by)
-    load_scores(groups, models_dir)
+    models, values = check_models(models, dims)
+    groups, group_values = group_by_dim(models, values, dims, args.group_by)
+
+    load_scores(groups)
+
     if args.sort_by is not None and args.sort_by != 'dims':
         groups = sort_groups_by(groups, args.sort_by)
     elif args.sort_by == 'dims':
-        if dimensions is not None:
+        if dims is not None:
             group_values_copy = group_values.copy()
             for dim in reversed(list(group_values[0].keys())):
                 group_vals_sorted = sorted(group_values_copy,

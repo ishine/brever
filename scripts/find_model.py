@@ -59,6 +59,7 @@ def main(delete=False, set_field=None, **kwargs):
                f'{value}.'))
         resp = input('Do you want to continue? y/n')
         if resp == 'y':
+            def_cfg = defaults()
             for model in models:
                 if model in trained or model in tested:
                     filenames = ['config.yaml', 'config_full.yaml']
@@ -69,7 +70,7 @@ def main(delete=False, set_field=None, **kwargs):
                     with open(config_path, 'r') as f:
                         config = yaml.safe_load(f)
                     bmm.set_config_field(config, tag, value)
-                    defaults().update(config)  # throw error if conf not valid
+                    def_cfg.update(config)  # throw error if conf not valid
                     with open(config_path, 'w') as f:
                         yaml.dump(config, f)
         else:
