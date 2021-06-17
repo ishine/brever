@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from brever.modelmanagement import ModelFilterArgParser, find_model
-from brever.config import defaults
 
 
 def smooth(data, sigma=50):
@@ -16,44 +15,29 @@ def smooth(data, sigma=50):
     return filtering_mat@data
 
 
-def paths_to_dirnames(paths):
-    dirnames = []
-    for path in paths:
-        dirnames.append(os.path.basename(os.path.normpath(path)))
-    return dirnames
-
-
 def main(models, **kwargs):
     plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True)
     plt.rc('grid', color='w', linestyle='solid')
 
-    models_dir = defaults().PATH.MODELS
-    models = paths_to_dirnames(models)
     possible_models = find_model(**kwargs)
     models = [model for model in models if model in possible_models]
+    for model in models:
+        print(model)
+
+    for smooth_func in [lambda x: x, smooth]:
+        plt.figure(figsize=(16, 8))
+        for i, model in enumerate(models):
+            path = os.path.join(model, 'losses.npz')
+            data = np.load(path)
+            label = f'{os.path.basename(model)[:3]}...'
+            l, = plt.plot(smooth_func(data['train'], label=label))
+            _, = plt.plot(smooth_func(data['val'], '--', color=l.get_color()))
+            plt.legend(ncol=10)
+            plt.grid()
 
     plt.figure(figsize=(16, 8))
-    for i, model_id in enumerate(models):
-        print(model_id)
-        path = os.path.join(models_dir, model_id, 'losses.npz')
-        data = np.load(path)
-        l, = plt.plot(data['train'], label=f'{model_id[:3]}...')
-        _, = plt.plot(data['val'], '--', color=l.get_color())
-    plt.legend(ncol=10)
-    plt.grid()
-
-    plt.figure(figsize=(16, 8))
-    for i, model_id in enumerate(models):
-        path = os.path.join('models', model_id, 'losses.npz')
-        data = np.load(path)
-        l, = plt.plot(smooth(data['train']), label=f'{model_id[:3]}...')
-        _, = plt.plot(smooth(data['val']), '--', color=l.get_color())
-    plt.legend(ncol=10)
-    plt.grid()
-
-    plt.figure(figsize=(16, 8))
-    for i, model_id in enumerate(models):
-        path = os.path.join('models', model_id, 'losses.npz')
+    for i, model in enumerate(models):
+        path = os.path.join(model, 'losses.npz')
         data = smooth(np.load(path)['train'])
         slope = np.zeros(len(data))
         strip = 100
