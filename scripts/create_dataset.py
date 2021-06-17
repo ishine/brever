@@ -208,15 +208,15 @@ def main(dataset_dir, force):
 
         # estimate time remaining and show progress
         if i == 0:
-            logging.info((f'Processing mixture '
-                          f'{i+1}/{config.PRE.MIX.NUMBER}...'))
+            logging.info(f'Processing mixture '
+                         f'{i+1}/{config.PRE.MIX.NUMBER}...')
         else:
             time_per_mix = total_time/i
             etr = (config.PRE.MIX.NUMBER-i)*total_time/i
-            logging.info((f'Processing mixture '
-                          f'{i+1}/{config.PRE.MIX.NUMBER}... '
-                          f'ETR: {int(etr/60)} m {int(etr%60)} s, '
-                          f'Time per mix.: {time_per_mix:.2f} s'))
+            logging.info(f'Processing mixture '
+                         f'{i+1}/{config.PRE.MIX.NUMBER}... '
+                         f'ETR: {int(etr/60)} m {int(etr%60)} s, '
+                         f'Time per mix.: {time_per_mix:.2f} s')
 
         # make mixture and save
         mixObject, metadata = randomMixtureMaker.make()

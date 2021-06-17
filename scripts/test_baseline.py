@@ -37,8 +37,8 @@ def main(dataset_dir, force, eng):
                 logging.info(f'Calculating PESQ for mixture {k}/{n}...')
             else:
                 etr = (n-k)*total_time/k
-                logging.info((f'Calculating PESQ for mixture {k}/{n}... '
-                              f'ETR: {int(etr/60)} m {int(etr%60)} s'))
+                logging.info(f'Calculating PESQ for mixture {k}/{n}... '
+                             f'ETR: {int(etr/60)} m {int(etr%60)} s')
             mixture = f['mixtures'][k].reshape(-1, 2)
             foreground = f['foregrounds'][k].reshape(-1, 2)
 

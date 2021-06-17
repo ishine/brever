@@ -57,8 +57,8 @@ def ccf(x, y, method='convolve', max_lag=40, negative_lags=False, axis=0,
         y = standardize(y, axis=axis)
     if method == 'convolve':
         if x.ndim != 1 or y.ndim != 1:
-            raise ValueError(('inputs must be one-dimensional when method is '
-                              'convolve'))
+            raise ValueError('inputs must be one-dimensional when method is '
+                             'convolve')
         CCF = np.zeros(min(len(y), max_lag+1))
         n = max(len(x), len(y))
         for i in range(len(CCF)):
@@ -680,21 +680,21 @@ def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
     if frame_kwargs is None:
         frame_kwargs = {}
     if x.shape[-1] != 2:
-        raise ValueError(('the last dimension of x must be the number of '
-                          'channels which must be 2'))
+        raise ValueError('the last dimension of x must be the number of '
+                         'channels which must be 2')
     if not filtered:
         if x.ndim != 2:
-            raise ValueError(('when filtered is False, x should be '
-                              '2-dimensional with size n_samples*2'))
+            raise ValueError('when filtered is False, x should be '
+                             '2-dimensional with size n_samples*2')
         x, _ = filt(x, **filt_kwargs)
     if not framed:
         if x.ndim != 3:
-            raise ValueError(('when filtered is True and framed is False, x '
-                              'should be 3-dimensional with size '
-                              'n_samples*n_filters*2'))
+            raise ValueError('when filtered is True and framed is False, x '
+                             'should be 3-dimensional with size '
+                             'n_samples*n_filters*2')
         x = frame(x, **frame_kwargs)
     if x.ndim != 4:
-        raise ValueError(('when filtered is True and framed is True, x should '
-                          'be 4-dimensional with size '
-                          'n_frames*frame_length*n_filters*2'))
+        raise ValueError('when filtered is True and framed is True, x should '
+                         'be 4-dimensional with size '
+                         'n_frames*frame_length*n_filters*2')
     return x

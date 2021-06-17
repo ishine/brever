@@ -554,8 +554,8 @@ class RandomMixtureMaker:
                     def_cfg=self.def_cfg,
                 )
             else:
-                raise ValueError(('type_ must start with noise_ or '
-                                  'dcase_, got %s' % type_))
+                raise ValueError('type_ must start with noise_ or '
+                                 'dcase_, got %s' % type_)
             zipped.append((x, filepath, indices))
         xs, filepaths, indicess = zip(*zipped)
         return xs, filepaths, indicess

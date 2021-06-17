@@ -98,19 +98,19 @@ def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
     if frame_kwargs is None:
         frame_kwargs = {}
     if x.shape[-1] != 2:
-        raise ValueError(('the last dimension of x must be the number of '
-                          'channels which must be 2'))
+        raise ValueError('the last dimension of x must be the number of '
+                         'channels which must be 2')
     if not filtered:
         if x.ndim != 2:
-            raise ValueError(('x should be 2-dimensional with size '
-                              'n_samples*2.'))
+            raise ValueError('x should be 2-dimensional with size '
+                             'n_samples*2.')
         x, _ = filt(x, **filt_kwargs)
     if not framed:
         if x.ndim != 3:
-            raise ValueError(('x should be 3-dimensional with size '
-                              'n_samples*n_filters*2.'))
+            raise ValueError('x should be 3-dimensional with size '
+                             'n_samples*n_filters*2.')
         x = frame(x, **frame_kwargs)
     if x.ndim != 4:
-        raise ValueError(('x should be 4-dimensional with size '
-                          'n_frames*frame_length*n_filters*2.'))
+        raise ValueError('x should be 4-dimensional with size '
+                         'n_frames*frame_length*n_filters*2.')
     return x

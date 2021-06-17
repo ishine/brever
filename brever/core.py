@@ -269,8 +269,8 @@ def cochleagram(x, n_filters=64, f_min=50, f_max=8000, fs=16e3, rectify=True,
             Center frequencies in hertz.
     '''
     if compression not in ['square', 'cube', 'log', 'none']:
-        raise ValueError(('compression should be either square, cube, log or '
-                          'none'))
+        raise ValueError('compression should be either square, cube, log or '
+                         'none')
     C, fc = gammatone_filt(x, n_filters, f_min, f_max, fs)
     if rectify:
         C = np.maximum(0, C)

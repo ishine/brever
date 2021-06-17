@@ -55,8 +55,8 @@ def main(delete=False, set_field=None, **kwargs):
         args, _ = parser.parse_args([f'--{tag}', value])
         tag = tag.replace('-', '_')
         value, = getattr(args, tag)
-        print((f'{len(models)} models will have their {tag} field set to '
-               f'{value}.'))
+        print(f'{len(models)} models will have their {tag} field set to '
+              f'{value}.')
         resp = input('Do you want to continue? y/n')
         if resp == 'y':
             def_cfg = defaults()

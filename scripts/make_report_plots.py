@@ -431,7 +431,7 @@ def experiment_dataset_size():
     width = 1/(n+1)
     print(f'Comparing {len(models_sorted)} group(s) of models')
     for i, models in enumerate(models_sorted):
-        print((f'Group {i+1} contains {len(models_sorted[i])} model(s):'))
+        print(f'Group {i+1} contains {len(models_sorted[i])} model(s):')
         for model in models:
             print(f'  {model}')
     for metrics, ylabel, filetag in zip(
