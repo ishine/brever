@@ -311,10 +311,8 @@ def find_model(**kwargs):
     Returns
     -------
     models : list of str
-        List of model IDs found in the project model directory that match the
-        parameter filters. These are model IDs, i.e. these are not the paths
-        to the model directories. To obtain the paths to the model directories,
-        these should be joined with the project model directory path.
+        List of model paths found in the project model directory that match
+        the parameter filters.
     """
     models_dir = defaults().PATH.MODELS
     models = []
@@ -331,7 +329,7 @@ def find_model(**kwargs):
                 valid = False
                 break
         if valid:
-            models.append(model_id)
+            models.append(os.path.join(models_dir, model_id))
     return models
 
 

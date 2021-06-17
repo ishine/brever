@@ -4,58 +4,54 @@ import shutil
 import yaml
 
 from brever.config import defaults
-from brever.modelmanagement import (find_model, ModelFilterArgParser,
-                                    set_config_field)
+import brever.modelmanagement as bmm
 
 
 def main(delete=False, set_field=None, **kwargs):
     if delete and set_field:
         raise ValueError('Can\'t use both --delete and --set-field')
 
-    models_dir = defaults().PATH.MODELS
-
-    models = find_model(**kwargs)
+    models = bmm.find_model(**kwargs)
 
     tested = []
     trained = []
     untrained = []
 
-    for model_id in models:
-        score_file = os.path.join(models_dir, model_id, 'scores.mat')
-        loss_file = os.path.join(models_dir, model_id, 'losses.npz')
+    for model in models:
+        score_file = os.path.join(model, 'scores.mat')
+        loss_file = os.path.join(model, 'losses.npz')
         if os.path.exists(score_file):
-            tested.append(model_id)
+            tested.append(model)
         elif os.path.exists(loss_file):
-            trained.append(model_id)
+            trained.append(model)
         else:
-            untrained.append(model_id)
+            untrained.append(model)
 
     print(f'{len(models)} total models found')
     print(f'{len(tested)} tested models:')
-    for model_id in tested:
-        print(model_id)
+    for model in tested:
+        print(model)
     print(f'{len(trained)} trained models:')
-    for model_id in trained:
-        print(model_id)
+    for model in trained:
+        print(model)
     print(f'{len(untrained)} untrained models:')
-    for model_id in untrained:
-        print(model_id)
+    for model in untrained:
+        print(model)
 
     if models and delete:
         print(f'{len(models)} models will be deleted.')
         resp = input('Do you want to continue? y/n')
         if resp == 'y':
-            for model_id in models:
-                model_dir = os.path.join(models_dir, model_id)
-                shutil.rmtree(model_dir)
-                print(f'Deleted {model_dir}')
+            for model in models:
+                shutil.rmtree(model)
+                print(f'Deleted {model}')
         else:
             print('No model was deleted')
 
     if models and set_field:
         tag, value = set_field
         tag = tag.replace('_', '-')
-        parser = ModelFilterArgParser()
+        parser = bmm.ModelFilterArgParser()
         args, _ = parser.parse_args([f'--{tag}', value])
         tag = tag.replace('-', '_')
         value, = getattr(args, tag)
@@ -63,16 +59,16 @@ def main(delete=False, set_field=None, **kwargs):
                f'{value}.'))
         resp = input('Do you want to continue? y/n')
         if resp == 'y':
-            for model_id in models:
-                if model_id in trained or model_id in tested:
+            for model in models:
+                if model in trained or model in tested:
                     filenames = ['config.yaml', 'config_full.yaml']
                 else:
                     filenames = ['config.yaml']
                 for filename in filenames:
-                    config_path = os.path.join(models_dir, model_id, filename)
+                    config_path = os.path.join(model, filename)
                     with open(config_path, 'r') as f:
                         config = yaml.safe_load(f)
-                    set_config_field(config, tag, value)
+                    bmm.set_config_field(config, tag, value)
                     defaults().update(config)  # throw error if conf not valid
                     with open(config_path, 'w') as f:
                         yaml.dump(config, f)
@@ -81,7 +77,7 @@ def main(delete=False, set_field=None, **kwargs):
 
 
 if __name__ == '__main__':
-    parser = ModelFilterArgParser(description='find models')
+    parser = bmm.ModelFilterArgParser(description='find models')
     parser.add_argument('-d', '--delete', action='store_true',
                         help='delete found models')
     parser.add_argument('--set-field', nargs=2,
