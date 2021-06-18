@@ -63,10 +63,9 @@ def main(args, params):
 
         def_cfg.update(config)  # throws an error if config is not valid
 
-        dset_id = bmm.get_unique_id(config)
-        dset_name = f'autoinit_{dset_id[:6]}'
+        dset_id = bmm.get_unique_id(config, n=6)
         test_dir = os.path.join(processed_dir, 'test')
-        dset_path = os.path.join(test_dir, dset_name)
+        dset_path = os.path.join(test_dir, dset_id)
 
         if not os.path.exists(dset_path):
             new_configs.append(config)

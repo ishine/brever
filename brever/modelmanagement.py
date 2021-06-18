@@ -62,7 +62,7 @@ def sorted_dict(input_dict):
     return output_dict
 
 
-def get_unique_id(input_dict):
+def get_unique_id(input_dict, n=None):
     """
     Unique ID from dictionary.
 
@@ -75,6 +75,9 @@ def get_unique_id(input_dict):
     ----------
     input_dict : dict
         Input dictionary.
+    n : int
+        If provided, the first `n` characters from the ID are returns. Default
+        is `None`, which means the whole ID is returned.
 
     Returns
     -------
@@ -88,7 +91,9 @@ def get_unique_id(input_dict):
                           f'{hashlib.sha256(str(val).encode()).hexdigest()}'
                           for key, val in input_dict.items()])
     unique_id = hashlib.sha256(unique_str.encode()).hexdigest()
-    return unique_id
+    if n is None:
+        n = len(unique_id)
+    return unique_id[:n]
 
 
 def flatten(input_dict, prefix=None):
