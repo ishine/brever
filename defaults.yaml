@@ -145,7 +145,7 @@ PRE:
           # DISTNAME: logistic
           # DISTARGS: [0.0, 4.3429448190325175]
           DISTNAME: uniform
-          DISTARGS: [0.0, 15.0]
+          DISTARGS: [-5.0, 10.0]
         DATASETS: !!set
           timit: null
     REFLECTIONBOUNDARY: 0.05
