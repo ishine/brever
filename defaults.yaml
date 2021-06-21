@@ -150,7 +150,7 @@ PRE:
           timit: null
     REFLECTIONBOUNDARY: 0.05
     SAVE: false
-    SCALERMS: true
+    SCALERMS: false
   PLOT:
     NSAMPLES: 1000
     'ON': true
