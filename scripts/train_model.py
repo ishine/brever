@@ -73,14 +73,13 @@ def train(model, criterion, optimizer, train_dataloader, cuda):
         optimizer.step()
 
 
-def plot_losses(train_losses, val_losses, test_losses, output_dir):
+def plot_losses(train_losses, val_losses, output_dir):
     plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True)
     plt.rc('grid', color='w', linestyle='solid')
     fig, ax = plt.subplots()
     ax.plot(train_losses)
     ax.plot(val_losses)
-    ax.plot(test_losses)
-    ax.legend(['training loss', 'validation loss', 'test loss'])
+    ax.legend(['training loss', 'validation loss'])
     ax.set_xlabel('epoch')
     ax.set_ylabel('error')
     ax.grid(True)
@@ -201,46 +200,6 @@ def main(model_dir, force, no_cuda):
         train_dataset.transform = bptt.TensorStandardizer(mean, std)
         val_dataset.transform = bptt.TensorStandardizer(mean, std)
 
-    # initialize test dataset and dataloaders
-    test_dataloaders = []
-    for test_dir in globbed(config.POST.PATH.TEST):
-        # initialize dataset and dataloader
-        test_dataset = bptt.H5Dataset(
-            dirpath=test_dir,
-            features=config.POST.FEATURES,
-            labels=config.POST.LABELS,
-            load=config.POST.LOAD,
-            stack=config.POST.STACK,
-            decimation=1,  # there must not be decimation during testing
-            dct_toggle=config.POST.DCT.ON,
-            n_dct=config.POST.DCT.NCOEFF,
-            file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
-            prestack=config.POST.PRESTACK,
-        )
-        test_dataloader = torch.utils.data.DataLoader(
-            dataset=test_dataset,
-            batch_size=config.MODEL.BATCHSIZE,
-            shuffle=config.MODEL.SHUFFLE,
-            num_workers=config.MODEL.NWORKERS,
-            drop_last=True,
-        )
-
-        # set normalization transform
-        if config.POST.STANDARDIZATION.FILEBASED:
-            test_means, test_stds = bptt.get_files_mean_and_std(
-                test_dataset,
-                config.POST.STANDARDIZATION.UNIFORMFEATURES,
-            )
-            test_dataset.transform = bptt.StateTensorStandardizer(
-                test_means,
-                test_stds,
-            )
-        else:
-            test_dataset.transform = bptt.TensorStandardizer(mean, std)
-
-        # add to list of dataloaders
-        test_dataloaders.append(test_dataloader)
-
     # initialize network
     model_args = {
         'input_size': train_dataset.n_features,
@@ -285,7 +244,6 @@ def main(model_dir, force, no_cuda):
     logging.info('Starting main loop')
     train_losses = []
     val_losses = []
-    test_losses = []
     total_time = 0
     start_time = time.time()
     for epoch in range(config.MODEL.EPOCHS):
@@ -311,14 +269,6 @@ def main(model_dir, force, no_cuda):
             dataloader=val_dataloader,
             cuda=config.MODEL.CUDA and not no_cuda,
         )
-        test_loss = np.mean([
-            bptt.evaluate(
-                model=model,
-                criterion=criterion,
-                dataloader=test_dataloader,
-                cuda=config.MODEL.CUDA and not no_cuda,
-            )
-            for test_dataloader in test_dataloaders])
 
         # log and store errors
         total_time = time.time() - start_time
@@ -328,7 +278,6 @@ def main(model_dir, force, no_cuda):
                      f'Time per epoch: {time_per_epoch:.2f} s')
         train_losses.append(train_loss)
         val_losses.append(val_loss)
-        test_losses.append(test_loss)
 
         # check stop criterion
         checkpoint_path = os.path.join(model_dir, 'checkpoint.pt')
@@ -353,10 +302,10 @@ def main(model_dir, force, no_cuda):
                  f'{int(total_time%3600/60)} m {int(total_time%60)} s')
 
     # plot training and validation error
-    plot_losses(train_losses, val_losses, test_losses, model_dir)
+    plot_losses(train_losses, val_losses, model_dir)
 
     # save errors
-    np.savez(loss_path, train=train_losses, val=val_losses, test=test_losses)
+    np.savez(loss_path, train=train_losses, val=val_losses)
 
     # write full config file
     full_config_file = os.path.join(model_dir, 'config_full.yaml')
