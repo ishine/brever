@@ -159,9 +159,24 @@ def main(dataset_dir, force):
 
     # initialize hdf5 datasets
     h5f = h5py.File(datasets_output_path, 'w')
-    dset_feats = h5f.create_dataset('features', (0, 0), maxshape=(None, None))
-    dset_labels = h5f.create_dataset('labels', (0, 0), maxshape=(None, None))
-    dset_indexes = h5f.create_dataset('indexes', (0,), maxshape=(None,))
+    dset_feats = h5f.create_dataset(
+        'features',
+        (0, 0),
+        maxshape=(None, None),
+        dtype='f4',
+    )
+    dset_labels = h5f.create_dataset(
+        'labels',
+        (0, 0),
+        maxshape=(None, None),
+        dtype='f4',
+    )
+    dset_indexes = h5f.create_dataset(
+        'indexes',
+        (0,),
+        maxshape=(None,),
+        dtype='i4',
+    )
     if config.PRE.MIX.SAVE:
         vlen_dsets = {}
         component_names = [
