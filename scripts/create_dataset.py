@@ -63,6 +63,7 @@ def main(dataset_dir, force):
     streamhandler.setFormatter(formatter)
     logger.addHandler(filehandler)
     logger.addHandler(streamhandler)
+    logging.info(f'Processing {dataset_dir}...')
     logging.info(pprint.pformat({'PRE': config.PRE.to_dict()}))
 
     # seed for reproducibility
