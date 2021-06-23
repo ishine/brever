@@ -17,12 +17,13 @@ def main(args, params):
     old_configs = []
     old_paths = []
 
-    for room, snr, noise, angle, rms in itertools.product(
+    for room, snr, noise, angle, rms, speech_dset in itertools.product(
                 args.test_rooms,
                 args.test_snrs,
                 args.test_noises,
                 args.test_angles,
                 args.test_rms,
+                args.test_speech_datasets,
             ):
         config = {
             'PRE': {
@@ -43,7 +44,8 @@ def main(args, params):
                             'SNR': {
                                 'DISTARGS': [snr[0], snr[1]],
                                 'DISTNAME': 'uniform'
-                            }
+                            },
+                            'DATASETS': speech_dset
                         },
                         'SOURCES': {
                                 'TYPES': noise
@@ -143,12 +145,20 @@ if __name__ == '__main__':
                             [-90.0, 90.0],
                         ],
                         help='angle limits for the grid of test conditions')
-    parser.add_argument('--test-rms', type=lambda x: bool(int(x)), nargs='+',
+    parser.add_argument('--test-rms',  nargs='+',
+                        type=lambda x: bool(int(x)),
                         default=[
                             False,
                             True,
                         ],
                         help='random rms for the grid of test conditions')
+    parser.add_argument('--test-speech-datasets',
+                        type=bmm.arg_set_type,
+                        default=[
+                            {'timit'},
+                            {'ieee'},
+                        ],
+                        help='speech datasets for the grid of test conditions')
     dataset_args, args = parser.parse_args()
     params = vars(dataset_args)
 
