@@ -11,6 +11,31 @@ def main(args, params):
     def_cfg = defaults()
     processed_dir = def_cfg.PATH.PROCESSED
 
+    # parameters for the general dataset
+    general_noise_types = {
+        'dcase_airport',
+        'dcase_bus',
+        'dcase_metro',
+        'dcase_metro_station',
+        'dcase_park',
+        'dcase_public_square',
+        'dcase_shopping_mall',
+        'dcase_street_pedestrian',
+        'dcase_street_traffic',
+        'dcase_tram',
+    }
+    general_rooms = {
+        'surrey_room_a',
+        'surrey_room_b',
+        'surrey_room_c',
+        'surrey_room_d',
+    }
+    general_angle_lims = (-90.0, 90.0)
+    general_snr_lims = (-5, 10)
+    general_rms_jitter = True
+    general_speech_dataset = {'timit'}
+
+    # actual grid of dataset parameters
     noise_typess = [
         {'dcase_airport'},
         {'dcase_bus'},
@@ -22,56 +47,36 @@ def main(args, params):
         {'dcase_street_pedestrian'},
         {'dcase_street_traffic'},
         {'dcase_tram'},
-        {
-            'dcase_airport',
-            'dcase_bus',
-            'dcase_metro',
-            'dcase_metro_station',
-            'dcase_park',
-            'dcase_public_square',
-            'dcase_shopping_mall',
-            'dcase_street_pedestrian',
-            'dcase_street_traffic',
-            'dcase_tram',
-        },
+        general_noise_types,
     ]
-
     roomss = [
         {'surrey_room_a'},
         {'surrey_room_b'},
         {'surrey_room_c'},
         {'surrey_room_d'},
-        {
-            'surrey_room_a',
-            'surrey_room_b',
-            'surrey_room_c',
-            'surrey_room_d',
-        },
+        general_rooms,
     ]
-
     angle_limss = [
         (0.0, 0.0),
-        (-90.0, 90.0),
+        general_angle_lims,
     ]
-
     snr_limss = [
         (-5, -5),
         (0, 0),
         (5, 5),
         (10, 10),
-        (-5, 10),
+        general_snr_lims,
     ]
-
     rms_jitters = [
         False,
-        True,
+        general_rms_jitter,
     ]
-
     speech_datasetss = [
-        {'timit'},
         {'ieee'},
+        general_speech_dataset,
     ]
 
+    # the default config is a very specialized one
     def add_config(
                 configs,
                 noise_types={'dcase_airport'},
@@ -79,7 +84,7 @@ def main(args, params):
                 angle_lims=[0.0, 0.0],
                 snr_lims=[0, 0],
                 rms_jitter=False,
-                speech_datasets={'timit'},
+                speech_datasets={'ieee'},
             ):
         
         for basename, filelims, number, seed in [
@@ -138,6 +143,8 @@ def main(args, params):
 
     configs = []
 
+    # note that some configs below will be duplicate but the test at the end of
+    # the function will correctly prevent from adding them
     for noise_types in noise_typess:
         add_config(configs, noise_types=noise_types)
     for rooms in roomss:
@@ -150,6 +157,17 @@ def main(args, params):
         add_config(configs, rms_jitter=rms_jitter)
     for speech_datasets in speech_datasetss:
         add_config(configs, speech_datasets=speech_datasets)
+
+    # don't forget to add the general config!
+    add_config(
+        configs,
+        noise_types=general_noise_types,
+        rooms=general_rooms,
+        angle_lims=general_angle_lims,
+        snr_lims=general_snr_lims,
+        rms_jitter=general_rms_jitter,
+        speech_datasets=general_speech_dataset,
+    )
 
     new_configs = []
     for config_dict, dset_path in configs:
