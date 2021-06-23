@@ -6,7 +6,7 @@ from brever.modelmanagement import set_dict_field, DatasetInitArgParser
 from brever.config import defaults
 
 
-def main(alias, params):
+def main(args, params):
 
     processed_dir = defaults().PATH.PROCESSED
 
