@@ -481,7 +481,8 @@ def arg_path_set_type(input_str):
     """
     A convenience function that casts the input string of paths separated by
     spaces into a set of paths. Handles backward slashes by replacing them
-    with forward slashes. Used to parse arguments as set of paths.
+    with forward slashes. Used to parse arguments as set of paths. Also
+    removes trailing slashes.
 
     Parameters
     ----------
@@ -496,7 +497,7 @@ def arg_path_set_type(input_str):
     output_set = set(input_str.split(' '))
     while '' in output_set:
         output_set.remove('')
-    output_set = set(item.replace('\\', '/') for item in output_set)
+    output_set = set(x.replace('\\', '/').rstrip('\\') for x in output_set)
     return output_set
 
 
@@ -602,13 +603,13 @@ class ModelFilterArgParser(ExtendableArgParser):
         )
         self.add_base_argument(
             '--train-path',
-            type=lambda x: x.replace('\\', '/'),
+            type=lambda x: x.replace('\\', '/').rstrip('/'),
             nargs='+',
             help='training dataset path',
         )
         self.add_base_argument(
             '--val-path',
-            type=lambda x: x.replace('\\', '/'),
+            type=lambda x: x.replace('\\', '/').rstrip('/'),
             nargs='+',
             help='validation dataset path',
         )
