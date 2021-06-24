@@ -11,7 +11,6 @@ import sys
 import copy
 from functools import partial
 
-import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -19,10 +18,9 @@ import h5py
 import soundfile as sf
 
 from brever.config import defaults
-from brever.classes import (Standardizer, MultiThreadFilterbank, Framer,
-                            FeatureExtractor, LabelExtractor,
-                            RandomMixtureMaker, UnitRMSScaler)
+import brever.classes as bpipes
 from brever.utils import wola
+import brever.modelmanagement as bmm
 
 
 def add_to_vlen_dset(dset, data):
@@ -48,8 +46,7 @@ def main(dataset_dir, force):
     # load config file
     config = defaults()
     config_file = os.path.join(dataset_dir, 'config.yaml')
-    with open(config_file, 'r') as f:
-        config.update(yaml.safe_load(f))
+    config.update(bmm.read_yaml(config_file))
 
     # redirect logger
     logger = logging.getLogger()
@@ -71,7 +68,7 @@ def main(dataset_dir, force):
         random.seed(config.PRE.SEED.VALUE)
 
     # mixture maker
-    randomMixtureMaker = RandomMixtureMaker(
+    randomMixtureMaker = bpipes.RandomMixtureMaker(
         fs=config.PRE.FS,
         rooms=config.PRE.MIX.RANDOM.ROOMS,
         target_datasets=config.PRE.MIX.RANDOM.TARGET.DATASETS,
@@ -126,12 +123,12 @@ def main(dataset_dir, force):
     )
 
     # scaler
-    scaler = UnitRMSScaler(
+    scaler = bpipes.UnitRMSScaler(
         active=config.PRE.MIX.SCALERMS,
     )
 
     # filterbank
-    filterbank = MultiThreadFilterbank(
+    filterbank = bpipes.MultiThreadFilterbank(
         kind=config.PRE.FILTERBANK.KIND,
         n_filters=config.PRE.FILTERBANK.NFILTERS,
         f_min=config.PRE.FILTERBANK.FMIN,
@@ -141,7 +138,7 @@ def main(dataset_dir, force):
     )
 
     # framer
-    framer = Framer(
+    framer = bpipes.Framer(
         frame_length=config.PRE.FRAMER.FRAMELENGTH,
         hop_length=config.PRE.FRAMER.HOPLENGTH,
         window=config.PRE.FRAMER.WINDOW,
@@ -149,12 +146,12 @@ def main(dataset_dir, force):
     )
 
     # feature extractor
-    featureExtractor = FeatureExtractor(
+    featureExtractor = bpipes.FeatureExtractor(
         features=sorted(config.PRE.FEATURES),
     )
 
     # label extractor
-    labelExtractor = LabelExtractor(
+    labelExtractor = bpipes.LabelExtractor(
         labels=sorted(config.PRE.LABELS),
     )
 
@@ -400,7 +397,7 @@ def main(dataset_dir, force):
         y = labels[:config.PRE.PLOT.NSAMPLES]
         plot(x, y, 'peek.png')
 
-        standardizer = Standardizer()
+        standardizer = bpipes.Standardizer()
         standardizer.fit(features)
         x = standardizer.transform(x)
         plot(x, y, 'peek_standardized.png')

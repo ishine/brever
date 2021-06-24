@@ -7,7 +7,6 @@ import sys
 import time
 import json
 
-import yaml
 import torch
 import numpy as np
 import h5py
@@ -18,7 +17,7 @@ from pystoi import stoi
 from brever.config import defaults
 from brever.utils import wola, segmental_scores
 import brever.pytorchtools as bptt
-from brever.modelmanagement import globbed
+import brever.modelmanagement as bmm
 
 
 def main(model_dir, args):
@@ -41,8 +40,7 @@ def main(model_dir, args):
     # load config file
     config = defaults()
     config_file = os.path.join(model_dir, 'config.yaml')
-    with open(config_file, 'r') as f:
-        config.update(yaml.safe_load(f))
+    config.update(bmm.read_yaml(config_file))
 
     # seed for reproducibility
     torch.manual_seed(0)
@@ -69,7 +67,7 @@ def main(model_dir, args):
 
     # main loop
     scores = {}
-    for test_dir in globbed(config.POST.PATH.TEST):
+    for test_dir in bmm.globbed(config.POST.PATH.TEST):
 
         start_time = time.time()
 

@@ -1,7 +1,5 @@
 import os
 
-import yaml
-
 import brever.modelmanagement as bmm
 from brever.config import defaults
 
@@ -86,7 +84,7 @@ def main(args, params):
                 rms_jitter=False,
                 speech_datasets={'ieee'},
             ):
-        
+
         for basename, filelims, number, seed in [
                     ('train', [0.0, 0.7], args.n_train, args.seed_value_train),
                     ('val', [0.7, 0.85], args.n_val, args.seed_value_val),
@@ -188,15 +186,14 @@ def main(args, params):
                 if os.path.exists(config_filepath) and not args.force:
                     print(f'{config_filepath} already exists')
                     continue
-                with open(config_filepath, 'w') as f:
-                    yaml.dump(config, f)
+                bmm.dump_yaml(config, config_filepath)
                 print(f'Initialized {config_filepath}')
         else:
             print('No dataset was initialized.')
 
 
 if __name__ == '__main__':
-    parser = bmm.DatasetInitArgParser(description='initialize training datasets')
+    parser = bmm.DatasetInitArgParser(description='initialize train datasets')
     parser.add_argument('-f', '--force', action='store_true',
                         help='overwrite config file if already exists')
     parser.add_argument('--n-train', type=int, default=10000,

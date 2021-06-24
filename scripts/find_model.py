@@ -1,8 +1,6 @@
 import os
 import shutil
 
-import yaml
-
 from brever.config import defaults
 import brever.modelmanagement as bmm
 
@@ -67,12 +65,10 @@ def main(delete=False, set_field=None, **kwargs):
                     filenames = ['config.yaml']
                 for filename in filenames:
                     config_path = os.path.join(model, filename)
-                    with open(config_path, 'r') as f:
-                        config = yaml.safe_load(f)
+                    config = bmm.read_yaml(config_path)
                     bmm.set_config_field(config, tag, value)
-                    def_cfg.update(config)  # throw error if conf not valid
-                    with open(config_path, 'w') as f:
-                        yaml.dump(config, f)
+                    def_cfg.update(config)  # throw error if config not valid
+                    bmm.dump_yaml(config, config_path)
         else:
             print('No model was updated')
 

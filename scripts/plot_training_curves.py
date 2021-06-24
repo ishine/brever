@@ -4,7 +4,7 @@ from glob import glob
 import matplotlib.pyplot as plt
 import numpy as np
 
-from brever.modelmanagement import ModelFilterArgParser, find_model
+import brever.modelmanagement as bmm
 
 
 def smooth(data, sigma=50):
@@ -19,7 +19,7 @@ def main(models, **kwargs):
     plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True)
     plt.rc('grid', color='w', linestyle='solid')
 
-    possible_models = find_model(**kwargs)
+    possible_models = bmm.find_model(**kwargs)
     models = [model for model in models if model in possible_models]
     for model in models:
         print(model)
@@ -53,7 +53,7 @@ def main(models, **kwargs):
 
 
 if __name__ == '__main__':
-    parser = ModelFilterArgParser(description='plot training curves')
+    parser = bmm.ModelFilterArgParser(description='plot training curves')
     parser.add_argument('input', nargs='+',
                         help='list of models whose curves to plot')
     filter_args, args = parser.parse_args()

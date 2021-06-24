@@ -13,7 +13,7 @@ import torch
 
 from brever.config import defaults
 import brever.pytorchtools as bptt
-from brever.modelmanagement import globbed
+import brever.modelmanagement as bmm
 
 
 def clear_logger():
@@ -95,8 +95,7 @@ def main(model_dir, force, no_cuda):
     # load config file
     config = defaults()
     config_file = os.path.join(model_dir, 'config.yaml')
-    with open(config_file, 'r') as f:
-        config.update(yaml.safe_load(f))
+    config.update(bmm.read_yaml(config_file))
 
     # check if model is already trained using directory contents
     loss_path = os.path.join(model_dir, 'losses.npz')
@@ -214,8 +213,7 @@ def main(model_dir, force, no_cuda):
     }
     model = bptt.Feedforward(**model_args)
     model_args_path = os.path.join(model_dir, 'model_args.yaml')
-    with open(model_args_path, 'w') as f:
-        yaml.dump(model_args, f)
+    bmm.dump_yaml(model_args, model_args_path)
     if config.MODEL.CUDA and not no_cuda:
         model = model.cuda()
 
@@ -309,8 +307,7 @@ def main(model_dir, force, no_cuda):
 
     # write full config file
     full_config_file = os.path.join(model_dir, 'config_full.yaml')
-    with open(full_config_file, 'w') as f:
-        yaml.dump(config.to_dict(), f)
+    bmm.dump_yaml(config.to_dict(), full_config_file)
 
     # close log file handler
     clear_logger()

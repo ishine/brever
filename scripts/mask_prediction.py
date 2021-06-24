@@ -4,7 +4,6 @@ import random
 import pickle
 import re
 
-import yaml
 import torch
 import numpy as np
 import h5py
@@ -12,10 +11,9 @@ import matplotlib.pyplot as plt
 import scipy.io
 
 from brever.config import defaults
-from brever.pytorchtools import (Feedforward, H5Dataset, TensorStandardizer,
-                                 get_files_mean_and_std,
-                                 StateTensorStandardizer)
+import brever.pytorchtools as bptt
 from brever.display import plot_spectrogram, share_clim
+import brever.modelmanagement as bmm
 
 
 def main(args):
@@ -33,12 +31,11 @@ def main(args):
         # load model configuration
         config = defaults()
         config_file = os.path.join(model_dirpath, 'config.yaml')
-        with open(config_file, 'r') as f:
-            config.update(yaml.safe_load(f))
+        config.update(bmm.read_yaml(config_file))
 
         # initialize and load model
         model_args_path = os.path.join(model_dirpath, 'model_args.yaml')
-        model = Feedforward.build(model_args_path)
+        model = bptt.Feedforward.build(model_args_path)
         state_file = os.path.join(model_dirpath, 'checkpoint.pt')
         model.load_state_dict(torch.load(state_file, map_location='cpu'))
         if config.MODEL.CUDA and not args.no_cuda:
@@ -65,7 +62,7 @@ def main(args):
             room_alias = f'surrey_room_{m.group(2).lower()}'
 
         # load test dataset
-        test_dataset = H5Dataset(
+        test_dataset = bptt.H5Dataset(
             dirpath=test_dataset_dir,
             features=config.POST.FEATURES,
             labels=config.POST.LABELS,
@@ -87,18 +84,18 @@ def main(args):
 
         # set normalization
         if config.POST.STANDARDIZATION.FILEBASED:
-            test_means, test_stds = get_files_mean_and_std(
+            test_means, test_stds = bptt.get_files_mean_and_std(
                 test_dataset,
                 config.POST.STANDARDIZATION.UNIFORMFEATURES,
             )
-            test_dataset.transform = StateTensorStandardizer(
+            test_dataset.transform = bptt.StateTensorStandardizer(
                 test_means,
                 test_stds,
             )
         else:
             stat_path = os.path.join(model_dirpath, 'statistics.npy')
             mean, std = np.load(stat_path)
-            test_dataset.transform = TensorStandardizer(mean, std)
+            test_dataset.transform = bptt.TensorStandardizer(mean, std)
 
         # load pipes
         pipes_file = os.path.join(config.POST.PATH.TRAIN, 'pipes.pkl')

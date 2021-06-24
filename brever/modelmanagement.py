@@ -8,6 +8,23 @@ import yaml
 from brever.config import defaults
 
 
+def read_yaml(path):
+    """
+    Read a YAML file and return its content.
+    """
+    with open(path) as f:
+        output = yaml.safe_load(f)
+    return output
+
+
+def dump_yaml(d, path):
+    """
+    Write the contents of a dictionary in YAML format.
+    """
+    with open(path, 'w') as f:
+        yaml.dump(d, f)
+
+
 def globbed(paths):
     """
     Transforms a list of paths with wildcards into a concatenated list with all
@@ -330,8 +347,7 @@ def find_model(**kwargs):
         config_file = os.path.join(models_dir, model_id, 'config_full.yaml')
         if not os.path.exists(config_file):
             config_file = os.path.join(models_dir, model_id, 'config.yaml')
-        with open(config_file, 'r') as f:
-            config = yaml.safe_load(f)
+        config = read_yaml(config_file)
         valid = True
         for key, value in kwargs.items():
             keys = ModelFilterArgParser.arg_to_keys_map[key]

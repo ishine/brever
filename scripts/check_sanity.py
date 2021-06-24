@@ -1,10 +1,8 @@
 import os
 import shutil
 
-import yaml
-
 from brever.config import defaults
-from brever.modelmanagement import get_unique_id, get_config_field
+import brever.modelmanagement as bmm
 
 
 def format_slashes(x):
@@ -27,11 +25,10 @@ def main():
 
         model_dir = os.path.join(models_dir, model_id)
         config_filepath = os.path.join(model_dir, 'config.yaml')
-        with open(config_filepath, 'r') as f:
-            config = yaml.safe_load(f)
+        config = bmm.read_yaml(config_filepath)
 
-        train_path = get_config_field(config, 'train_path')
-        val_path = get_config_field(config, 'val_path')
+        train_path = bmm.get_config_field(config, 'train_path')
+        val_path = bmm.get_config_field(config, 'val_path')
 
         if train_path is not None and val_path is not None:
             train_path = format_slashes(train_path)
@@ -103,7 +100,7 @@ def main():
             full_configs.append(full_config)
             full_configs_ids.append(model_id)
 
-        new_id = get_unique_id(config)
+        new_id = bmm.get_unique_id(config)
         if new_id != model_id:
             print(f'Model {shorten(model_id)} has wrong ID!')
             sane = False

@@ -1,8 +1,6 @@
 import os
 import itertools
 
-import yaml
-
 import brever.modelmanagement as bmm
 from brever.config import defaults
 
@@ -92,8 +90,7 @@ def main(args, params):
                 if os.path.exists(config_filepath) and not args.force:
                     print(f'{config_filepath} already exists')
                     continue
-                with open(config_filepath, 'w') as f:
-                    yaml.dump(config, f)
+                bmm.dump_yaml(config, config_filepath)
                 print(f'Initialized {config_filepath}')
         else:
             print('No dataset was initialized.')

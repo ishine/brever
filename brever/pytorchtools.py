@@ -3,12 +3,12 @@ import logging
 import pickle
 import json
 
-import yaml
 import numpy as np
 import torch
 import h5py
 
 from .utils import dct
+from .modelmanagement import read_yaml
 
 
 def get_mean_and_std(dataset, dataloader, uniform_stats_features):
@@ -380,8 +380,7 @@ class Feedforward(torch.nn.Module):
 
     @classmethod
     def build(cls, args_path):
-        with open(args_path, 'r') as f:
-            arguments = yaml.safe_load(f)
+        arguments = read_yaml(args_path)
         model = cls(**arguments)
         return model
 

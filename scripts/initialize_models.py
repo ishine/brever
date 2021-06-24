@@ -2,8 +2,6 @@ import os
 import shutil
 import itertools
 
-import yaml
-
 from brever.config import defaults
 import brever.modelmanagement as bmm
 
@@ -160,8 +158,7 @@ def main(args):
                 if os.path.exists(dirpath):
                     shutil.rmtree(dirpath)
                 os.makedirs(dirpath)
-                with open(os.path.join(dirpath, 'config.yaml'), 'w') as f:
-                    yaml.dump(config, f)
+                bmm.dump_yaml(config, os.path.join(dirpath, 'config.yaml'))
                 print(f'Initialized {unique_id}')
         else:
             print('No model was initialized')

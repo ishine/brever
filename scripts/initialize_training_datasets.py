@@ -1,8 +1,6 @@
 import os
 
-import yaml
-
-from brever.modelmanagement import set_dict_field, DatasetInitArgParser
+import brever.modelmanagement as bmm
 from brever.config import defaults
 
 
@@ -33,8 +31,8 @@ def main(args, params):
 
         for param, value in params.items():
             if value is not None:
-                key_list = DatasetInitArgParser.arg_to_keys_map[param]
-                set_dict_field(config, key_list, value)
+                key_list = bmm.DatasetInitArgParser.arg_to_keys_map[param]
+                bmm.set_dict_field(config, key_list, value)
 
         dirpath = os.path.join(processed_dir, basename, args.alias)
         if not os.path.exists(dirpath):
@@ -43,13 +41,12 @@ def main(args, params):
         if os.path.exists(config_filepath) and not args.force:
             print(f'{config_filepath} already exists')
             continue
-        with open(config_filepath, 'w') as f:
-            yaml.dump(config, f)
+        bmm.dump_yaml(config, config_filepath)
         print(f'Created {config_filepath}')
 
 
 if __name__ == '__main__':
-    parser = DatasetInitArgParser(description='initialize training datasets')
+    parser = bmm.DatasetInitArgParser(description='initialize train datasets')
     parser.add_argument('alias',
                         help='dataset alias')
     parser.add_argument('-f', '--force', action='store_true',
