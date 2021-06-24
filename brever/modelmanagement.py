@@ -62,7 +62,7 @@ def sorted_dict(input_dict):
     return output_dict
 
 
-def get_unique_id(input_dict, n=None):
+def get_unique_id(input_dict, n=8):
     """
     Unique ID from dictionary.
 
@@ -77,12 +77,17 @@ def get_unique_id(input_dict, n=None):
         Input dictionary.
     n : int
         If provided, the first `n` characters from the ID are returns. Default
-        is `None`, which means the whole ID is returned.
+        is 8. If `None`, the whole ID is returned.
 
     Returns
     -------
     unique_id : str
         Unique ID of input dictionary.
+
+    Notes
+    -----
+    Using `n=8`, the probability of obtaining 2 identical IDs after generating
+    10000 random IDs is 1.2%. So `n=8` is the minimum recommended value.
     """
     if not input_dict:
         input_dict = {}

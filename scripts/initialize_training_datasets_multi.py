@@ -135,7 +135,7 @@ def main(args, params):
 
             def_cfg.update(config)  # throws an error if config is not valid
 
-            dset_id = bmm.get_unique_id(config, n=6)
+            dset_id = bmm.get_unique_id(config)
             dset_path = os.path.join(processed_dir, basename, dset_id)
 
             if (config, dset_path) not in configs:
