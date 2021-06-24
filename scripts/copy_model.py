@@ -1,8 +1,6 @@
 import shutil
 import os
 
-import yaml
-
 import brever.modelmanagement as bmm
 from brever.config import defaults
 
