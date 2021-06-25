@@ -35,7 +35,11 @@ def globbed(paths):
     """
     output = []
     for path in paths:
-        output += glob(path)
+        more = glob(path)
+        if more:
+            output += more
+        else:
+            output.append(path)
     return output
 
 
