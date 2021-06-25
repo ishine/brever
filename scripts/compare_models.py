@@ -316,7 +316,7 @@ def barplot(datas, ax, xticklabels=None, errs=None, ylabel=None, labels=None,
             model_count += 1
     if xticklabels is None:
         xticklabels = np.arange(n_conditions)
-    ax.set_xticks(xticklabels)
+    ax.set_xticks(np.arange(n_conditions))
     ax.set_xticklabels(xticklabels)
     ax.set_ylabel(ylabel)
     ax.grid(linestyle='dotted')
@@ -392,6 +392,17 @@ def main(models, args, filter_):
     for metric in ['PESQ', 'STOI', 'segSSNR', 'segBR', 'segNR', 'segRR']:
         check_scores(groups, args.test_dirs, 'oracle', metric)
 
+    # print the conditions
+    for i, test_dir in enumerate(args.test_dirs):
+        config_file = os.path.join(test_dir, 'config.yaml')
+        if not os.path.exists(config_file):
+            print(f"Can't display condition {i} parameters because the config "
+                  "file can't be found in the filesystem")
+        else:
+            print(f'Condition {i}:')
+            with open(config_file) as f:
+                print(f.read())
+
     # sort by either dimention or score
     groups = sort_groups(groups, args.sort_by, dims, group_vals,
                          args.test_dirs)
@@ -437,8 +448,8 @@ def main(models, args, filter_):
             else:
                 scores.append(np.array([0]))
                 errs.append(np.array([0]))
-            labels.append('ref')
             colors.append(color_cycle[0])
+            labels.append('ref')
         # then add oracle score
         if not args.no_oracle:
             if metric in oracle_metrics:
@@ -451,8 +462,8 @@ def main(models, args, filter_):
             else:
                 scores.append(np.array([0]))
                 errs.append(np.array([0]))
-            labels.append('oracle')
             colors.append(color_cycle[1])
+            labels.append('oracle')
         # finally add model scores
         for i, group in enumerate(groups):
             score, err = make_score_matrix(
@@ -461,12 +472,15 @@ def main(models, args, filter_):
             score, err = score.mean(axis=0), err.mean(axis=0)
             scores.append(score)
             errs.append(err)
-            labels.append(str(model['val']))
             colors.append(color_cycle[(i+2) % len(color_cycle)])
+            if args.legend is None:
+                labels += [str(model['val']) for model in group]
+        if args.legend is not None:
+            labels += args.legend
         if ax != axes[0]:
             labels = None
         barplot(scores, ax, errs=errs, ylabel=metric, labels=labels,
-                colors=colors)
+                colors=colors, xticklabels=[])
         if metric == 'PESQ':
             set_ax_lims(ax, ymin=args.ymin_pesq, ymax=args.ymax_pesq)
     LegendFormatter(fig, ncol=args.ncol)
@@ -476,14 +490,19 @@ def main(models, args, filter_):
     if args.train_curve:
         fig, ax = plt.subplots(1, 1)
         remove_patches(fig, [ax])
+        model_count = 0
         for i, group in enumerate(groups):
             color = color_cycle[(i+2) % len(color_cycle)]
             for j, model in enumerate(group):
                 color = to_rgb(color)
                 color = color + (1-j/len(group), )
-                label = str(model['val'])
+                if args.legend is None:
+                    label = str(model['val'])
+                else:
+                    label = args.legend[model_count]
                 ax.plot(model['train_curve'], label=label, color=color)
                 ax.plot(model['val_curve'], '--', color=color)
+                model_count += 1
         ax.grid(linestyle='dotted')
         ax.set_axisbelow(True)
         LegendFormatter(fig, ncol=args.ncol)
@@ -516,8 +535,8 @@ def main(models, args, filter_):
                 )
                 scores.append(score)
                 errs.append(err)
-                labels.append('ref')
                 colors.append(color_cycle[0])
+                labels.append('ref')
             # then add oracle score
             if not args.no_oracle and metric in oracle_metrics:
                 score, err = make_score_matrix(
@@ -525,8 +544,8 @@ def main(models, args, filter_):
                 )
                 scores.append(score)
                 errs.append(err)
-                labels.append('oracle')
                 colors.append(color_cycle[1])
+                labels.append('oracle')
             # finally add model scores
             for i, group in enumerate(groups):
                 score, err = make_score_matrix(
@@ -534,10 +553,13 @@ def main(models, args, filter_):
                 )
                 scores.append(score)
                 errs.append(err)
-                labels.append(str(model['val']))
                 colors.append(color_cycle[(i+2) % len(color_cycle)])
+                if args.legend is None:
+                    labels += [str(model['val']) for model in group]
+            if args.legend is not None:
+                labels += args.legend
             barplot(scores, ax, errs=errs, ylabel=metric, labels=labels,
-                    colors=colors)
+                    colors=colors, xticklabels=args.xticks)
             LegendFormatter(fig, ncol=args.ncol)
             figs[metric] = fig
             if metric == 'PESQ':
@@ -571,11 +593,12 @@ def main(models, args, filter_):
                 fig_legend_handles.append(patch)
                 fig_legend_labels.append(label)
                 for k in range(len(args.test_dirs)):
-                    ax.plot(x[k], y[k], marker=symbols[k], markersize=10,
+                    symbol = symbols[k % len(symbols)]
+                    ax.plot(x[k], y[k], marker=symbol, markersize=10,
                             linestyle='', color=color)
                     if i == j == 0:
                         line = mlines.Line2D([], [], linestyle='', color='k',
-                                             markersize=10, marker=symbols[k])
+                                             markersize=10, marker=symbol)
                         label = args.test_dirs[k]
                         ax_legend_handles.append(line)
                         ax_legend_labels.append(label)
@@ -638,6 +661,8 @@ if __name__ == '__main__':
                         help='output directory where to save the figures')
     parser.add_argument('--format', default='png',
                         help='output figure format')
+    parser.add_argument('--xticks', nargs='+',
+                        help='test dirs labels')
     filter_args, args = parser.parse_args()
 
     model_dirs = []
