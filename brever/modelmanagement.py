@@ -1,6 +1,7 @@
 import os
 import hashlib
 import argparse
+import json
 from glob import glob
 
 import yaml
@@ -23,6 +24,23 @@ def dump_yaml(d, path):
     """
     with open(path, 'w') as f:
         yaml.dump(d, f)
+
+
+def read_json(path):
+    """
+    Read a JSON file and return its content.
+    """
+    with open(path) as f:
+        output = json.load(f)
+    return output
+
+
+def dump_json(d, path):
+    """
+    Write the contents of a dictionary in JSON format.
+    """
+    with open(path, 'w') as f:
+        json.dump(d, f)
 
 
 def globbed(paths):

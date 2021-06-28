@@ -1,14 +1,13 @@
 import os
 import logging
 import pickle
-import json
 
 import numpy as np
 import torch
 import h5py
 
 from .utils import dct
-from .modelmanagement import read_yaml
+from .modelmanagement import read_yaml, read_json
 
 
 def get_mean_and_std(dataset, dataloader, uniform_stats_features):
@@ -267,9 +266,8 @@ class H5Dataset(torch.utils.data.Dataset):
 
     def get_file_indices(self):
         metadatas_path = os.path.join(self.dirpath, 'mixture_info.json')
-        with open(metadatas_path, 'r') as f:
-            metadatas = json.load(f)
-            indices = [item['dataset_indices'] for item in metadatas]
+        metadatas = read_json(metadatas_path)
+        indices = [item['dataset_indices'] for item in metadatas]
         return indices
 
     def __getitem__(self, index):

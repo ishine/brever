@@ -3,7 +3,6 @@ import argparse
 import logging
 import time
 import pprint
-import json
 import pickle
 import random
 from glob import glob
@@ -319,8 +318,7 @@ def main(dataset_dir, force):
 
     # save mixtures metadata
     metadatas_output_path = os.path.join(dataset_dir, 'mixture_info.json')
-    with open(metadatas_output_path, 'w') as f:
-        json.dump(metadatas, f)
+    bmm.dump_json(metadatas, metadatas_output_path)
 
     # save pipes
     pipes_output_path = os.path.join(dataset_dir, 'pipes.pkl')

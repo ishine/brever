@@ -1,6 +1,5 @@
 import argparse
 from glob import glob
-import json
 import os
 
 import matplotlib.pyplot as plt
@@ -8,6 +7,7 @@ import matplotlib.patches as mpatches
 import numpy as np
 
 from brever.pytorchtools import H5Dataset
+import brever.modelmanagement as bmm
 
 
 def get_data(dataset_dir, name, kind, long_term=False):
@@ -21,8 +21,7 @@ def get_data(dataset_dir, name, kind, long_term=False):
         elif kind == 'label':
             if long_term:
                 metadata_path = os.path.join(dataset_dir, 'mixture_info.json')
-                with open(metadata_path, 'r') as f:
-                    metadata = json.load(f)
+                metadata = bmm.read_json(metadata_path)
                 data = [item['lt_labels'][name] for item in metadata]
                 data = np.asarray(data)
             else:

@@ -1,6 +1,5 @@
 import os
 from glob import glob
-import json
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -101,8 +100,7 @@ def load_scores(groups, test_dirs):
         for i in range(len(group)):
             model = group[i]['model']
             # load scores
-            with open(os.path.join(model, 'scores.json')) as f:
-                scores = json.load(f)
+            scores = bmm.read_json(os.path.join(model, 'scores.json'))
             group[i]['scores'] = {}
             for test_dir in test_dirs:
                 if test_dir not in scores.keys():

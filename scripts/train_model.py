@@ -2,7 +2,6 @@ import os
 import argparse
 import logging
 import time
-import json
 from glob import glob
 import sys
 
@@ -40,10 +39,8 @@ def set_logger(output_dir):
 def check_overlapping_files(train_path, val_path):
     train_info_path = os.path.join(train_path, 'mixture_info.json')
     val_info_path = os.path.join(val_path, 'mixture_info.json')
-    with open(train_info_path, 'r') as f:
-        train_info = json.load(f)
-    with open(val_info_path, 'r') as f:
-        val_info = json.load(f)
+    train_info = bmm.read_json(train_info_path)
+    val_info = bmm.read_json(val_info_path)
 
     train_targets = [x['target']['filename'] for x in train_info]
     val_targets = [x['target']['filename'] for x in val_info]

@@ -5,7 +5,6 @@ import pickle
 import logging
 import sys
 import time
-import json
 
 import torch
 import numpy as np
@@ -355,8 +354,7 @@ def main(model_dir, args):
     scores = format_scores(scores)
 
     # save scores
-    with open(os.path.join(model_dir, 'scores.json'), 'w') as f:
-        json.dump(scores, f)
+    bmm.dump_json(scores, os.path.join(model_dir, 'scores.json'))
 
 
 if __name__ == '__main__':
