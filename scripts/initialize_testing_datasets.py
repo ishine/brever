@@ -114,7 +114,7 @@ if __name__ == '__main__':
     parser.add_argument('--test-snrs', nargs='+',
                         type=lambda x: bmm.arg_list_type(x, int),
                         default=[
-                            [-5, 5],
+                            [-5, -5],
                             [0, 0],
                             [5, 5],
                             [10, 10],
