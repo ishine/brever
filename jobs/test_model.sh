@@ -3,7 +3,7 @@ source jobs/parse_args.sh
 
 for input in "$@"
 do
-    if [ -f $input/scores.yaml ] && [ "$FORCE" == "" ]
+    if [ -f $input/scores.json ] && [ "$FORCE" == "" ]
     then
         echo "model already tested: $input "
     else
