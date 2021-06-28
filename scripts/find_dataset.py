@@ -1,11 +1,11 @@
 import os
-
+import shutil
 
 from brever.config import defaults
 import brever.modelmanagement as bmm
 
 
-def main(**kwargs):
+def main(args, **kwargs):
     processed_dir = defaults().PATH.PROCESSED
     dsets = []
     for root, folder, files in os.walk(processed_dir):
@@ -25,10 +25,20 @@ def main(**kwargs):
     for dset in dsets:
         print(dset)
 
+    if dsets and args.delete:
+        print(f'{len(dsets)} datasets will be deleted.')
+        resp = input('Do you want to continue? y/n')
+        if resp == 'y':
+            for dset in dsets:
+                shutil.rmtree(dset)
+                print(f'Deleted {dset}')
+        else:
+            print('No dataset was deleted')
+
 
 if __name__ == '__main__':
     parser = bmm.DatasetInitArgParser(description='find datasets')
     parser.add_argument('-d', '--delete', action='store_true',
                         help='delete found models')
     filter_args, extra_args = parser.parse_args()
-    main(**vars(filter_args))
+    main(extra_args, **vars(filter_args))
