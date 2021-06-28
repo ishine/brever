@@ -86,8 +86,8 @@ def main(args, params):
             ):
 
         for basename, filelims, number, seed in [
-                    ('train', [0.0, 0.7], args.n_train, args.seed_value_train),
-                    ('val', [0.7, 0.85], args.n_val, args.seed_value_val),
+                    ('train', [0.0, 0.7], args.n_train, args.seed_train),
+                    ('val', [0.7, 0.85], args.n_val, args.seed_val),
                 ]:
             config = {
                 'PRE': {
@@ -133,7 +133,8 @@ def main(args, params):
 
             def_cfg.update(config)  # throws an error if config is not valid
 
-            dset_id = bmm.get_unique_id(config)
+            if basename == 'train':
+                dset_id = bmm.get_unique_id(config)
             dset_path = os.path.join(processed_dir, basename, dset_id)
 
             if (config, dset_path) not in configs:
@@ -200,9 +201,9 @@ if __name__ == '__main__':
                         help='number of training mixture, defaults to 1000')
     parser.add_argument('--n-val', type=int, default=2000,
                         help='number of validation mixture, defaults to 200')
-    parser.add_argument('--seed-value-train', type=int, default=0,
+    parser.add_argument('--seed-train', type=int, default=0,
                         help='seed for the training dataset')
-    parser.add_argument('--seed-value-val', type=int, default=1,
+    parser.add_argument('--seed-val', type=int, default=1,
                         help='seed for the validation dataset')
     dataset_args, args = parser.parse_args()
     params = vars(dataset_args)
