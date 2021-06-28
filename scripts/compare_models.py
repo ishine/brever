@@ -214,6 +214,10 @@ def remove_patches(fig, axes):
     fig.patch.set_visible(False)
 
 
+def get_color_cycle():
+    return plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+
 def barplot(datas, ax, xticklabels=None, errs=None, ylabel=None, labels=None,
             colors=None):
     # check datas type
@@ -283,7 +287,7 @@ def barplot(datas, ax, xticklabels=None, errs=None, ylabel=None, labels=None,
     if colors is not None and len(colors) != len(datas):
         raise ValueError('colors must have the same length as datas')
     # main
-    color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    color_cycle = get_color_cycle()
     n_conditions = datas[0].shape[0]
     n_models = sum(data.shape[1] for data in datas)
     if labels is not None and len(labels) != n_models:
@@ -416,7 +420,7 @@ def main(models, args, filter_):
 
     # init stuff
     figs = {}
-    color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    color_cycle = get_color_cycle()
     ref_metrics = ['PESQ', 'STOI']
     oracle_metrics = ['PESQ', 'STOI', 'segSSNR', 'segBR', 'segNR', 'segRR']
 
@@ -562,6 +566,49 @@ def main(models, args, filter_):
             figs[metric] = fig
             if metric == 'PESQ':
                 set_ax_lims(ax, ymin=args.ymin_pesq, ymax=args.ymax_pesq)
+
+        # delta PESQ and delta STOI plots
+        delta_metrics = [
+            'PESQ',
+            'STOI',
+        ]
+        for metric in delta_metrics:
+            fig, ax = plt.subplots(1, 1, sharey=True, figsize=args.figsize)
+            remove_patches(fig, ax)
+            scores = []
+            errs = []
+            labels = []
+            colors = []
+            # load reference score
+            score_ref, err_ref = make_score_matrix(
+                [groups[0][0]], args.test_dirs, 'ref', metric
+            )
+            # add oracle score
+            if not args.no_oracle and metric in oracle_metrics:
+                score, err = make_score_matrix(
+                    [groups[0][0]], args.test_dirs, 'oracle', metric
+                )
+                scores.append(score - score_ref)
+                errs.append(err - err_ref)
+                colors.append(color_cycle[1])
+                labels.append('oracle')
+            # finally add model scores
+            for i, group in enumerate(groups):
+                score, err = make_score_matrix(
+                    group, args.test_dirs, 'model', metric,
+                )
+                scores.append(score - score_ref)
+                errs.append(err - err_ref)
+                colors.append(color_cycle[(i+2) % len(color_cycle)])
+                if args.legend is None:
+                    labels += [str(model['val']) for model in group]
+            if args.legend is not None:
+                labels += args.legend
+            ylabel = r'$\Delta$' + metric
+            barplot(scores, ax, errs=errs, ylabel=ylabel, labels=labels,
+                    colors=colors, xticklabels=args.xticks)
+            LegendFormatter(fig, ncol=args.ncol)
+            figs[f'd{metric}'] = fig
 
         # segSSNR vs segBR plot
         symbols = ['o', 's', '^', 'v', '<', '>']
