@@ -64,10 +64,21 @@ def main(model_dir, args):
     # initialize criterion
     criterion = getattr(torch.nn, config.MODEL.CRITERION)()
 
-    # main loop
-    scores = {}
-    for test_dir in bmm.globbed(config.POST.PATH.TEST):
+    # init scores dict
+    scores_path = os.path.join(model_dir, 'scores.json')
+    if os.path.exists(scores_path):
+        scores = bmm.read_json(scores_path)
+    else:
+        scores = {}
 
+    # main loop
+    for test_dir in bmm.globbed(config.POST.PATH.TEST):
+        # check if already tested
+        if test_dir in scores.keys():
+            logging.info(f'{test_dir} was already tested, skipping')
+            continue
+
+        # start clock
         start_time = time.time()
 
         # verbose and initialize scores field
@@ -326,10 +337,14 @@ def main(model_dir, args):
                 config.PRE.FS,
             ))
 
+        # update scores file
+        bmm.dump_json(scores, scores_path)
+
+        # log time spent
         logging.info(f'Time spent: {time.time() - start_time:.2f}')
 
-    # close hdf5 file
-    h5f.close()
+        # close hdf5 file
+        h5f.close()
 
     # round and cast to built-in float type before saving scores
     def significant_figures(x, n):
@@ -354,7 +369,7 @@ def main(model_dir, args):
     scores = format_scores(scores)
 
     # save scores
-    bmm.dump_json(scores, os.path.join(model_dir, 'scores.json'))
+    bmm.dump_json(scores, )
 
 
 if __name__ == '__main__':
