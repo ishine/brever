@@ -46,8 +46,7 @@ def main():
                 if yes_to_all:
                     r = 'y'
                 else:
-                    r = input('Would you like to rename it? '
-                              '[y for yes/n for no/ yes-all for yes for all]')
+                    r = input('Would you like to rename it? [y/n/yes-all]')
                 if r.lower() in ['y', 'yes-all']:
                     if r.lower() == 'yes-all':
                         yes_to_all = True
@@ -62,7 +61,7 @@ def main():
                     print('Could not interpret answer')
 
     if sane:
-        print('Models directory is sane')
+        print('Model directory is sane')
 
 
 if __name__ == '__main__':
