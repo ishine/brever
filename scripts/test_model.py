@@ -22,14 +22,6 @@ import brever.modelmanagement as bmm
 def main(model_dir, args):
     logging.info(f'Processing {model_dir}')
 
-    # check if model is already tested
-    output_mat_path = os.path.join(model_dir, 'scores.mat')
-    output_npz_path = os.path.join(model_dir, 'scores.npz')
-    if os.path.exists(output_mat_path) and os.path.exists(output_npz_path):
-        if not args.force:
-            logging.info('Model is already tested!')
-            return
-
     # check if model is trained
     loss_path = os.path.join(model_dir, 'losses.npz')
     if not os.path.exists(loss_path):
@@ -74,7 +66,7 @@ def main(model_dir, args):
     # main loop
     for test_dir in bmm.globbed(config.POST.PATH.TEST):
         # check if already tested
-        if test_dir in scores.keys():
+        if test_dir in scores.keys() and not args.force:
             logging.info(f'{test_dir} was already tested, skipping')
             continue
 
