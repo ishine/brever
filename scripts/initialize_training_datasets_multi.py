@@ -133,8 +133,11 @@ def main(args, params):
 
             def_cfg.update(config)  # throws an error if config is not valid
 
+            # use the same ID for both train and val datasets
+            # namely use the ID obtained from the train config
             if basename == 'train':
                 dset_id = bmm.get_unique_id(config)
+
             dset_path = os.path.join(processed_dir, basename, dset_id)
 
             if (config, dset_path) not in configs:
