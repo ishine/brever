@@ -37,12 +37,13 @@ def main(model_dir, args):
     torch.manual_seed(0)
 
     # get mean and std
-    if config.POST.STANDARDIZATION.FILEBASED:
-        pass
-    else:
+    if config.POST.NORMALIZATION.TYPE in ['global', 'recursive']:
         stat_path = os.path.join(model_dir, 'statistics.npy')
         logging.info('Loading mean and std...')
         mean, std = np.load(stat_path)
+    elif config.POST.NORMALIZATION.TYPE != 'filebased':
+        raise ValueError('Unrecognized normalization strategy: '
+                         f'{config.POST.NORMALIZATION.TYPE}')
 
     # initialize and load network
     logging.info('Loading model...')
@@ -107,7 +108,7 @@ def main(model_dir, args):
         scaler = pipes['scaler']
         filterbank = pipes['filterbank']
 
-        # initialize dataset and dataloader
+        # initialize dataset
         test_dataset = bptt.H5Dataset(
             dirpath=test_dir,
             features=config.POST.FEATURES,
@@ -117,22 +118,32 @@ def main(model_dir, args):
             decimation=1,  # there must not be decimation during testing
             dct_toggle=config.POST.DCT.ON,
             n_dct=config.POST.DCT.NCOEFF,
-            file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
+            normalization=config.POST.NORMALIZATION.TYPE,
             prestack=config.POST.PRESTACK,
         )
 
         # set normalization transform
-        if config.POST.STANDARDIZATION.FILEBASED:
+        if config.POST.NORMALIZATION.TYPE == 'global':
+            test_dataset.transform = bptt.TensorStandardizer(mean, std)
+        elif config.POST.NORMALIZATION.TYPE == 'recursive':
+            test_dataset.transform = bptt.ResursiveTensorStandardizer(
+                mean=mean,
+                std=std,
+                momentum=config.POST.NORMALIZATION.RECURSIVEMOMENTUM,
+                track=True
+            )
+        elif config.POST.NORMALIZATION.TYPE == 'filebased':
             test_means, test_stds = bptt.get_files_mean_and_std(
                 test_dataset,
-                config.POST.STANDARDIZATION.UNIFORMFEATURES,
+                config.POST.NORMALIZATION.UNIFORMFEATURES,
             )
             test_dataset.transform = bptt.StateTensorStandardizer(
                 test_means,
                 test_stds,
             )
         else:
-            test_dataset.transform = bptt.TensorStandardizer(mean, std)
+            raise ValueError('Unrecognized normalization strategy: '
+                             f'{config.POST.NORMALIZATION.TYPE}')
 
         # open hdf5 file
         h5f = h5py.File(test_dataset.filepath, 'r')

@@ -574,8 +574,8 @@ class ModelFilterArgParser(ExtendableArgParser):
         'dct': ['POST', 'DCT', 'ON'],
         'n_dct': ['POST', 'DCT', 'NCOEFF'],
         'cuda': ['MODEL', 'CUDA'],
-        'uni_norm_features': ['POST', 'STANDARDIZATION', 'UNIFORMFEATURES'],
-        'file_based_norm': ['POST', 'STANDARDIZATION', 'FILEBASED'],
+        'uni_norm_features': ['POST', 'NORMALIZATION', 'UNIFORMFEATURES'],
+        'normalization': ['POST', 'NORMALIZATION', 'TYPE'],
         'epochs': ['MODEL', 'EPOCHS'],
         'earlystop': ['MODEL', 'EARLYSTOP', 'ON'],
         'progress': ['MODEL', 'PROGRESS', 'ON'],
@@ -687,10 +687,10 @@ class ModelFilterArgParser(ExtendableArgParser):
             help='features to uniformly normalize',
         )
         self.add_base_argument(
-            '--file-based-norm',
-            type=lambda x: bool(int(x)),
+            '--normalization',
+            type=str,
             nargs='+',
-            help='file-based normalization toggle',
+            help='normalization strategy',
         )
         self.add_base_argument(
             '--epochs',

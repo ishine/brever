@@ -175,6 +175,28 @@ class StateTensorStandardizer:
         return (data - mean)/std
 
 
+class ResursiveTensorStandardizer:
+    def __init__(self, mean=None, std=None, momentum=0.99, track=True):
+        if mean is None:
+            mean = 0
+        if std is None:
+            std = 1
+        self.mean = mean
+        self.std = std
+        self.momentum = momentum
+        self.tracking = track
+
+    def track(self, bool_=True):
+        self.tracking = bool_
+
+    def __call__(self, data):
+        if self.tracking:
+            self.mean = self.mean*self.momentum + (1-self.momentum)*data
+            self.std = (self.momentum*self.std**2 + 
+                        (1-self.momentum)*(data-self.mean)**2)**0.5
+        return (data - self.mean)/self.std
+
+
 class H5Dataset(torch.utils.data.Dataset):
     '''
     Custom dataset class that loads HDF5 files created by create_dataset.py
@@ -187,7 +209,7 @@ class H5Dataset(torch.utils.data.Dataset):
     '''
     def __init__(self, dirpath, features=None, labels=None, load=False,
                  transform=None, stack=0, decimation=1, dct_toggle=False,
-                 n_dct=5, file_based_stats=False, prestack=False):
+                 n_dct=5, prestack=False):
         if features is not None:
             features = sorted(features)
         if labels is not None:
@@ -201,7 +223,6 @@ class H5Dataset(torch.utils.data.Dataset):
         self.decimation = decimation
         self.dct_toggle = dct_toggle
         self.n_dct = n_dct
-        self.file_based_stats = file_based_stats
         self.prestack = prestack
         self.filepath = os.path.join(dirpath, 'dataset.hdf5')
         self._prestacked = False
@@ -283,11 +304,11 @@ class H5Dataset(torch.utils.data.Dataset):
                 self.datasets = (f['features'], f['labels'])
                 self.filenum_array = f['indexes']
         if isinstance(index, int):
+            file_num = self.filenum_array[index]
             if self._prestacked:
                 x, y = self.datasets[0][index], self.datasets[1][index]
                 if self.transform:
-                    if self.file_based_stats:
-                        file_num = int(self.filenum_array[index])
+                    if isinstance(self.transform, StateTensorStandardizer):
                         self.transform.set_state(file_num)
                     x = self.transform(x)
             else:
@@ -303,9 +324,6 @@ class H5Dataset(torch.utils.data.Dataset):
                     x[i_:j_] = self.datasets[0][index, i:j]
                     count = j_
                 # frames at previous time indexes
-                if self.stack > 0 or (self.transform
-                                      and self.file_based_stats):
-                    file_num = int(self.filenum_array[index])
                 if self.stack > 0:
                     x_context = np.zeros((self.stack,
                                           self._n_current_features))
@@ -326,7 +344,7 @@ class H5Dataset(torch.utils.data.Dataset):
                         x_context = dct(x_context, self.n_dct)
                     x[count:] = x_context.flatten()
                 if self.transform:
-                    if self.file_based_stats:
+                    if isinstance(self.transform, StateTensorStandardizer):
                         self.transform.set_state(file_num)
                     x = self.transform(x)
                 # labels
@@ -338,7 +356,7 @@ class H5Dataset(torch.utils.data.Dataset):
                     y[i_:j_] = self.datasets[1][index, i:j]
                     count = j_
         elif isinstance(index, slice):
-            indexes = list(range(self.n_samples))[index]
+            indexes = range(self.n_samples)[index]
             x = np.empty((len(indexes), self.n_features))
             y = np.empty((len(indexes), self.n_labels))
             for i, j in enumerate(indexes):

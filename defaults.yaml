@@ -34,13 +34,16 @@ POST:
     logfbe: null
   LABELS: !!set
     tmr: null
-  STANDARDIZATION:
-    FILEBASED: false
+  NORMALIZATION:
+    TYPE: global
+    # TYPE: recursive
+    # TYPE: filebased
     UNIFORMFEATURES: !!set {}
+    RECURSIVEMOMENTUM: 0.99
   LOAD: true
   PATH:
     TEST: !!set
-      data/processed/test/default/ : null
+      data/processed/test/* : null
     TRAIN: data/processed/train/default/
     VAL: data/processed/val/default
   STACK: 0

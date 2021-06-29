@@ -71,31 +71,36 @@ def main(args):
             decimation=1,  # there must not be decimation during testing
             dct_toggle=config.POST.DCT.ON,
             n_dct=config.POST.DCT.NCOEFF,
-            file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
+            normalization=config.POST.NORMALIZATION.TYPE,
             prestack=config.POST.PRESTACK,
-        )
-        test_dataloader = torch.utils.data.DataLoader(
-            dataset=test_dataset,
-            batch_size=config.MODEL.BATCHSIZE,
-            shuffle=config.MODEL.SHUFFLE,
-            num_workers=config.MODEL.NWORKERS,
-            drop_last=True,
         )
 
         # set normalization
-        if config.POST.STANDARDIZATION.FILEBASED:
+        if config.POST.NORMALIZATION.TYPE == 'global':
+            stat_path = os.path.join(model_dirpath, 'statistics.npy')
+            mean, std = np.load(stat_path)
+            test_dataset.transform = bptt.TensorStandardizer(mean, std)
+        elif config.POST.NORMALIZATION.TYPE == 'recursive':
+            stat_path = os.path.join(model_dirpath, 'statistics.npy')
+            mean, std = np.load(stat_path)
+            test_dataset.transform = bptt.ResursiveTensorStandardizer(
+                mean=mean,
+                std=std,
+                momentum=config.POST.NORMALIZATION.RECURSIVEMOMENTUM,
+                track=True
+            )
+        elif config.POST.NORMALIZATION.TYPE == 'filebased':
             test_means, test_stds = bptt.get_files_mean_and_std(
                 test_dataset,
-                config.POST.STANDARDIZATION.UNIFORMFEATURES,
+                config.POST.NORMALIZATION.UNIFORMFEATURES,
             )
             test_dataset.transform = bptt.StateTensorStandardizer(
                 test_means,
                 test_stds,
             )
         else:
-            stat_path = os.path.join(model_dirpath, 'statistics.npy')
-            mean, std = np.load(stat_path)
-            test_dataset.transform = bptt.TensorStandardizer(mean, std)
+            raise ValueError('Unrecognized normalization strategy: '
+                             f'{config.POST.NORMALIZATION.TYPE}')
 
         # load pipes
         pipes_file = os.path.join(config.POST.PATH.TRAIN, 'pipes.pkl')

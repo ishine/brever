@@ -57,9 +57,9 @@ def check_overlapping_files(train_path, val_path):
                         'overlapping')
 
 
-def train(model, criterion, optimizer, train_dataloader, cuda):
+def train(model, criterion, optimizer, dataloader, cuda):
     model.train()
-    for data, target in train_dataloader:
+    for data, target in dataloader:
         if cuda:
             data, target = data.cuda(), target.cuda()
         data, target = data.float(), target.float()
@@ -129,7 +129,6 @@ def main(model_dir, force, no_cuda):
         decimation=config.POST.DECIMATION,
         dct_toggle=config.POST.DCT.ON,
         n_dct=config.POST.DCT.NCOEFF,
-        file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
         prestack=config.POST.PRESTACK,
     )
     logging.info('Initializing validation dataset')
@@ -142,7 +141,6 @@ def main(model_dir, force, no_cuda):
         decimation=config.POST.DECIMATION,
         dct_toggle=config.POST.DCT.ON,
         n_dct=config.POST.DCT.NCOEFF,
-        file_based_stats=config.POST.STANDARDIZATION.FILEBASED,
         prestack=config.POST.PRESTACK,
     )
     logging.info(f'Number of features: {train_dataset.n_features}')
@@ -167,10 +165,37 @@ def main(model_dir, force, no_cuda):
 
     # set normalization transform
     logging.info('Calculating mean and std')
-    if config.POST.STANDARDIZATION.FILEBASED:
+    if config.POST.NORMALIZATION.TYPE in ['global', 'recursive']:
+        mean, std = bptt.get_mean_and_std(
+            train_dataset,
+            train_dataloader,
+            config.POST.NORMALIZATION.UNIFORMFEATURES,
+        )
+        to_save = np.vstack((mean, std))
+        stat_path = os.path.join(model_dir, 'statistics.npy')
+        np.save(stat_path, to_save)
+        if config.POST.NORMALIZATION.TYPE == 'global':
+            train_dataset.transform = bptt.TensorStandardizer(mean, std)
+            val_dataset.transform = bptt.TensorStandardizer(mean, std)
+        elif config.POST.NORMALIZATION.TYPE == 'recursive':
+            train_dataset.transform = bptt.ResursiveTensorStandardizer(
+                mean=mean,
+                std=std,
+                momentum=config.POST.NORMALIZATION.RECURSIVEMOMENTUM,
+                track=True,
+            )
+            val_dataset.transform = bptt.ResursiveTensorStandardizer(
+                mean=mean,
+                std=std,
+                momentum=config.POST.NORMALIZATION.RECURSIVEMOMENTUM,
+                track=True,
+            )
+        else:
+            raise ValueError('This error should never happen')
+    elif config.POST.NORMALIZATION.TYPE == 'filebased':
         train_means, train_stds = bptt.get_files_mean_and_std(
             train_dataset,
-            config.POST.STANDARDIZATION.UNIFORMFEATURES,
+            config.POST.NORMALIZATION.UNIFORMFEATURES,
         )
         train_dataset.transform = bptt.StateTensorStandardizer(
             train_means,
@@ -178,23 +203,15 @@ def main(model_dir, force, no_cuda):
         )
         val_means, val_stds = bptt.get_files_mean_and_std(
             val_dataset,
-            config.POST.STANDARDIZATION.UNIFORMFEATURES,
+            config.POST.NORMALIZATION.UNIFORMFEATURES,
         )
         val_dataset.transform = bptt.StateTensorStandardizer(
             val_means,
             val_stds,
         )
     else:
-        mean, std = bptt.get_mean_and_std(
-            train_dataset,
-            train_dataloader,
-            config.POST.STANDARDIZATION.UNIFORMFEATURES,
-        )
-        to_save = np.vstack((mean, std))
-        stat_path = os.path.join(model_dir, 'statistics.npy')
-        np.save(stat_path, to_save)
-        train_dataset.transform = bptt.TensorStandardizer(mean, std)
-        val_dataset.transform = bptt.TensorStandardizer(mean, std)
+        raise ValueError('Unrecognized normalization strategy: '
+                         f'{config.POST.NORMALIZATION.TYPE}')
 
     # initialize network
     model_args = {
@@ -247,7 +264,7 @@ def main(model_dir, force, no_cuda):
             model=model,
             criterion=criterion,
             optimizer=optimizer,
-            train_dataloader=train_dataloader,
+            dataloader=train_dataloader,
             cuda=config.MODEL.CUDA and not no_cuda,
         )
 
