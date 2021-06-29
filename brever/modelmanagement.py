@@ -586,6 +586,7 @@ class ModelFilterArgParser(ExtendableArgParser):
         'prestack': ['POST', 'PRESTACK'],
         'load': ['POST', 'LOAD'],
         'hidden_sizes': ['MODEL', 'HIDDENSIZES'],
+        'workers': ['MODEL', 'NWORKERS'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -751,6 +752,12 @@ class ModelFilterArgParser(ExtendableArgParser):
             type=lambda x: arg_list_type(x, int),
             nargs='+',
             help='list of sizes of hidden layers',
+        )
+        self.add_base_argument(
+            '--workers',
+            type=int,
+            nargs='+',
+            help='number of workers',
         )
 
 
