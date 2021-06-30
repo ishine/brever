@@ -544,7 +544,7 @@ class RandomMixtureMaker:
                 x = colored_noise(color, n_samples)
                 filepath = None
                 indices = None
-            elif type_.startswith('dcase_'):
+            else:
                 x, filepath, indices = load_random_noise(
                     type_,
                     n_samples,
@@ -553,9 +553,6 @@ class RandomMixtureMaker:
                     randomizer=randomizer,
                     def_cfg=self.def_cfg,
                 )
-            else:
-                raise ValueError('type_ must start with noise_ or '
-                                 'dcase_, got %s' % type_)
             zipped.append((x, filepath, indices))
         xs, filepaths, indicess = zip(*zipped)
         return xs, filepaths, indicess

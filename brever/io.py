@@ -263,7 +263,7 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
         all_filepaths = []
         m = re.match('^dcase_(.*)$', noise_alias)
         if m is None:
-            raise ValueError('type_ should start with dcase_')
+            raise ValueError(f'wrong noise type, got {noise_alias}')
         prefix = f'{m.group(1)}-'
         for root, dirs, files in os.walk(dirpath):
             for file in files:
@@ -284,6 +284,34 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
             x = x[:, 0]
         if fs_old != fs:
             x = resample(x, fs_old, fs)
+        if len(x) < n_samples:
+            i_start = randomizer.randint(0, n_samples)
+            indices = np.arange(n_samples) + i_start
+            indices = indices % len(x)
+            x = x[indices]
+            i_end = None
+        else:
+            i_start = randomizer.randint(0, len(x) - n_samples)
+            i_end = i_start+n_samples
+            x = x[i_start:i_end]
+        return x, filepath, (i_start, i_end)
+    if noise_alias.startswith('icra_'):
+        dirpath = get_path('ICRA', def_cfg)
+        all_filepaths = []
+        m = re.match('^icra_(.*)$', noise_alias)
+        if m is None:
+            raise ValueError(f'wrong noise type, got {noise_alias}')
+        i = m.group(1)
+        filepath = os.path.join(dirpath, f'ICRA_{i}.wav')
+        x, fs_old = sf.read(filepath)
+        if x.ndim == 2:
+            x = x[:, 0]
+        if fs_old != fs:
+            x = resample(x, fs_old, fs)
+        if lims is not None:
+            i_start = round(lims[0]*len(x))
+            i_end = round(lims[1]*len(x))
+            x = x[i_start:i_end]
         if len(x) < n_samples:
             i_start = randomizer.randint(0, n_samples)
             indices = np.arange(n_samples) + i_start
