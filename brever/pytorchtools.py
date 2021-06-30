@@ -176,24 +176,21 @@ class StateTensorStandardizer:
 
 
 class ResursiveTensorStandardizer:
-    def __init__(self, mean=None, std=None, momentum=0.99, track=True):
-        if mean is None:
-            mean = 0
-        if std is None:
-            std = 1
+    def __init__(self, mean=0, std=1, momentum=0.99):
+        self.init_mean = mean
+        self.init_std = std
         self.mean = mean
         self.std = std
         self.momentum = momentum
-        self.tracking = track
 
-    def track(self, bool_=True):
-        self.tracking = bool_
+    def reset(self):
+        self.mean = self.init_mean
+        self.std = self.init_std
 
     def __call__(self, data):
-        if self.tracking:
-            self.mean = self.mean*self.momentum + (1-self.momentum)*data
-            self.std = (self.momentum*self.std**2 + 
-                        (1-self.momentum)*(data-self.mean)**2)**0.5
+        self.mean = self.mean*self.momentum + (1-self.momentum)*data
+        self.std = (self.momentum*self.std**2 +
+                    (1-self.momentum)*(data-self.mean)**2)**0.5
         return (data - self.mean)/self.std
 
 
@@ -227,7 +224,7 @@ class H5Dataset(torch.utils.data.Dataset):
         self.filepath = os.path.join(dirpath, 'dataset.hdf5')
         self._prestacked = False
         self.datasets = None
-        self.filenum_array = None
+        self.file_nums = None
         self.file_indices = self.get_file_indices()
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
@@ -254,7 +251,7 @@ class H5Dataset(torch.utils.data.Dataset):
             if self.load:
                 logging.info('Loading dataset into memory')
                 self.datasets = (f['features'][:], f['labels'][:])
-                self.filenum_array = f['indexes'][:]
+                self.file_nums = f['indexes'][:]
                 if self.prestack:
                     logging.info('Prestacking')
                     self.datasets = self[:]
@@ -296,19 +293,22 @@ class H5Dataset(torch.utils.data.Dataset):
             f = h5py.File(self.filepath, 'r')
             if self.load:
                 self.datasets = (f['features'][:], f['labels'][:])
-                self.filenum_array = f['indexes'][:]
+                self.file_nums = f['indexes'][:]
                 if self.prestack:
                     self.datasets = self[:]
                     self._prestacked = True
             else:
                 self.datasets = (f['features'], f['labels'])
-                self.filenum_array = f['indexes']
+                self.file_nums = f['indexes']
         if isinstance(index, int):
-            file_num = self.filenum_array[index]
+            file_num = self.file_nums[index]
             if self._prestacked:
                 x, y = self.datasets[0][index], self.datasets[1][index]
                 if self.transform:
-                    if isinstance(self.transform, StateTensorStandardizer):
+                    if isinstance(self.transform, ResursiveTensorStandardizer):
+                        if index == 0 or self.file_nums[index-1] != file_num:
+                            self.transform.reset()
+                    elif isinstance(self.transform, StateTensorStandardizer):
                         self.transform.set_state(file_num)
                     x = self.transform(x)
             else:
@@ -344,7 +344,10 @@ class H5Dataset(torch.utils.data.Dataset):
                         x_context = dct(x_context, self.n_dct)
                     x[count:] = x_context.flatten()
                 if self.transform:
-                    if isinstance(self.transform, StateTensorStandardizer):
+                    if isinstance(self.transform, ResursiveTensorStandardizer):
+                        if index == 0 or self.file_nums[index-1] != file_num:
+                            self.transform.reset()
+                    elif isinstance(self.transform, StateTensorStandardizer):
                         self.transform.set_state(file_num)
                     x = self.transform(x)
                 # labels

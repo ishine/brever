@@ -130,7 +130,6 @@ def main(model_dir, args):
                 mean=mean,
                 std=std,
                 momentum=config.POST.NORMALIZATION.RECURSIVEMOMENTUM,
-                track=True
             )
         elif config.POST.NORMALIZATION.TYPE == 'filebased':
             test_means, test_stds = bptt.get_files_mean_and_std(

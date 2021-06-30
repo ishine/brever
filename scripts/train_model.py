@@ -145,21 +145,34 @@ def main(model_dir, force, no_cuda):
     )
     logging.info(f'Number of features: {train_dataset.n_features}')
 
+    # Recursive normalization is incompatible with shuffling and num_workers>0.
+    # Force no shuffling and num_workers=0.
+    num_workers = config.MODEL.NWORKERS
+    shuffle = config.MODEL.SHUFFLE
+    if config.POST.NORMALIZATION.TYPE == 'recursive' and num_workers > 0:
+        logging.warning('Recursive normalization incompatible with '
+                        'num_workers>0, forcing num_workers=0')
+        num_workers = 0
+    if config.POST.NORMALIZATION.TYPE == 'recursive' and shuffle:
+        logging.warning('Recursive normalization incompatible with '
+                        'shuffling, forcing no shuffling')
+        shuffle = False
+
     # initialize dataloaders
     logging.info('Initializing training dataloader')
     train_dataloader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=config.MODEL.BATCHSIZE,
-        shuffle=config.MODEL.SHUFFLE,
-        num_workers=config.MODEL.NWORKERS,
+        shuffle=shuffle,
+        num_workers=num_workers,
         drop_last=True,
     )
     logging.info('Initializing validation dataloader')
     val_dataloader = torch.utils.data.DataLoader(
         dataset=val_dataset,
         batch_size=config.MODEL.BATCHSIZE,
-        shuffle=config.MODEL.SHUFFLE,
-        num_workers=config.MODEL.NWORKERS,
+        shuffle=shuffle,
+        num_workers=num_workers,
         drop_last=True,
     )
 
@@ -182,13 +195,11 @@ def main(model_dir, force, no_cuda):
                 mean=mean,
                 std=std,
                 momentum=config.POST.NORMALIZATION.RECURSIVEMOMENTUM,
-                track=True,
             )
             val_dataset.transform = bptt.ResursiveTensorStandardizer(
                 mean=mean,
                 std=std,
                 momentum=config.POST.NORMALIZATION.RECURSIVEMOMENTUM,
-                track=True,
             )
         else:
             raise ValueError('This error should never happen')
@@ -259,15 +270,6 @@ def main(model_dir, force, no_cuda):
     total_time = 0
     start_time = time.time()
     for epoch in range(config.MODEL.EPOCHS):
-        # train
-        train(
-            model=model,
-            criterion=criterion,
-            optimizer=optimizer,
-            dataloader=train_dataloader,
-            cuda=config.MODEL.CUDA and not no_cuda,
-        )
-
         # evaluate
         train_loss = bptt.evaluate(
             model=model,
@@ -283,13 +285,25 @@ def main(model_dir, force, no_cuda):
         )
 
         # log and store errors
-        total_time = time.time() - start_time
-        time_per_epoch = total_time/(epoch+1)
-        logging.info(f'Epoch {epoch}: train loss: {train_loss:.6f}; '
-                     f'val loss: {val_loss:.6f}; '
-                     f'Time per epoch: {time_per_epoch:.2f} s')
+        if epoch == 0:
+            logging.info(f'Epoch {epoch}: train loss: {train_loss:.6f}; '
+                         f'val loss: {val_loss:.6f}')
+        else:
+            time_per_epoch = total_time/epoch
+            logging.info(f'Epoch {epoch}: train loss: {train_loss:.6f}; '
+                         f'val loss: {val_loss:.6f}; '
+                         f'Time per epoch: {time_per_epoch:.2f} s')
         train_losses.append(train_loss)
         val_losses.append(val_loss)
+
+        # train
+        train(
+            model=model,
+            criterion=criterion,
+            optimizer=optimizer,
+            dataloader=train_dataloader,
+            cuda=config.MODEL.CUDA and not no_cuda,
+        )
 
         # check stop criterion
         checkpoint_path = os.path.join(model_dir, 'checkpoint.pt')
@@ -307,6 +321,9 @@ def main(model_dir, force, no_cuda):
         else:
             raise ValueError("Can't have both early stopping and progress "
                              "criterion")
+
+        # update time spent
+        total_time = time.time() - start_time
 
     # display total time spent
     total_time = time.time() - start_time
