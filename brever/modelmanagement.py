@@ -381,6 +381,64 @@ def find_model(**kwargs):
     return models
 
 
+def find_dataset(dsets=None, kind=None, **kwargs):
+    """
+    Find a dataset in the project dataset directory.
+
+    Searches for datasets in the project dataset directory that match a set of
+    parameter filters. Only one value per parameter can be provided
+    simultaneously.
+
+    Example: `find_dataset(rooms={surrey_room_a})` returns the list of datasets
+    that only use the `surrey_room_a` room.
+
+    Parameters
+    ----------
+    dsets: list of str, optional
+        Pre-computed list of dataset paths to scan. If `None`, the whole
+        project dataset directory is scanned. Default is `None`.
+    kind: {'train', 'val', 'test'}, optional
+        Sub-directory to scan. Default is `None`, which means all
+        sub-directories are scanned.
+    **kwargs :
+        Parameters to filter the list of available models. The available
+        parameters are the keys of
+        `~.modelmanagement.DatasetInitArgParser.arg_to_keys_map`,
+        and must be set as values of the appropriate type.
+
+    Returns
+    -------
+    datasets : list of str
+        List of dataset paths found in the project dataset directory that match
+        the parameter filters.
+    """
+    if dsets is None:
+        dsets = []
+        directory = defaults().PATH.PROCESSED
+        if kind is not None:
+            directory = os.path.join(
+                defaults().PATH.PROCESSED,
+                kind,
+            )
+        for root, folder, files in os.walk(directory):
+            if 'config.yaml' in files:
+                dsets.append(root)
+    output = []
+    for dset in dsets:
+        config_file = os.path.join(dset, 'config.yaml')
+        config = read_yaml(config_file)
+        valid = True
+        for key, value in kwargs.items():
+            keys = DatasetInitArgParser.arg_to_keys_map[key]
+            if value is not None:
+                if get_dict_field(config, keys) != value:
+                    valid = False
+                    break
+        if valid:
+            output.append(dset)
+    return output
+
+
 class ExtendableArgParser(argparse.ArgumentParser):
     """
     Argument parser with extra group of arguments.
