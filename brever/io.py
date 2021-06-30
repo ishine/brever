@@ -4,10 +4,10 @@ import random
 
 import numpy as np
 import soundfile as sf
-from scipy.signal import resample
 import sofa
 
 from brever.config import defaults
+from brever.utils import resample
 
 
 def get_path(field_name, def_cfg=None):

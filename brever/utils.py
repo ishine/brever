@@ -3,6 +3,35 @@ import math
 import scipy.signal
 
 
+def resample(x, old_fs, new_fs, axis=0):
+    """
+    Resampling.
+
+    Resample an array given an original sample rate and a target sample rate
+    along a given axis.
+
+    Parameters
+    ----------
+    x : array_like
+        Input array.
+    old_fs : int
+        Original samplerate.
+    new_fs : int
+        Target samplerate.
+    axis : int
+        Axis along which to resample.
+
+    Returns
+    -------
+    y : array_like
+        Resampled array.
+    """
+    ratio = new_fs/old_fs
+    n_samples = int(np.ceil(x.shape[axis] * ratio))
+    y = scipy.signal.resample(x, n_samples, axis=axis)
+    return y
+
+
 def rms(x, axis=0):
     """
     Root mean square.

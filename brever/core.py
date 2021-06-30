@@ -1,9 +1,8 @@
 import numpy as np
 import soundfile as sf
-from scipy.signal import resample
 import scipy.signal
 
-from .utils import frame
+from .utils import frame, resample
 from .filters import gammatone_filt, mel_triangle_filterbank
 
 
