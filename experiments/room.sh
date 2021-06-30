@@ -21,3 +21,5 @@ data/processed/test/01f95c65 \
 "Room C" \
 "Room D" \
 --train-curve \
+--output-dir \
+pics/exp/room \

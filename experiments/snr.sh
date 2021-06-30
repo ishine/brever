@@ -21,3 +21,5 @@ data/processed/test/698678a5 \
 "5 dB SNR" \
 "10 dB SNR" \
 --train-curve \
+--output-dir \
+pics/exp/snr \

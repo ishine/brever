@@ -11,3 +11,5 @@ data/processed/test/635843d2 \
 "ieee" \
 "timit" \
 --train-curve \
+--output-dir \
+pics/exp/speaker \

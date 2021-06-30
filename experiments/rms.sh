@@ -11,3 +11,5 @@ data/processed/test/9392131b \
 "fixed speaker level" \
 "random mixture level" \
 --train-curve \
+--output-dir \
+pics/exp/rms \

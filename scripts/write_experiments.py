@@ -47,6 +47,7 @@ def write_exp(
             cond_dim_vals,
             cond_labels,
             filename,
+            output_dir,
         ):
     assert len(model_dim_vals) == len(model_labels)
     assert len(cond_dim_vals) == len(cond_labels)
@@ -97,6 +98,8 @@ def write_exp(
     for label in cond_labels:
         logger.write(f'"{label}"')
     logger.write('--train-curve')
+    logger.write('--output-dir')
+    logger.write(output_dir)
 
 
 def main(args):
@@ -164,6 +167,7 @@ def main(args):
             'tram',
             ],
         filename='experiments/noise.sh',
+        output_dir='pics/exp/noise',
     )
     write_exp(
         dim='target_datasets',
@@ -184,6 +188,7 @@ def main(args):
             'timit',
         ],
         filename='experiments/speaker.sh',
+        output_dir='pics/exp/speaker',
     )
     write_exp(
         dim='snr_dist_args',
@@ -214,6 +219,7 @@ def main(args):
             '10 dB SNR',
         ],
         filename='experiments/snr.sh',
+        output_dir='pics/exp/snr',
     )
     write_exp(
         dim='rooms',
@@ -249,6 +255,7 @@ def main(args):
             'Room D',
         ],
         filename='experiments/room.sh',
+        output_dir='pics/exp/room',
     )
     write_exp(
         dim=('target_angle_min', 'target_angle_max'),
@@ -269,6 +276,7 @@ def main(args):
             'random speaker location',
         ],
         filename='experiments/angle.sh',
+        output_dir='pics/exp/angle',
     )
     write_exp(
         dim='random_rms',
@@ -289,6 +297,7 @@ def main(args):
             'random mixture level',
         ],
         filename='experiments/rms.sh',
+        output_dir='pics/exp/rms',
     )
 
 

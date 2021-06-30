@@ -45,3 +45,5 @@ data/processed/test/eb67d229 \
 "street_traffic" \
 "tram" \
 --train-curve \
+--output-dir \
+pics/exp/noise \

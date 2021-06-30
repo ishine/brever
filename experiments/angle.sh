@@ -11,3 +11,5 @@ data/processed/test/f6c1d3e8 \
 "fixed speaker location" \
 "random speaker location" \
 --train-curve \
+--output-dir \
+pics/exp/angle \
