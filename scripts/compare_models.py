@@ -660,6 +660,8 @@ def main(models, args, filter_):
     plt.show()
 
     if args.output_dir is not None:
+        if not os.path.exists(args.output_dir):
+            os.mkdir(args.output_dir)
         for key, fig in figs.items():
             fig.savefig(f'{args.output_dir}/{key}.{args.format}')
 
