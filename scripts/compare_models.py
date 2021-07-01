@@ -219,7 +219,7 @@ def get_color_cycle():
 
 
 def barplot(datas, ax, xticklabels=None, errs=None, ylabel=None, labels=None,
-            colors=None):
+            colors=None, rotation=None, ha='right', lw=None):
     # check datas type
     if isinstance(datas, (float, int)):
         datas = np.array(datas)
@@ -295,6 +295,7 @@ def barplot(datas, ax, xticklabels=None, errs=None, ylabel=None, labels=None,
               f'the total number of models ({n_models})')
     bar_width = 1/(n_models+1)
     model_count = 0
+    patches = []
     for i, data in enumerate(datas):
         if colors is None:
             color = color_cycle[i % len(color_cycle)]
@@ -313,16 +314,21 @@ def barplot(datas, ax, xticklabels=None, errs=None, ylabel=None, labels=None,
                 label = None
             else:
                 label = labels[model_count]
-            ax.bar(x, data[:, j], width=bar_width, color=color, yerr=yerr,
-                   label=label)
+            patch = ax.bar(x, data[:, j], width=bar_width, color=color,
+                           yerr=yerr, label=label,
+                           error_kw={'lw': lw})
             model_count += 1
+            patches.append(patch)
     if xticklabels is None:
         xticklabels = np.arange(n_conditions)
     ax.set_xticks(np.arange(n_conditions))
-    ax.set_xticklabels(xticklabels)
+    if rotation is None:
+        ha = 'center'
+    ax.set_xticklabels(xticklabels, rotation=rotation, ha=ha)
     ax.set_ylabel(ylabel)
     ax.grid(linestyle='dotted')
     ax.set_axisbelow(True)
+    return patches
 
 
 def check_scores(groups, test_dirs, system, metric):
@@ -524,7 +530,7 @@ def main(models, args, filter_):
             'segRR',
         ]
         for metric in metrics:
-            fig, ax = plt.subplots(1, 1, sharey=True, figsize=args.figsize)
+            fig, ax = plt.subplots(1, 1, figsize=args.figsize)
             remove_patches(fig, ax)
             scores = []
             errs = []
@@ -561,7 +567,8 @@ def main(models, args, filter_):
             if args.legend is not None:
                 labels += args.legend
             barplot(scores, ax, errs=errs, ylabel=metric, labels=labels,
-                    colors=colors, xticklabels=args.xticks)
+                    colors=colors, xticklabels=args.xticks,
+                    rotation=args.rotation, lw=args.lw)
             LegendFormatter(fig, ncol=args.ncol)
             figs[metric] = fig
             if metric == 'PESQ':
@@ -573,7 +580,7 @@ def main(models, args, filter_):
             'STOI',
         ]
         for metric in delta_metrics:
-            fig, ax = plt.subplots(1, 1, sharey=True, figsize=args.figsize)
+            fig, ax = plt.subplots(1, 1, figsize=args.figsize)
             remove_patches(fig, ax)
             scores = []
             errs = []
@@ -606,9 +613,72 @@ def main(models, args, filter_):
                 labels += args.legend
             ylabel = r'$\Delta$' + metric
             barplot(scores, ax, errs=errs, ylabel=ylabel, labels=labels,
-                    colors=colors, xticklabels=args.xticks)
+                    colors=colors, xticklabels=args.xticks,
+                    rotation=args.rotation, lw=args.lw)
             LegendFormatter(fig, ncol=args.ncol)
             figs[f'd{metric}'] = fig
+
+        # page-sized plot
+        fig, axes = plt.subplots(3, 1, sharex=True, figsize=(6.5, 9.5))
+        for ax, metric in zip(axes[:2], ['PESQ', 'STOI']):
+            remove_patches(fig, ax)
+            scores = []
+            errs = []
+            labels = []
+            colors = []
+            # load reference score
+            score_ref, err_ref = make_score_matrix(
+                [groups[0][0]], args.test_dirs, 'ref', metric
+            )
+            # add oracle score
+            if not args.no_oracle and metric in oracle_metrics:
+                score, err = make_score_matrix(
+                    [groups[0][0]], args.test_dirs, 'oracle', metric
+                )
+                scores.append(score - score_ref)
+                errs.append(err - err_ref)
+                colors.append(color_cycle[1])
+                labels.append('oracle')
+            # finally add model scores
+            for i, group in enumerate(groups):
+                score, err = make_score_matrix(
+                    group, args.test_dirs, 'model', metric,
+                )
+                scores.append(score - score_ref)
+                errs.append(err - err_ref)
+                colors.append(color_cycle[(i+2) % len(color_cycle)])
+                if args.legend is None:
+                    labels += [str(model['val']) for model in group]
+            if args.legend is not None:
+                labels += args.legend
+            ylabel = r'$\Delta$' + metric
+            patches = barplot(scores, ax, errs=errs, ylabel=ylabel,
+                              colors=colors, xticklabels=args.xticks,
+                              rotation=args.rotation, lw=args.lw)
+        for metric in ['MSE']:
+            ax = axes[2]
+            remove_patches(fig, ax)
+            scores = []
+            errs = []
+            colors = []
+            # finally add model scores
+            for i, group in enumerate(groups):
+                score, err = make_score_matrix(
+                    group, args.test_dirs, 'model', metric,
+                )
+                scores.append(score)
+                errs.append(err)
+                colors.append(color_cycle[(i+2) % len(color_cycle)])
+                if args.legend is None:
+                    labels += [str(model['val']) for model in group]
+            if args.legend is not None:
+                labels += args.legend
+            barplot(scores, ax, errs=errs, ylabel=metric,
+                    colors=colors, xticklabels=args.xticks,
+                    rotation=args.rotation, lw=args.lw)
+        lh = fig.legend(patches, labels)
+        LegendFormatter(fig, lh=lh, ncol=args.ncol)
+        figs['page'] = fig
 
         # segSSNR vs segBR plot
         symbols = ['o', 's', '^', 'v', '<', '>']
@@ -710,6 +780,10 @@ if __name__ == '__main__':
                         help='output figure format')
     parser.add_argument('--xticks', nargs='+',
                         help='test dirs labels')
+    parser.add_argument('--rotation', type=int,
+                        help='test dirs label rotation')
+    parser.add_argument('--lw', type=float,
+                        help='error bar line width')
     filter_args, args = parser.parse_args()
 
     model_dirs = []

@@ -48,6 +48,8 @@ def write_exp(
             cond_labels,
             filename,
             output_dir,
+            rotation=None,
+            lw=None,
         ):
     assert len(model_dim_vals) == len(model_labels)
     assert len(cond_dim_vals) == len(cond_labels)
@@ -100,6 +102,12 @@ def write_exp(
     logger.write('--train-curve')
     logger.write('--output-dir')
     logger.write(output_dir)
+    if rotation is not None:
+        logger.write('--rotation')
+        logger.write(rotation)
+    if lw is not None:
+        logger.write('--lw')
+        logger.write(lw)
 
 
 def main(args):
@@ -168,6 +176,8 @@ def main(args):
             ],
         filename='experiments/noise.sh',
         output_dir='pics/exp/noise',
+        rotation='45',
+        lw='0.4',
     )
     write_exp(
         dim='target_datasets',

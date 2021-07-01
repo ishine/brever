@@ -47,3 +47,7 @@ data/processed/test/eb67d229 \
 --train-curve \
 --output-dir \
 pics/exp/noise \
+--rotation \
+45 \
+--lw \
+0.4 \
