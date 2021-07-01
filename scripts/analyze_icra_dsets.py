@@ -40,7 +40,7 @@ def main(args):
             features=config.POST.FEATURES,
             labels=config.POST.LABELS,
             load=config.POST.LOAD,
-            stack=config.POST.STACK,
+            stack=5,
             decimation=1,  # there must not be decimation during testing
             dct_toggle=config.POST.DCT.ON,
             n_dct=config.POST.DCT.NCOEFF,
