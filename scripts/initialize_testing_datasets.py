@@ -15,14 +15,25 @@ def main(args, params):
     old_configs = []
     old_paths = []
 
-    for room, snr, noise, angle, rms, speech_dset in itertools.product(
+    for room, snr, noise, angle, rms, speaker in itertools.product(
                 args.test_rooms,
                 args.test_snrs,
                 args.test_noises,
                 args.test_angles,
                 args.test_rms,
-                args.test_speech_datasets,
+                args.test_speakers,
             ):
+
+        if sum([
+            room == args.test_rooms[0],
+            snr == args.test_snrs[0],
+            noise == args.test_noises[0],
+            angle == args.test_angles[0],
+            rms == args.test_rms[0],
+            speaker == args.test_speakers[0],
+        ]) < 5:
+            continue
+
         config = {
             'PRE': {
                 'MIX': {
@@ -43,7 +54,7 @@ def main(args, params):
                                 'DISTARGS': [snr[0], snr[1]],
                                 'DISTNAME': 'uniform'
                             },
-                            'DATASETS': speech_dset
+                            'SPEAKERS': speaker
                         },
                         'SOURCES': {
                                 'TYPES': noise
@@ -109,6 +120,12 @@ if __name__ == '__main__':
                             {'surrey_room_b'},
                             {'surrey_room_c'},
                             {'surrey_room_d'},
+                            {'surrey_room_.'},
+                            {'ash_r.*'},
+                            {'ash_r01'},
+                            {'^ash_r(?!01$).*$'},
+                            {'ash_r0.*'},
+                            {'^ash_r(?!0).*$'},
                         ],
                         help='rooms for the grid of test conditions')
     parser.add_argument('--test-snrs', nargs='+',
@@ -149,13 +166,18 @@ if __name__ == '__main__':
                             True,
                         ],
                         help='random rms for the grid of test conditions')
-    parser.add_argument('--test-speech-datasets',
+    parser.add_argument('--test_speakers',
                         type=bmm.arg_set_type,
                         default=[
-                            {'timit'},
+                            {'timit_.*'},
+                            {'timit_FCJF0'},
+                            {'timit_^(?!FCJF0$).*$'},
+                            {'libri_.*'},
+                            {'libri_19'},
+                            {'libri_^(?!19$).*$'},
                             {'ieee'},
                         ],
-                        help='speech datasets for the grid of test conditions')
+                        help='speakers for the grid of test conditions')
     dataset_args, args = parser.parse_args()
     params = vars(dataset_args)
 

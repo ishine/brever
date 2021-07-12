@@ -20,16 +20,20 @@ def get_path(field_name, def_cfg=None):
     return output
 
 
-def load_random_target(target_alias, lims=None, fs=16e3, randomizer=None,
+def load_random_target(speaker, lims=None, fs=16e3, randomizer=None,
                        def_cfg=None):
     '''
-    Load a random target signal from the target speech database.
+    Load a random target signal given a set of speaker aliases to draw from.
 
     Parameters:
-        target_alias:
-            Target dataset alias. Can be either:
-            - timit
-            - libri
+        speaker:
+            Speaker alias. Case insensitive. Can also be a regular expression. 
+            Examples:
+            - timit_FCJF0
+            - timit_fcjf0
+            - libri_19
+            - timit_f.*
+            - ieee
         lims:
             Lower and upper fraction of files of the total list of files from
             which to randomly chose a target from. E.g. setting lims to
@@ -56,20 +60,49 @@ def load_random_target(target_alias, lims=None, fs=16e3, randomizer=None,
         'libri': 'LIBRI',
         'ieee': 'IEEE',
     }
-    if target_alias in alias_to_key_map.keys():
-        dirpath = get_path(alias_to_key_map[target_alias], def_cfg)
+    dset_alias = speaker.split('_')[0]
+    if dset_alias in alias_to_key_map.keys():
+        dirpath = get_path(alias_to_key_map[dset_alias], def_cfg)
     else:
-        raise ValueError(f'wrong target alias: {target_alias}')
+        raise ValueError(f'Wrong speaker alias: {dset_alias}')
     if not os.path.exists(dirpath):
         raise ValueError(f'Directory not found: {dirpath}')
     all_filepaths = []
-    for root, dirs, files in os.walk(dirpath):
-        for file in files:
-            if (file.endswith(('.wav', '.WAV')) and 'SA1' not in file and 'SA2'
-                    not in file) or file.endswith('flac'):
-                all_filepaths.append(os.path.join(root, file))
+    if dset_alias == 'timit':
+        pattern = speaker.split('_')[1].lower()
+        if not pattern.startswith('^'):
+            pattern = f'^{pattern}'
+        if not pattern.endswith('$'):
+            pattern = f'{pattern}$'
+        for root, dirs, files in os.walk(dirpath):
+            basename = os.path.basename(root)
+            if re.match(pattern, basename.lower()):
+                for file in files:
+                    if (file.lower().endswith('.wav')
+                            and 'SA1' not in file
+                            and 'SA2' not in file):
+                        all_filepaths.append(os.path.join(root, file))
+    elif dset_alias == 'ieee':
+        for root, dirs, files in os.walk(dirpath):
+            for file in files:
+                if file.lower().endswith('.wav'):
+                    all_filepaths.append(os.path.join(root, file)) 
+    elif dset_alias == 'libri':
+        pattern = speaker.split('_')[1].lower()
+        if '^' not in pattern:
+            pattern = f'^{pattern}'
+        if '$' not in pattern:
+            pattern = f'{pattern}$'
+        for root, dirs, files in os.walk(dirpath):
+            basename = os.path.basename(root)
+            if re.match(pattern, basename.lower()):
+                for dir_ in dirs:
+                    subroot = os.path.join(root, dir_)
+                    for file_ in os.listdir(subroot):
+                        if file_.lower().endswith('.flac'):
+                            all_filepaths.append(os.path.join(subroot, file_))
     if not all_filepaths:
-        raise ValueError(f'No audio file found in {dirpath}')
+        raise ValueError(f'No audio file found for speaker {speaker}')
     random.Random(0).shuffle(all_filepaths)
     if lims is not None:
         n_files = len(all_filepaths)
@@ -453,6 +486,7 @@ def get_rooms(regexps):
             regexp = f'{regexp}$'
         r = re.compile(regexp)
         rooms = list(filter(r.match, avail_rooms))
+        print(rooms)
         if not rooms:
             raise ValueError(f'regular expression {regexp} does not match '
                              'with any room')

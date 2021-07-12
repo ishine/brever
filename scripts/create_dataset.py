@@ -70,7 +70,7 @@ def main(dataset_dir, force):
     randomMixtureMaker = bpipes.RandomMixtureMaker(
         fs=config.PRE.FS,
         rooms=config.PRE.MIX.RANDOM.ROOMS,
-        target_datasets=config.PRE.MIX.RANDOM.TARGET.DATASETS,
+        speakers=config.PRE.MIX.RANDOM.TARGET.SPEAKERS,
         target_snr_dist_name=config.PRE.MIX.RANDOM.TARGET.SNR.DISTNAME,
         target_snr_dist_args=config.PRE.MIX.RANDOM.TARGET.SNR.DISTARGS,
         target_angle_min=config.PRE.MIX.RANDOM.TARGET.ANGLE.MIN,

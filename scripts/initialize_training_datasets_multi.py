@@ -31,7 +31,7 @@ def main(args, params):
     general_angle_lims = (-90.0, 90.0)
     general_snr_lims = (-5, 10)
     general_rms_jitter = True
-    general_speech_dataset = {'timit'}
+    general_speakers = {'timit_.*'}
 
     # actual grid of dataset parameters
     noise_typess = [
@@ -52,6 +52,11 @@ def main(args, params):
         {'surrey_room_b'},
         {'surrey_room_c'},
         {'surrey_room_d'},
+        {'ash_r.*'},
+        {'ash_r01'},
+        {'^ash_r(?!01$).*$'},
+        {'ash_r0.*'},
+        {'^ash_r(?!0).*$'},
         general_rooms,
     ]
     angle_limss = [
@@ -69,9 +74,14 @@ def main(args, params):
         False,
         general_rms_jitter,
     ]
-    speech_datasetss = [
+    speakerss = [
         {'ieee'},
-        general_speech_dataset,
+        {'timit_FCJF0'},
+        {'timit_^(?!FCJF0$).*$'},
+        {'libri_.*'},
+        {'libri_19'},
+        {'libri_^(?!19$).*$'},
+        general_speakers,
     ]
 
     # the default config is a very specialized one
@@ -82,7 +92,7 @@ def main(args, params):
                 angle_lims=[0.0, 0.0],
                 snr_lims=[0, 0],
                 rms_jitter=False,
-                speech_datasets={'ieee'},
+                speakers={'ieee'},
             ):
 
         for basename, filelims, number, seed in [
@@ -113,7 +123,7 @@ def main(args, params):
                                     'DISTARGS': [snr_lims[0], snr_lims[1]],
                                     'DISTNAME': 'uniform'
                                 },
-                                'DATASETS': speech_datasets
+                                'SPEAKERS': speakers
                             },
                             'SOURCES': {
                                     'TYPES': noise_types
@@ -157,8 +167,8 @@ def main(args, params):
         add_config(configs, snr_lims=snr_lims)
     for rms_jitter in rms_jitters:
         add_config(configs, rms_jitter=rms_jitter)
-    for speech_datasets in speech_datasetss:
-        add_config(configs, speech_datasets=speech_datasets)
+    for speakers in speakerss:
+        add_config(configs, speakers=speakers)
 
     # don't forget to add the general config!
     add_config(
@@ -168,7 +178,7 @@ def main(args, params):
         angle_lims=general_angle_lims,
         snr_lims=general_snr_lims,
         rms_jitter=general_rms_jitter,
-        speech_datasets=general_speech_dataset,
+        speakers=general_speakers,
     )
 
     new_configs = []

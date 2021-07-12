@@ -149,8 +149,8 @@ PRE:
           # DISTARGS: [0.0, 4.3429448190325175]
           DISTNAME: uniform
           DISTARGS: [-5.0, 10.0]
-        DATASETS: !!set
-          timit: null
+        SPEAKERS: !!set
+          timit_.*: null
     REFLECTIONBOUNDARY: 0.05
     SAVE: false
     SCALERMS: false
@@ -161,11 +161,11 @@ PRE:
     'ON': true
     VALUE: 0
 PATH:
-  MODELS: 'models/'
-  PROCESSED: 'data/processed/'
+  MODELS: models/
+  PROCESSED: data/processed/
   DCASE: data/external/DCASE/
   SURREY: data/external/SURREY/
-  TIMIT: data/external/TIMIT/TRAIN/
+  TIMIT: data/external/TIMIT/
   HUDDERSFIELD: data/external/Huddersfield/
   LIBRI: data/external/LibriSpeech/
   IEEE: data/external/IEEE/

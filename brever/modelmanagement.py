@@ -857,8 +857,9 @@ class DatasetInitArgParser(ExtendableArgParser):
         'uniform_tmr': ['PRE', 'MIX', 'RANDOM', 'UNIFORMTMR'],
         'target_angle_min': ['PRE', 'MIX', 'RANDOM', 'TARGET', 'ANGLE', 'MIN'],
         'target_angle_max': ['PRE', 'MIX', 'RANDOM', 'TARGET', 'ANGLE', 'MAX'],
-        'target_datasets': ['PRE', 'MIX', 'RANDOM', 'TARGET', 'DATASETS'],
+        'speakers': ['PRE', 'MIX', 'RANDOM', 'TARGET', 'SPEAKERS'],
         'noise_angle_min': ['PRE', 'MIX', 'RANDOM', 'SOURCES', 'ANGLE', 'MIN'],
+        'noise_angle_max': ['PRE', 'MIX', 'RANDOM', 'SOURCES', 'ANGLE', 'MAX'],
         'noise_angle_max': ['PRE', 'MIX', 'RANDOM', 'SOURCES', 'ANGLE', 'MAX'],
     }
 

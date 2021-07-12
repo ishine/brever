@@ -7,7 +7,7 @@ import brever.modelmanagement as bmm
 def find_dset(
             dsets=None,
             kind=None,
-            target_datasets={'ieee'},
+            speakers={'ieee'},
             rooms={'surrey_room_a'},
             snr_dist_args=[0, 0],
             target_angle_min=0.0,
@@ -18,7 +18,7 @@ def find_dset(
     return bmm.find_dataset(
         dsets=dsets,
         kind=kind,
-        target_datasets=target_datasets,
+        speakers=speakers,
         rooms=rooms,
         snr_dist_args=snr_dist_args,
         target_angle_min=target_angle_min,
@@ -180,7 +180,7 @@ def main(args):
         lw='0.4',
     )
     write_exp(
-        dim='target_datasets',
+        dim='speakers',
         model_dim_vals=[
             {'ieee'},
             {'timit'},

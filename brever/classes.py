@@ -303,7 +303,7 @@ class ContinuousRandomGenerator:
 
 
 class RandomMixtureMaker:
-    def __init__(self, fs, rooms, target_datasets,
+    def __init__(self, fs, rooms, speakers,
                  target_snr_dist_name, target_snr_dist_args, target_angle_min,
                  target_angle_max, dir_noise_nums, dir_noise_types,
                  dir_noise_snrs, dir_noise_angle_min, dir_noise_angle_max,
@@ -320,7 +320,7 @@ class RandomMixtureMaker:
 
         self.fs = fs
         self.rooms = RandomPool(get_rooms(rooms), seeder.get())
-        self.target_datasets = RandomPool(target_datasets, seeder.get())
+        self.speakers = RandomPool(speakers, seeder.get())
         self.target_snrs = ContinuousRandomGenerator(target_snr_dist_name,
                                                      target_snr_dist_args,
                                                      seeder.get())
@@ -412,9 +412,9 @@ class RandomMixtureMaker:
         angle = self.target_angles.get()
         brir = self._load_brirs(room, angle)
         brir = decayer.run(brir)
-        target_dataset = self.target_datasets.get()
+        speaker = self.speakers.get()
         target, filename = load_random_target(
-            target_dataset,
+            speaker,
             self.filelims_target,
             self.fs,
             randomizer=self.target_filename_randomizer.random,
