@@ -23,10 +23,7 @@ def main(args, params):
         'dcase_tram',
     }
     general_rooms = {
-        'surrey_room_a',
-        'surrey_room_b',
-        'surrey_room_c',
-        'surrey_room_d',
+        'surrey_room_.',
     }
     general_angle_lims = (-90.0, 90.0)
     general_snr_lims = (-5, 10)
