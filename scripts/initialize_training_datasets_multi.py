@@ -92,10 +92,20 @@ def main(args, params):
                 speakers={'ieee'},
             ):
 
+        is_libri = False
+        for speaker in speakerss:
+            if speaker.startswith('libri'):
+                is_libri = True
+                break
+
         for basename, filelims, number, seed in [
                     ('train', [0.0, 0.7], args.n_train, args.seed_train),
                     ('val', [0.7, 0.85], args.n_val, args.seed_val),
                 ]:
+
+            if is_libri:
+                number = number//10
+
             config = {
                 'PRE': {
                     'SEED': {
