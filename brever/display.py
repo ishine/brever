@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colorbar import Colorbar
+from matplotlib.colors import to_rgb
 import numpy as np
 
 
@@ -133,3 +134,120 @@ def share_clim(axes):
         cmax = max(cmax, cmax_)
     for ax in axes:
         ax.images[0].set_clim(cmin, cmax)
+
+
+def get_color_cycle():
+    return plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+
+def barplot(datas, ax, xticklabels=None, errs=None, ylabel=None, labels=None,
+            colors=None, rotation=None, ha='right', lw=None):
+    # check datas type
+    if isinstance(datas, (float, int)):
+        datas = np.array(datas)
+    if isinstance(datas, np.ndarray):
+        if datas.ndim == 0:
+            datas = np.array(datas)
+        if datas.ndim == 1:
+            datas = datas[np.newaxis, :]
+        if datas.ndim == 2:
+            datas = [datas[:, i] for i in range(datas.shape[1])]
+        elif datas.ndim == 3:
+            datas = [datas[i, :, :] for i in range(datas.shape[0])]
+        else:
+            raise ValueError('barplot input as a numpy array must be at most '
+                             f'3D, got {datas.ndim}D')
+    elif not isinstance(datas, list):
+        raise ValueError('barplot input must be a numpy array or a list of '
+                         'numpy arrays')
+    if len(datas) == 0:
+        raise ValueError("Can't barplot empty data")
+    for i, data in enumerate(datas):
+        if not isinstance(data, np.ndarray):
+            raise ValueError('barplot input must be a numpy array or a list '
+                             'of numpy arrays')
+        if data.size == 0:
+            raise ValueError(f'barplot input at position {i} is empty')
+        if data.ndim == 1:
+            datas[i] = data[np.newaxis, :]
+        if data.ndim > 2:
+            raise ValueError(f'barplot input at position {i} is {data.ndim}D, '
+                             'must be at most 2D')
+        if data.shape[0] != datas[0].shape[0]:
+            raise ValueError('all barplot inputs must have the same size '
+                             'along first dimension')
+    # check errs type
+    if errs is not None:
+        if isinstance(errs, (float, int)):
+            errs = np.array(errs)
+        if isinstance(errs, np.ndarray):
+            if errs.ndim == 0:
+                errs = np.array(errs)
+            if errs.ndim == 1:
+                errs = errs[np.newaxis, :]
+            if errs.ndim == 2:
+                errs = [errs[:, i] for i in range(errs.shape[1])]
+            elif errs.ndim == 3:
+                errs = [errs[i, :, :] for i in range(errs.shape[0])]
+            else:
+                raise ValueError('errs as a numpy array must be at most '
+                                 f'3D, got {errs.ndim}D')
+        elif not isinstance(errs, list):
+            raise ValueError('errs must be a numpy array or a list of '
+                             'numpy arrays')
+        if len(errs) != len(datas):
+            raise ValueError(f'datas and errs must have the same length, got '
+                             f'{len(datas)} and {len(errs)}')
+        for i, (data, err) in enumerate(zip(datas, errs)):
+            if err.ndim == 1:
+                errs[i] = err[np.newaxis, :]
+            if errs[i].shape != data.shape:
+                raise ValueError('elements of datas and errs must have same '
+                                 f'shape pair-wise, got shapes {data.shape} '
+                                 f'and {errs[i].shape} at position {i}')
+    # check labels
+    if colors is not None and len(colors) != len(datas):
+        raise ValueError('colors must have the same length as datas')
+    # main
+    color_cycle = get_color_cycle()
+    n_conditions = datas[0].shape[0]
+    n_models = sum(data.shape[1] for data in datas)
+    if labels is not None and len(labels) != n_models:
+        print(f'Warning: the number of labels ({len(labels)}) does not match '
+              f'the total number of models ({n_models})')
+    bar_width = 1/(n_models+1)
+    model_count = 0
+    patches = []
+    for i, data in enumerate(datas):
+        if colors is None:
+            color = color_cycle[i % len(color_cycle)]
+        else:
+            color = colors[i]
+        for j in range(data.shape[1]):
+            color = to_rgb(color)
+            color = color + (1-j/data.shape[1], )
+            offset = (model_count - (n_models-1)/2)*bar_width
+            x = np.arange(n_conditions) + offset
+            if errs is None:
+                yerr = None
+            else:
+                yerr = errs[i][:, j]
+            if labels is None:
+                label = None
+            else:
+                label = labels[model_count]
+            patch = ax.bar(x, data[:, j], width=bar_width, color=color,
+                           yerr=yerr, label=label,
+                           error_kw={'lw': lw})
+            model_count += 1
+            patches.append(patch)
+    if xticklabels is None:
+        xticklabels = np.arange(n_conditions)
+    ax.set_xticks(np.arange(n_conditions))
+    if rotation is None:
+        ha = 'center'
+    ax.set_xticklabels(xticklabels, rotation=rotation, ha=ha)
+    ax.set_ylabel(ylabel)
+    ax.grid(linestyle='dotted')
+    ax.set_axisbelow(True)
+    return patches

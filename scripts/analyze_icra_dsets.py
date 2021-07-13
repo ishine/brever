@@ -3,11 +3,13 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.spatial.distance import pdist, squareform
 
 import brever.pytorchtools as bptt
 import brever.modelmanagement as bmm
 from brever.config import defaults
-from brever.utils import pca
+
+import ecol
 
 
 def main(args):
@@ -23,12 +25,13 @@ def main(args):
         'data/processed/test/icra_09',
     ]
 
-    scores_pca = []
-    scores_class = []
+    scores = []
 
     fig_dist, ax_dist = plt.subplots()
 
     for path in paths:
+
+        print(path)
 
         # load config file
         config = defaults()
@@ -49,11 +52,6 @@ def main(args):
 
         features, labels = dset[:]
 
-        components, ve, means = pca(features, fve=0.95)
-        scores_pca.append(components.shape[1])
-
-        scores_class.append((labels < 0.5).mean())
-
         ax_dist.hist(
             labels.flatten(),
             bins=100,
@@ -61,27 +59,56 @@ def main(args):
             alpha=0.33,
         )
 
+        labels = labels > 0.5
+
+        n = len(features)
+        m = n//10
+        i_start = 0
+        features = features[i_start:i_start+m]
+        labels = labels[i_start:i_start+m]
+
+        print('dist mat...')
+        dist_mat = pdist(features)
+        dist_mat = squareform(dist_mat)
+
+        print('N1...')
+        n1 = ecol.N1(features, labels, dist_mat=dist_mat)
+        print('N2...')
+        n2 = ecol.N2(features, labels, dist_mat=dist_mat)
+        print('N3...')
+        n3 = ecol.N3(features, labels, dist_mat=dist_mat)
+        print('N4...')
+        n4 = ecol.N4(features, labels)
+        # print('T1...')
+        # t1 = ecol.T1(features, labels, dist_mat=dist_mat)
+        print('T2...')
+        t2 = ecol.T2(features)
+        print('T3...')
+        t3 = ecol.T3(features)
+        print('T4...')
+        t4 = ecol.T4(features)
+        print('CB...')
+        cb = 1 - labels.mean()
+
+        scores.append((n1, n2, n3, n4, t2, t3, t4, cb))
+
+    scores = np.asarray(scores)
+
+    print(scores)
+
     xticks = np.arange(len(paths))
     xticklabels = [os.path.basename(path) for path in paths]
     fig, ax = plt.subplots()
-    l1 = ax.bar(
-        xticks-0.33/2,
-        scores_pca,
-        width=0.33,
-        color='tab:blue',
-    )
-    ax.set_ylabel('number of components')
+    n, m = scores.shape
+    width = 1/(m+1)
+    labels = ['n1', 'n2', 'n3', 'n4', 't2', 't3', 't4', 'cb']
+    for j in range(m):
+        offset = (j - (m-1)/2)*width
+        x = np.arange(n) + offset
+        ax.bar(x, scores[:, j], width=width, label=labels[j])
     ax.set_xticks(xticks)
     ax.set_xticklabels(xticklabels, rotation=45, ha='right')
-    ax = ax.twinx()
-    l2 = ax.bar(
-        xticks+0.33/2,
-        scores_class,
-        width=0.33,
-        color='tab:orange',
-    )
-    ax.set_ylabel('fraction of zeros')
-    ax.legend([l1, l2], ['pca', 'labels'])
+    ax.legend()
 
     ax_dist.legend()
 
