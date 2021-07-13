@@ -1008,9 +1008,9 @@ class DatasetInitArgParser(ExtendableArgParser):
             help='maximum target direction angle',
         )
         self.add_base_argument(
-            '--target-datasets',
+            '--speakers',
             type=arg_set_type,
-            help='target speech datasets',
+            help='target speakers',
         )
         self.add_base_argument(
             '--noise-angle-min',
