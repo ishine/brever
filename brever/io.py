@@ -486,7 +486,6 @@ def get_rooms(regexps):
             regexp = f'{regexp}$'
         r = re.compile(regexp)
         rooms = list(filter(r.match, avail_rooms))
-        print(rooms)
         if not rooms:
             raise ValueError(f'regular expression {regexp} does not match '
                              'with any room')
