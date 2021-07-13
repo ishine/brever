@@ -7,6 +7,17 @@ import brever.modelmanagement as bmm
 
 def main(args, **kwargs):
     processed_dir = defaults().PATH.PROCESSED
+
+    if sum((args.train, args.val, args.test)) > 1:
+        raise ValueError('can only provide one of --train, --val and --test')
+
+    if args.train:
+        processed_dir = os.path.join(processed_dir, 'train')
+    elif args.val:
+        processed_dir = os.path.join(processed_dir, 'val')
+    elif args.test:
+        processed_dir = os.path.join(processed_dir, 'test')
+
     dsets = []
     for root, folder, files in os.walk(processed_dir):
         if 'config.yaml' in files:
@@ -39,6 +50,12 @@ def main(args, **kwargs):
 if __name__ == '__main__':
     parser = bmm.DatasetInitArgParser(description='find datasets')
     parser.add_argument('-d', '--delete', action='store_true',
-                        help='delete found models')
+                        help='delete found datasets')
+    parser.add_argument('--train', action='store_true',
+                        help='only scan train subdir')
+    parser.add_argument('--val', action='store_true',
+                        help='only scan val subdir')
+    parser.add_argument('--test', action='store_true',
+                        help='only scan test subdir')
     filter_args, extra_args = parser.parse_args()
     main(extra_args, **vars(filter_args))
