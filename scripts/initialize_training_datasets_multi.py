@@ -93,7 +93,7 @@ def main(args, params):
             ):
 
         is_libri = False
-        for speaker in speakerss:
+        for speaker in speakers:
             if speaker.startswith('libri'):
                 is_libri = True
                 break
