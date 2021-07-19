@@ -8,8 +8,8 @@
 #BSUB -n 8
 ### -- set walltime limit: hh:mm
 #BSUB -W 16:00
-# request 16GB of system-memory
-#BSUB -R "rusage[mem=16GB]"
+# request 1GB of system-memory
+#BSUB -R "rusage[mem=1GB]"
 ### -- Specify the output and error file. %J is the job-id --
 ### -- -o and -e mean append, -oo and -eo mean overwrite --
 #BSUB -oo jobs/logs/%J.out
