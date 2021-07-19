@@ -368,11 +368,6 @@ def main(model_dir, args):
             raise ValueError(f'got unexpected type {type(x)}')
         return x
 
-    scores = format_scores(scores)
-
-    # save scores
-    bmm.dump_json(scores, )
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='test a model')
