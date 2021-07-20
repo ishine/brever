@@ -435,7 +435,7 @@ def find_dataset(dsets=None, kind=None, **kwargs):
                     valid = False
                     break
         if valid:
-            output.append(dset)
+            output.append(dset.replace('\\', '/'))
     return output
 
 
