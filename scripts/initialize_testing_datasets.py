@@ -131,8 +131,8 @@ if __name__ == '__main__':
     parser.add_argument('--test-snrs', nargs='+',
                         type=lambda x: bmm.arg_list_type(x, int),
                         default=[
-                            [-5, -5],
                             [0, 0],
+                            [-5, -5],
                             [5, 5],
                             [10, 10],
                         ],
@@ -169,13 +169,13 @@ if __name__ == '__main__':
     parser.add_argument('--test_speakers',
                         type=bmm.arg_set_type,
                         default=[
+                            {'ieee'},
                             {'timit_.*'},
                             {'timit_FCJF0'},
                             {'timit_^(?!FCJF0$).*$'},
                             {'libri_.*'},
                             {'libri_19'},
                             {'libri_^(?!19$).*$'},
-                            {'ieee'},
                         ],
                         help='speakers for the grid of test conditions')
     dataset_args, args = parser.parse_args()
