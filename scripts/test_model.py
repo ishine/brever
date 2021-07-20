@@ -118,7 +118,6 @@ def main(model_dir, args):
             decimation=1,  # there must not be decimation during testing
             dct_toggle=config.POST.DCT.ON,
             n_dct=config.POST.DCT.NCOEFF,
-            normalization=config.POST.NORMALIZATION.TYPE,
             prestack=config.POST.PRESTACK,
         )
 
