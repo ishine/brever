@@ -183,7 +183,7 @@ def main(args):
         dim='speakers',
         model_dim_vals=[
             {'ieee'},
-            {'timit'},
+            {'timit_.*'},
             {'timit_FCJF0'},
             {'timit_^(?!FCJF0$).*$'},
             {'libri_.*'},
