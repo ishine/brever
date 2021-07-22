@@ -205,6 +205,7 @@ class LegendFormatter:
 
 
 def remove_patches(fig, axes):
+    return
     try:
         iter(axes)
     except TypeError:
@@ -218,14 +219,15 @@ def remove_patches(fig, axes):
 def check_scores(groups, test_dirs, system, metric):
     models = [model for group in groups for model in group]
     for test_dir in test_dirs:
-        if not all(
-                    model['scores'][test_dir][system][metric] ==
-                    models[0]['scores'][test_dir][system][metric]
-                    for model in models
-                ):
-            raise ValueError('All models do not have the same '
-                             f'reference scores on test dir '
-                             f'{test_dir}!')
+        for model in models:
+            if any(
+                abs(np.asarray(model['scores'][test_dir][system][metric]) -
+                    np.asarray(models[0]['scores'][test_dir][system][metric]))
+                > 2*np.finfo(float).eps
+            ):
+                raise ValueError('All models do not have the same '
+                                 f'reference scores on test dir '
+                                 f'{test_dir}!')
 
 
 def make_score_matrix(models, test_dirs, system, metric):
