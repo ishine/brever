@@ -1,14 +1,14 @@
 python scripts/compare_models.py -i \
-models/825fc37d \
-models/663471e9 \
-models/af7b9f63 \
-models/01d3d4f1 \
-models/83911bb4 \
+models/3c7ffd87 \
+models/c20e3c6b \
+models/52674299 \
+models/e9b58be9 \
+models/b7033513 \
 -t \
-data/processed/test/4790e113 \
-data/processed/test/0fef80d2 \
-data/processed/test/3abc4898 \
-data/processed/test/698678a5 \
+data/processed/test/7fdad118 \
+data/processed/test/7bdd57ba \
+data/processed/test/5ebcb5f3 \
+data/processed/test/cfcbc381 \
 --legend \
 "-5 dB SNR" \
 "0 dB SNR" \

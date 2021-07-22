@@ -1,9 +1,9 @@
 python scripts/compare_models.py -i \
-models/663471e9 \
-models/5f7c54de \
+models/c20e3c6b \
+models/a0a516cd \
 -t \
-data/processed/test/0fef80d2 \
-data/processed/test/f6c1d3e8 \
+data/processed/test/7bdd57ba \
+data/processed/test/1b9937e1 \
 --legend \
 "fixed speaker location" \
 "random speaker location" \
