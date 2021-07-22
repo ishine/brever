@@ -10,6 +10,7 @@ import brever.modelmanagement as bmm
 from brever.config import defaults
 
 import ecol
+import ecol.pls
 
 
 def main(args):
@@ -26,6 +27,7 @@ def main(args):
     ]
 
     scores = []
+    scores_pls = []
 
     fig_dist, ax_dist = plt.subplots()
 
@@ -77,8 +79,8 @@ def main(args):
         n2 = ecol.N2(features, labels, dist_mat=dist_mat)
         print('N3...')
         n3 = ecol.N3(features, labels, dist_mat=dist_mat)
-        print('N4...')
-        n4 = ecol.N4(features, labels)
+        # print('N4...')
+        # n4 = ecol.N4(features, labels)
         # print('T1...')
         # t1 = ecol.T1(features, labels, dist_mat=dist_mat)
         print('T2...')
@@ -90,22 +92,46 @@ def main(args):
         print('CB...')
         cb = 1 - labels.mean()
 
-        scores.append((n1, n2, n3, n4, t2, t3, t4, cb))
+        print('PLS...')
+        try:
+            pvex, pvey = ecol.pls.pls(features, labels, features.shape[1])
+        except np.linalg.LinAlgError:
+            pls1 = 0
+            pls2 = 0
+        else:
+            n_components = np.argmax(np.cumsum(pvex) >= 0.95) + 1
+            pls1 = n_components/features.shape[1]
+            pls2 = pvey.sum()
+
+        scores.append((n1, n2, n3, t2, t3, t4, cb))
+        scores_pls.append((pls1, pls2))
 
     scores = np.asarray(scores)
-
-    print(scores)
-
     xticks = np.arange(len(paths))
     xticklabels = [os.path.basename(path) for path in paths]
     fig, ax = plt.subplots()
     n, m = scores.shape
     width = 1/(m+1)
-    labels = ['n1', 'n2', 'n3', 'n4', 't2', 't3', 't4', 'cb']
+    labels = ['n1', 'n2', 'n3', 't2', 't3', 't4', 'cb']
     for j in range(m):
         offset = (j - (m-1)/2)*width
         x = np.arange(n) + offset
         ax.bar(x, scores[:, j], width=width, label=labels[j])
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xticklabels, rotation=45, ha='right')
+    ax.legend()
+
+    scores_pls = np.asarray(scores_pls)
+    xticks = np.arange(len(paths))
+    xticklabels = [os.path.basename(path) for path in paths]
+    fig, ax = plt.subplots()
+    n, m = scores_pls.shape
+    width = 1/(m+1)
+    labels = ['pls1', 'pls2']
+    for j in range(m):
+        offset = (j - (m-1)/2)*width
+        x = np.arange(n) + offset
+        ax.bar(x, scores_pls[:, j], width=width, label=labels[j])
     ax.set_xticks(xticks)
     ax.set_xticklabels(xticklabels, rotation=45, ha='right')
     ax.legend()
