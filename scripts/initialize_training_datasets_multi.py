@@ -24,11 +24,15 @@ def main(args, params):
     }
     general_rooms = {
         'surrey_room_.',
+        'ash_r.*',
     }
     general_angle_lims = (-90.0, 90.0)
     general_snr_lims = (-5, 10)
     general_rms_jitter = True
-    general_speakers = {'timit_.*'}
+    general_speakers = {
+        'timit_.*',
+        'libri_*',
+    }
 
     # actual grid of dataset parameters
     noise_typess = [
@@ -49,6 +53,7 @@ def main(args, params):
         {'surrey_room_b'},
         {'surrey_room_c'},
         {'surrey_room_d'},
+        {'surrey_room_.'},
         {'ash_r.*'},
         {'ash_r01'},
         {'^ash_r(?!01$).*$'},
@@ -73,6 +78,7 @@ def main(args, params):
     ]
     speakerss = [
         {'ieee'},
+        {'timit_.*'},
         {'timit_FCJF0'},
         {'timit_^(?!FCJF0$).*$'},
         {'libri_.*'},
