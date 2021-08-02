@@ -31,7 +31,7 @@ def main(args, params):
     general_rms_jitter = True
     general_speakers = {
         'timit_.*',
-        'libri_*',
+        'libri_.*',
     }
 
     # actual grid of dataset parameters
