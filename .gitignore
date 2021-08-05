@@ -1,6 +1,6 @@
 __pycache__/
 venv/
-data/
+data
 models/
 ltas.npy
 brever.egg-info/
