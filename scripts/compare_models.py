@@ -393,7 +393,10 @@ def main(models, args, filter_):
                 if args.legend is None:
                     label = str(model['val'])
                 else:
-                    label = args.legend[model_count]
+                    try:
+                        label = args.legend[model_count]
+                    except IndexError:
+                        label = ''
                 ax.plot(model['train_curve'], label=label, color=color)
                 ax.plot(model['val_curve'], '--', color=color)
                 model_count += 1
@@ -555,10 +558,6 @@ def main(models, args, filter_):
                 scores.append(score)
                 errs.append(err)
                 colors.append(color_cycle[(i+2) % len(color_cycle)])
-                if args.legend is None:
-                    labels += [str(model['val']) for model in group]
-            if args.legend is not None:
-                labels += args.legend
             barplot(scores, ax, errs=errs, ylabel=metric,
                     colors=colors, xticklabels=args.xticks,
                     rotation=args.rotation, lw=args.lw)
@@ -590,7 +589,10 @@ def main(models, args, filter_):
                 if args.legend is None:
                     label = str(model['val'])
                 else:
-                    label = args.legend[model_count]
+                    try:
+                        label = args.legend[model_count]
+                    except IndexError:
+                        label = ''
                 fig_legend_handles.append(patch)
                 fig_legend_labels.append(label)
                 for k in range(len(args.test_dirs)):
