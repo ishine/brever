@@ -8,10 +8,12 @@ def main(args, params):
 
     processed_dir = defaults().PATH.PROCESSED
 
-    for basename, filelims, number, seed in [
-                ('train', [0.0, 0.7], args.n_train, args.seed_value_train),
-                ('val', [0.7, 0.85], args.n_val, args.seed_value_val),
-            ]:
+    for basename, filelims, duration, seed in zip(
+                ('train', 'val'),
+                ([0.0, 0.7], [0.7, 0.85]),
+                (args.train_duration, args.val_duration),
+                (args.seed_value_train, args.seed_value_val),
+            ):
         config = {
             'PRE': {
                 'SEED': {
@@ -20,7 +22,7 @@ def main(args, params):
                 },
                 'MIX': {
                     'SAVE': False,
-                    'NUMBER': number,
+                    'TOTALDURATION': duration,
                     'FILELIMITS': {
                         'NOISE': filelims.copy(),
                         'TARGET': filelims.copy(),
@@ -51,10 +53,10 @@ if __name__ == '__main__':
                         help='dataset alias')
     parser.add_argument('-f', '--force', action='store_true',
                         help='overwrite config file if already exists')
-    parser.add_argument('--n-train', type=int, default=10000,
-                        help='number of training mixture, defaults to 1000')
-    parser.add_argument('--n-val', type=int, default=2000,
-                        help='number of validation mixture, defaults to 200')
+    parser.add_argument('--train-duration', type=int, default=36000,
+                        help='training duration, defaults to 36000 seconds')
+    parser.add_argument('--val-duration', type=int, default=7200,
+                        help='validation duration, defaults to 7200 seconds')
     parser.add_argument('--seed-value-train', type=int, default=0,
                         help='seed for the training dataset')
     parser.add_argument('--seed-value-val', type=int, default=1,

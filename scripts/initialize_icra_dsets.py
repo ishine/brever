@@ -26,7 +26,7 @@ def main(args, params):
         config = {
             'PRE': {
                 'MIX': {
-                    'NUMBER': args.n_test,
+                    'TOTALDURATION': args.test_duration,
                     'FILELIMITS': {
                         'NOISE': [0.85, 1.0],
                         'TARGET': [0.85, 1.0]
@@ -100,8 +100,8 @@ if __name__ == '__main__':
     parser = bmm.DatasetInitArgParser(description='initialize test datasets')
     parser.add_argument('-f', '--force', action='store_true',
                         help='overwrite config file if already exists')
-    parser.add_argument('--n-test', type=int, default=100,
-                        help='number of test mixtures, defaults to 10')
+    parser.add_argument('--test-duration', type=int, default=3600,
+                        help='total duration, defaults to 3600 seconds')
     parser.add_argument('--test-rooms', nargs='+',
                         type=bmm.arg_set_type,
                         default=[

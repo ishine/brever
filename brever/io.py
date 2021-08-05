@@ -55,54 +55,7 @@ def load_random_target(speaker, lims=None, fs=16e3, randomizer=None,
         filepath:
             Path to the loaded file.
     '''
-    alias_to_key_map = {
-        'timit': 'TIMIT',
-        'libri': 'LIBRI',
-        'ieee': 'IEEE',
-    }
-    dset_alias = speaker.split('_')[0]
-    if dset_alias in alias_to_key_map.keys():
-        dirpath = get_path(alias_to_key_map[dset_alias], def_cfg)
-    else:
-        raise ValueError(f'Wrong speaker alias: {dset_alias}')
-    if not os.path.exists(dirpath):
-        raise ValueError(f'Directory not found: {dirpath}')
-    all_filepaths = []
-    if dset_alias == 'timit':
-        pattern = speaker.split('_')[1].lower()
-        if not pattern.startswith('^'):
-            pattern = f'^{pattern}'
-        if not pattern.endswith('$'):
-            pattern = f'{pattern}$'
-        for root, dirs, files in os.walk(dirpath):
-            basename = os.path.basename(root)
-            if re.match(pattern, basename.lower()):
-                for file in files:
-                    if (file.lower().endswith('.wav')
-                            and 'SA1' not in file
-                            and 'SA2' not in file):
-                        all_filepaths.append(os.path.join(root, file))
-    elif dset_alias == 'ieee':
-        for root, dirs, files in os.walk(dirpath):
-            for file in files:
-                if file.lower().endswith('.wav'):
-                    all_filepaths.append(os.path.join(root, file)) 
-    elif dset_alias == 'libri':
-        pattern = speaker.split('_')[1].lower()
-        if '^' not in pattern:
-            pattern = f'^{pattern}'
-        if '$' not in pattern:
-            pattern = f'{pattern}$'
-        for root, dirs, files in os.walk(dirpath):
-            basename = os.path.basename(root)
-            if re.match(pattern, basename.lower()):
-                for dir_ in dirs:
-                    subroot = os.path.join(root, dir_)
-                    for file_ in os.listdir(subroot):
-                        if file_.lower().endswith('.flac'):
-                            all_filepaths.append(os.path.join(subroot, file_))
-    if not all_filepaths:
-        raise ValueError(f'No audio file found for speaker {speaker}')
+    all_filepaths = get_all_filepaths(speaker, def_cfg)
     random.Random(0).shuffle(all_filepaths)
     if lims is not None:
         n_files = len(all_filepaths)
@@ -496,3 +449,63 @@ def get_rooms(regexps):
                                  f'rooms that are not disjoint: {regexps}')
             output.add(room)
     return output
+
+
+def get_all_filepaths(speaker, def_cfg=None):
+    alias_to_key_map = {
+        'timit': 'TIMIT',
+        'libri': 'LIBRI',
+        'ieee': 'IEEE',
+    }
+    dset_alias = speaker.split('_')[0]
+    if dset_alias in alias_to_key_map.keys():
+        dirpath = get_path(alias_to_key_map[dset_alias], def_cfg)
+    else:
+        raise ValueError(f'Wrong speaker alias: {dset_alias}')
+    if not os.path.exists(dirpath):
+        raise ValueError(f'Directory not found: {dirpath}')
+    all_filepaths = []
+    if dset_alias == 'timit':
+        pattern = speaker.split('_')[1].lower()
+        if not pattern.startswith('^'):
+            pattern = f'^{pattern}'
+        if not pattern.endswith('$'):
+            pattern = f'{pattern}$'
+        for root, dirs, files in os.walk(dirpath):
+            basename = os.path.basename(root)
+            if re.match(pattern, basename.lower()):
+                for file in files:
+                    if (file.lower().endswith('.wav')
+                            and 'SA1' not in file
+                            and 'SA2' not in file):
+                        all_filepaths.append(os.path.join(root, file))
+    elif dset_alias == 'ieee':
+        for root, dirs, files in os.walk(dirpath):
+            for file in files:
+                if file.lower().endswith('.wav'):
+                    all_filepaths.append(os.path.join(root, file)) 
+    elif dset_alias == 'libri':
+        pattern = speaker.split('_')[1].lower()
+        if '^' not in pattern:
+            pattern = f'^{pattern}'
+        if '$' not in pattern:
+            pattern = f'{pattern}$'
+        for root, dirs, files in os.walk(dirpath):
+            basename = os.path.basename(root)
+            if re.match(pattern, basename.lower()):
+                for dir_ in dirs:
+                    subroot = os.path.join(root, dir_)
+                    for file_ in os.listdir(subroot):
+                        if file_.lower().endswith('.flac'):
+                            all_filepaths.append(os.path.join(subroot, file_))
+    if not all_filepaths:
+        raise ValueError(f'No audio file found for speaker {speaker}')
+    return all_filepaths
+
+
+def get_average_duration(speaker, def_cfg=None):
+    all_filepaths = get_all_filepaths(speaker, def_cfg)
+    t = 0
+    for filepath in all_filepaths:
+        t += sf.info(filepath).duration
+    return t/len(all_filepaths)

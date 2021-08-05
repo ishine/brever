@@ -209,26 +209,26 @@ def main(dataset_dir, force):
     i_start = 0
     total_time = 0
     start_time = time.time()
-    n_examples = min(10, config.PRE.MIX.NUMBER)
     examples = []
-    examples_index = random.Random(0).sample(range(config.PRE.MIX.NUMBER),
-                                             n_examples)
-    examples_index.sort()
+    examples_index = list(range(10))
+    total_duration = 0
+    i = 0
 
     # main loop
-    for i in range(config.PRE.MIX.NUMBER):
+    while total_duration < config.PRE.MIX.TOTALDURATION:
 
         # estimate time remaining and show progress
         if i == 0:
-            logging.info(f'Processing mixture '
-                         f'{i+1}/{config.PRE.MIX.NUMBER}...')
+            logging.info(f'Processing mixture {i+1}...')
         else:
             time_per_mix = total_time/i
-            etr = (config.PRE.MIX.NUMBER-i)*total_time/i
-            logging.info(f'Processing mixture '
-                         f'{i+1}/{config.PRE.MIX.NUMBER}... '
-                         f'ETR: {int(etr/60)} m {int(etr%60)} s, '
-                         f'Time per mix.: {time_per_mix:.2f} s')
+            mix_avg_dur = total_duration/i
+            n_mix_esti = config.PRE.MIX.TOTALDURATION/mix_avg_dur
+            etr = (n_mix_esti-i)*time_per_mix
+            h, m, s = int(etr/3600), int(etr % 3600/60), int(etr % 60)
+            logging.info(f'Processing mixture {i+1}... '
+                         f'ETR: {h} h {m} m {s} s, '
+                         f'/mix: {time_per_mix:.2f} s')
 
         # make mixture and save
         mixObject, metadata = randomMixtureMaker.make()
@@ -240,6 +240,9 @@ def main(dataset_dir, force):
                 )
         if i in examples_index:
             examples.append(mixObject.mixture.flatten())
+
+        # update total duration
+        total_duration += len(mixObject)/config.PRE.FS
 
         # scale signal
         scaler.fit(mixObject.mixture)
@@ -312,6 +315,8 @@ def main(dataset_dir, force):
 
         # update time spent
         total_time = time.time() - start_time
+
+        i += 1
 
     # close hdf5 file
     h5f.close()

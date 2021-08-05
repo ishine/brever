@@ -11,7 +11,7 @@ from .utils import pca, frame, rms
 from .filters import mel_filterbank, gammatone_filterbank
 from .mixture import Mixture, colored_noise, add_decay
 from .io import (load_random_target, load_brirs, load_random_noise,
-                 get_available_angles, get_rooms)
+                 get_available_angles, get_rooms, get_average_duration)
 from .config import defaults
 from . import features as features_module
 from . import labels as labels_module
@@ -247,18 +247,32 @@ class LabelExtractor:
 
 
 class RandomPool:
-    def __init__(self, pool, seed=None):
-        self.set_pool(pool)
+    def __init__(self, pool, seed=None, weights=None):
+        self.set_pool(pool, weights)
         self.random = random.Random(seed)
 
     def get(self):
-        return self.random.choice(self.pool)
+        item, = self.random.choices(self.pool, weights=self.weights)
+        return item
 
-    def set_pool(self, pool):
+    def set_pool(self, pool, weights=None):
+        self.weights = weights
         if isinstance(pool, set):
             self.pool = sorted(pool)
+            if weights is not None:
+                if not isinstance(weights, dict):
+                    raise ValueError('weights must be dict when pool is set')
+                if set(weights.keys()) != pool:
+                    raise ValueError('weights keys do not match pool')
+                self.weights = [weights[x] for x in pool]
         else:
             self.pool = pool
+            if weights is not None:
+                if not isinstance(weights, list):
+                    raise ValueError('weights must be list when pool is list')
+                if len(weights) != len(pool):
+                    raise ValueError('weights and pool must have same length')
+                self.weights = weights
 
 
 class MultiRandomPool:
@@ -318,9 +332,21 @@ class RandomMixtureMaker:
             seed_value = None
         seeder = Seeder(seed_value, 100)
 
+        self.def_cfg = defaults()
         self.fs = fs
         self.rooms = RandomPool(get_rooms(rooms), seeder.get())
-        self.speakers = RandomPool(speakers, seeder.get())
+
+        # For the speakers random generator, the probability distribution must
+        # be weighted according to the average duration of the sentences,
+        # otherwise the speech material in the dataset will be unbalanced.
+        # Example: TIMIT sentences are 3 seconds long on average, while LIBRI
+        # sentences are 12 seconds long on average, so making a dataset using
+        # 50 TIMIT sentences and 50 LIBRI sentences will result in much more
+        # LIBRI samples.
+        weights = {speaker: 1/get_average_duration(speaker, self.def_cfg)
+                   for speaker in speakers}
+        self.speakers = RandomPool(speakers, seeder.get(), weights)
+
         self.target_snrs = ContinuousRandomGenerator(target_snr_dist_name,
                                                      target_snr_dist_args,
                                                      seeder.get())
@@ -360,7 +386,6 @@ class RandomMixtureMaker:
         self.target_angles = RandomPool([], seeder.get())
         self.dir_noise_angles = MultiRandomPool([], max(dir_noise_nums),
                                                 seeder.get())
-        self.def_cfg = defaults()
 
     def make(self):
         mixture = Mixture()

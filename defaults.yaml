@@ -92,7 +92,7 @@ PRE:
       TARGET:
       - 0.0
       - 1.0
-    NUMBER: 100
+    TOTALDURATION: 36000
     PADDING: 0.0
     RANDOM:
       UNIFORMTMR: false
