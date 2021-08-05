@@ -173,7 +173,7 @@ def barplot(datas, ax, xticklabels=None, errs=None, ylabel=None, labels=None,
         if data.ndim > 2:
             raise ValueError(f'barplot input at position {i} is {data.ndim}D, '
                              'must be at most 2D')
-        if data.shape[0] != datas[0].shape[0]:
+        if datas[i].shape[0] != datas[0].shape[0]:
             raise ValueError('all barplot inputs must have the same size '
                              'along first dimension')
     # check errs type
@@ -235,7 +235,10 @@ def barplot(datas, ax, xticklabels=None, errs=None, ylabel=None, labels=None,
             if labels is None:
                 label = None
             else:
-                label = labels[model_count]
+                try:
+                    label = labels[model_count]
+                except IndexError:
+                    label = ''
             patch = ax.bar(x, data[:, j], width=bar_width, color=color,
                            yerr=yerr, label=label,
                            error_kw={'lw': lw})
