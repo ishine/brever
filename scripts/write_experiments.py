@@ -73,13 +73,19 @@ def write_exp(
         )
         assert len(dsets) == 1
         for dset in dsets:
-            models = bmm.find_model(
-                train_path=[dset],
-                dropout=[True],
-            )
-            assert len(models) == 1
-            for model in models:
-                logger.write(model)
+            if args.normalization == 'both':
+                normalizations = ['global', 'recursive']
+            else:
+                normalizations = [args.normalization]
+            for normalization in normalizations:
+                models = bmm.find_model(
+                    train_path=[dset],
+                    dropout=[True],
+                    normalization=normalization,
+                )
+                assert len(models) == 1
+                for model in models:
+                    logger.write(model)
     logger.write('-t')
     pre_dsets = find_dset(
         kind='test',
@@ -95,7 +101,9 @@ def write_exp(
             logger.write(dset)
     logger.write('--legend')
     for label in model_labels:
-        logger.write(f'"{label}"')
+        if args.normalization == 'both':
+            for normalization in ['global', 'recursive']:
+                logger.write(f'"{label} - {normalization}"')
     logger.write('--xticks')
     for label in cond_labels:
         logger.write(f'"{label}"')
@@ -108,9 +116,14 @@ def write_exp(
     if lw is not None:
         logger.write('--lw')
         logger.write(lw)
+    if args.normalization == 'both':
+        logger.write('--group-by')
+        logger.write('train-path')
+    logger.write('--dims')
+    logger.write('normalization')
 
 
-def main(args):
+def main():
     write_exp(
         dim='noise_types',
         model_dim_vals=[
@@ -174,7 +187,7 @@ def main(args):
             'street_traffic',
             'tram',
             ],
-        filename='experiments/noise.sh',
+        filename=f'experiments/noise_{args.normalization}.sh',
         output_dir='pics/exp/noise',
         rotation='45',
         lw='0.4',
@@ -189,6 +202,7 @@ def main(args):
             {'libri_.*'},
             {'libri_19'},
             {'libri_^(?!19$).*$'},
+            {'timit_.*', 'libri_.*'},
         ],
         model_labels=[
             'ieee',
@@ -198,6 +212,7 @@ def main(args):
             'libri_all',
             'libri_19',
             'libri_all_but_19',
+            'timit_all and libri_all',
         ],
         cond_dim_vals=[
             {'ieee'},
@@ -217,7 +232,7 @@ def main(args):
             'libri_19',
             'libri_all_but_19',
         ],
-        filename='experiments/speaker.sh',
+        filename=f'experiments/speaker_{args.normalization}.sh',
         output_dir='pics/exp/speaker',
     )
     write_exp(
@@ -248,7 +263,7 @@ def main(args):
             '5 dB SNR',
             '10 dB SNR',
         ],
-        filename='experiments/snr.sh',
+        filename=f'experiments/snr_{args.normalization}.sh',
         output_dir='pics/exp/snr',
     )
     write_exp(
@@ -264,6 +279,7 @@ def main(args):
             {'^ash_r(?!0).*$'},
             {'^ash_r(?!01$).*$'},
             {'ash_r.*'},
+            {'surrey_room_.', 'ash_r.*'},
         ],
         model_labels=[
             'SURREY A',
@@ -276,6 +292,7 @@ def main(args):
             'ASH all but 01-09',
             'ASH all but 01',
             'ASH all',
+            'SURREY all and ASH all',
         ],
         cond_dim_vals=[
             {'surrey_room_a'},
@@ -301,7 +318,7 @@ def main(args):
             'ASH all but 01',
             'ASH all',
         ],
-        filename='experiments/room.sh',
+        filename=f'experiments/room_{args.normalization}.sh',
         output_dir='pics/exp/room',
     )
     write_exp(
@@ -322,7 +339,7 @@ def main(args):
             'fixed speaker location',
             'random speaker location',
         ],
-        filename='experiments/angle.sh',
+        filename=f'experiments/angle_{args.normalization}.sh',
         output_dir='pics/exp/angle',
     )
     write_exp(
@@ -343,12 +360,13 @@ def main(args):
             'fixed speaker level',
             'random mixture level',
         ],
-        filename='experiments/rms.sh',
+        filename=f'experiments/rms_{args.normalization}.sh',
         output_dir='pics/exp/rms',
     )
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--normalization', default='global')
     args = parser.parse_args()
-    main(args)
+    main()
