@@ -1,5 +1,7 @@
 import sys
 
+import pandas as pd
+
 
 def str_join(str_, iterable, precision=None):
     if precision is None:
@@ -103,3 +105,14 @@ def df_to_tex(df, writer=None, precision=2, loc=None, label='my_label',
     writer.command('caption', caption)
     writer.command('label', f'tab:{label}')
     writer.end('table')
+
+
+def np_to_tex(array, writer=None, precision=2, loc=None, label='my_label',
+              caption='Caption', columns=None, index=None, index_name=None):
+    if index is None:
+        index = pd.RangeIndex(0, len(array), name=index_name)
+    else:
+        index = pd.Index(index, name=index_name)
+    df = pd.DataFrame(array, index, columns)
+    df_to_tex(df, writer=writer, precision=precision, loc=loc, label=label,
+              caption=caption)
