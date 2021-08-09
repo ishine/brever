@@ -1,5 +1,6 @@
 import sys
 import argparse
+import os
 
 import brever.modelmanagement as bmm
 
@@ -60,6 +61,8 @@ def write_exp(
     else:
         assert all(len(val) == len(dim) for val in model_dim_vals)
         assert all(len(val) == len(dim) for val in cond_dim_vals)
+    if not os.path.exists(os.path.dirname(filename)):
+        os.makedirs(os.path.dirname(filename))
     logger = Logger(filename, end=' \\\n')
     logger.write('python scripts/compare_models.py -i')
     pre_dsets = find_dset(
@@ -104,6 +107,8 @@ def write_exp(
         if args.normalization == 'both':
             for normalization in ['global', 'recursive']:
                 logger.write(f'"{label} - {normalization}"')
+        else:
+            logger.write(f'"{label}"')
     logger.write('--xticks')
     for label in cond_labels:
         logger.write(f'"{label}"')
@@ -121,6 +126,7 @@ def write_exp(
         logger.write('train-path')
     logger.write('--dims')
     logger.write('normalization')
+    logger.write('--summary')
 
 
 def main():
