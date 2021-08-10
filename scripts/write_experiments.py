@@ -126,6 +126,7 @@ def write_exp(
         logger.write('train-path')
     logger.write('--dims')
     logger.write('normalization')
+    logger.write('train-path')
     logger.write('--summary')
 
 
