@@ -150,6 +150,8 @@ if __name__ == '__main__':
                             {'dcase_street_pedestrian'},
                             {'dcase_street_traffic'},
                             {'dcase_tram'},
+                            {'bbl'},
+                            {'ssn'},
                         ],
                         help='noises for the grid of test conditions')
     parser.add_argument('--test-angles', nargs='+',

@@ -21,6 +21,8 @@ def main(args, params):
         'dcase_street_pedestrian',
         'dcase_street_traffic',
         'dcase_tram',
+        'bbl',
+        'ssn',
     }
     general_rooms = {
         'surrey_room_.',
@@ -46,6 +48,8 @@ def main(args, params):
         {'dcase_street_pedestrian'},
         {'dcase_street_traffic'},
         {'dcase_tram'},
+        {'bbl'},
+        {'ssn'},
         general_noise_types,
     ]
     roomss = [
