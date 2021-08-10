@@ -6,12 +6,14 @@ import random
 import re
 from functools import partial
 import inspect
+import logging
 
 from .utils import pca, frame, rms
 from .filters import mel_filterbank, gammatone_filterbank
-from .mixture import Mixture, colored_noise, add_decay
+from .mixture import Mixture, colored_noise, add_decay, match_ltas
 from .io import (load_random_target, load_brirs, load_random_noise,
-                 get_available_angles, get_rooms, get_average_duration)
+                 get_available_angles, get_rooms, get_average_duration,
+                 get_all_filepaths, get_ltas)
 from .config import defaults
 from . import features as features_module
 from . import labels as labels_module
@@ -387,6 +389,25 @@ class RandomMixtureMaker:
         self.dir_noise_angles = MultiRandomPool([], max(dir_noise_nums),
                                                 seeder.get())
 
+        self.bbl_speakers = RandomPool(speakers, seeder.get(), weights)
+        self.bbl_filename_randomizer = RandomPool([], seeder.get())
+
+        self.all_filepaths_dict = {
+            speaker: get_all_filepaths(speaker, def_cfg=self.def_cfg)
+            for speaker in speakers
+        }
+
+        if ((diffuse_noise_on and diffuse_noise_ltas_eq)
+                or ('ssn' in dir_noise_types and max(dir_noise_nums) > 0)):
+            merged_filepaths = [f for l_ in self.all_filepaths_dict.values()
+                                for f in l_]
+            logging.info(f'Calculating LTAS from {len(merged_filepaths)} '
+                         'speech files')
+            self.ltas = get_ltas(all_filepaths=merged_filepaths,
+                                 def_cfg=self.def_cfg)
+        else:
+            self.ltas = None
+
     def make(self):
         mixture = Mixture()
         metadata = {}
@@ -444,6 +465,7 @@ class RandomMixtureMaker:
             self.fs,
             randomizer=self.target_filename_randomizer.random,
             def_cfg=self.def_cfg,
+            all_filepaths=self.all_filepaths_dict[speaker]
         )
         mixture.add_target(
             x=target,
@@ -460,28 +482,68 @@ class RandomMixtureMaker:
     def add_random_dir_noises(self, mixture, metadata, room, decayer):
         number = self.dir_noise_nums.get()
         types = self.dir_noise_types.get(number)
-        angles = [a for a in get_available_angles(room, self.def_cfg)
-                  if self.dir_noise_angle_min <= a <= self.dir_noise_angle_max]
-        self.dir_noise_angles.set_pool(angles)
-        angles = self.dir_noise_angles.get(number)
-        noises, files, indices = self._load_noises(
-            types,
-            len(mixture),
-        )
-        brirs = self._load_brirs(room, angles)
-        brirs = [decayer.run(brir) for brir in brirs]
-        mixture.add_dir_noises(noises, brirs)
-        metadata['directional'] = {}
-        metadata['directional']['number'] = number
-        metadata['directional']['sources'] = []
-        for i in range(number):
-            source_metadata = {
-                'angle': angles[i],
-                'type': types[i],
-                'filename': files[i],
-                'indices': indices[i],
-            }
-            metadata['directional']['sources'].append(source_metadata)
+
+        if types and types[0] == 'bbl':
+
+            angles = [a for a in get_available_angles(room, self.def_cfg)
+                      if a != metadata['target']['angle']]
+            brirs = self._load_brirs(room, angles)
+            brirs = [decayer.run(brir) for brir in brirs]
+            noises = []
+            for i in range(len(angles)):
+                speaker = self.bbl_speakers.get()
+                noise, _ = load_random_target(
+                    speaker,
+                    self.filelims_target,
+                    self.fs,
+                    randomizer=self.bbl_filename_randomizer.random,
+                    def_cfg=self.def_cfg,
+                    all_filepaths=self.all_filepaths_dict[speaker]
+                )
+                while len(noise) < len(mixture):
+                    noise_, _ = load_random_target(
+                        speaker,
+                        self.filelims_target,
+                        self.fs,
+                        randomizer=self.bbl_filename_randomizer.random,
+                        def_cfg=self.def_cfg,
+                        all_filepaths=self.all_filepaths_dict[speaker]
+                    )
+                    noise = np.hstack((noise, noise_))
+                noise = noise[:len(mixture)]
+                noises.append(noise)
+            mixture.add_dir_noises(noises, brirs)
+            metadata['directional'] = {}
+            metadata['directional']['number'] = len(angles)
+
+        else:
+
+            types = [t for t in types if t != 'bbl']
+            angles = [a for a in get_available_angles(room, self.def_cfg)
+                      if a != metadata['target']['angle']
+                      and self.dir_noise_angle_min <= a <=
+                      self.dir_noise_angle_max]
+            self.dir_noise_angles.set_pool(angles)
+            angles = self.dir_noise_angles.get(number)
+            noises, files, indices = self._load_noises(
+                types,
+                len(mixture),
+            )
+            brirs = self._load_brirs(room, angles)
+            brirs = [decayer.run(brir) for brir in brirs]
+            mixture.add_dir_noises(noises, brirs)
+            metadata['directional'] = {}
+            metadata['directional']['number'] = number
+            metadata['directional']['sources'] = []
+            for i in range(number):
+                source_metadata = {
+                    'angle': angles[i],
+                    'type': types[i],
+                    'filename': files[i],
+                    'indices': indices[i],
+                }
+                metadata['directional']['sources'].append(source_metadata)
+
         return mixture, metadata
 
     def add_random_diffuse_noise(self, mixture, metadata, room):
@@ -490,7 +552,7 @@ class RandomMixtureMaker:
             mixture.add_diffuse_noise(
                 brirs,
                 self.diffuse_noise_color,
-                self.diffuse_noise_ltas_eq,
+                self.ltas,
             )
             metadata['diffuse'] = {}
             metadata['diffuse']['color'] = self.diffuse_noise_color
@@ -564,9 +626,14 @@ class RandomMixtureMaker:
         for type_, randomizer in zip(types, randomizers):
             if type_ is None:
                 x, filepath, indices = None, None, None
-            elif type_.startswith('noise_'):
-                color = re.match('^noise_(.*)$', type_).group(1)
+            elif type_.startswith('colored_'):
+                color = re.match('^colored_(.*)$', type_).group(1)
                 x = colored_noise(color, n_samples)
+                filepath = None
+                indices = None
+            elif type_ == 'ssn':
+                x = colored_noise('white', n_samples)
+                x = match_ltas(x, self.ltas)
                 filepath = None
                 indices = None
             else:

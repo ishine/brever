@@ -2,7 +2,6 @@ __pycache__/
 venv/
 data
 models/
-ltas.npy
 brever.egg-info/
 jobs/logs/
 defaults_user.yaml

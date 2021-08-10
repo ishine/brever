@@ -1,13 +1,15 @@
 import os
 import re
 import random
+import sys
 
 import numpy as np
 import soundfile as sf
 import sofa
+import scipy.signal
 
-from brever.config import defaults
-from brever.utils import resample
+from .config import defaults
+from .utils import resample
 
 
 def get_path(field_name, def_cfg=None):
@@ -21,7 +23,7 @@ def get_path(field_name, def_cfg=None):
 
 
 def load_random_target(speaker, lims=None, fs=16e3, randomizer=None,
-                       def_cfg=None):
+                       def_cfg=None, all_filepaths=None):
     '''
     Load a random target signal given a set of speaker aliases to draw from.
 
@@ -55,7 +57,8 @@ def load_random_target(speaker, lims=None, fs=16e3, randomizer=None,
         filepath:
             Path to the loaded file.
     '''
-    all_filepaths = get_all_filepaths(speaker, def_cfg)
+    if all_filepaths is None:
+        all_filepaths = get_all_filepaths(speaker, def_cfg)
     random.Random(0).shuffle(all_filepaths)
     if lims is not None:
         n_files = len(all_filepaths)
@@ -202,7 +205,7 @@ def load_brirs(room_alias, angles=None, fs=16e3, def_cfg=None):
 
 
 def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
-                      randomizer=None, def_cfg=None):
+                      randomizer=None, def_cfg=None, ltas=None):
     '''
     Load a random noise recording.
 
@@ -280,8 +283,7 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
             i_start = randomizer.randint(0, len(x) - n_samples)
             i_end = i_start+n_samples
             x = x[i_start:i_end]
-        return x, filepath, (i_start, i_end)
-    if noise_alias.startswith('icra_'):
+    elif noise_alias.startswith('icra_'):
         dirpath = get_path('ICRA', def_cfg)
         all_filepaths = []
         m = re.match('^icra_(.*)$', noise_alias)
@@ -308,9 +310,9 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
             i_start = randomizer.randint(0, len(x) - n_samples)
             i_end = i_start+n_samples
             x = x[i_start:i_end]
-        return x, filepath, (i_start, i_end)
     else:
         raise ValueError(f'wrong noise alias: {noise_alias}')
+    return x, filepath, (i_start, i_end)
 
 
 def get_available_angles(room_alias, def_cfg=None):
@@ -509,3 +511,32 @@ def get_average_duration(speaker, def_cfg=None):
     for filepath in all_filepaths:
         t += sf.info(filepath).duration
     return t/len(all_filepaths)
+
+
+def get_ltas(speaker=None, all_filepaths=None, def_cfg=None, n_fft=512,
+             n_overlap=256, n_oct=3, verbose=False):
+    if speaker is None and all_filepaths is None:
+        raise ValueError('must provided speaker or all filepaths')
+    elif speaker is not None and all_filepaths is not None:
+        raise ValueError('cannot provide both speaker and all filepaths')
+    if all_filepaths is None:
+        all_filepaths = get_all_filepaths(speaker, def_cfg)
+    n = n_fft//2+1
+    ltas = np.zeros(n)
+    for i, filepath in enumerate(all_filepaths):
+        if verbose:
+            sys.stdout.write('\r')
+            sys.stdout.write(f'Processing file {i+1}/{len(all_filepaths)}')
+        x, _ = sf.read(filepath)
+        _, _, X = scipy.signal.stft(x, nperseg=n_fft, noverlap=n_overlap)
+        ltas += np.mean(np.abs(X)**2, axis=1)
+    if verbose:
+        sys.stdout.write('\n')
+    f = np.arange(1, n)
+    sigma = (f/n_oct)/np.pi
+    df = np.subtract.outer(f, f)
+    g = np.exp(-0.5*(df/sigma)**2)/(sigma*(2*np.pi)**0.5)
+    g /= g.sum(axis=1)
+    ltas_smooth = np.copy(ltas)
+    ltas_smooth[1:] = g@ltas_smooth[1:]
+    return ltas_smooth

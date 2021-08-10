@@ -94,6 +94,11 @@ def match_ltas(x, ltas, n_fft=512, hop_length=256):
     y : array_like
         Output signal with LTAS equal to `ltas`.
     """
+    if x.ndim == 1:
+        x = x.reshape(-1, 1)
+        flat_output = True
+    else:
+        flat_output = False
     n = len(x)
     noverlap = n_fft-hop_length
     _, _, X = scipy.signal.stft(x, nperseg=n_fft, noverlap=noverlap, axis=0)
@@ -102,6 +107,8 @@ def match_ltas(x, ltas, n_fft=512, hop_length=256):
     X *= EQ[:, np.newaxis, np.newaxis]
     _, x = scipy.signal.istft(X, nperseg=n_fft, noverlap=noverlap, freq_axis=0)
     x = x.T
+    if flat_output:
+        x = x.ravel()
     return x[:n]
 
 
@@ -337,13 +344,12 @@ class Mixture:
         for x, brir in zip(xs, brirs):
             self.dir_noise += spatialize(x, brir)
 
-    def add_diffuse_noise(self, brirs, color, ltas_eq):
+    def add_diffuse_noise(self, brirs, color, ltas=None):
         self.diffuse_noise = np.zeros(self.shape)
         for brir in brirs:
             noise = colored_noise(color, len(self))
             self.diffuse_noise += spatialize(noise, brir)
-        if ltas_eq:
-            ltas = np.load('ltas.npy')
+        if ltas is not None:
             self.diffuse_noise = match_ltas(self.diffuse_noise, ltas)
 
     def adjust_dir_to_diff_snr(self, snr):
