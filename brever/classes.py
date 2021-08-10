@@ -519,6 +519,7 @@ class RandomMixtureMaker:
         else:
 
             types = [t for t in types if t != 'bbl']
+            number = len(types)
             angles = [a for a in get_available_angles(room, self.def_cfg)
                       if a != metadata['target']['angle']
                       and self.dir_noise_angle_min <= a <=
