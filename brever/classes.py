@@ -515,6 +515,7 @@ class RandomMixtureMaker:
             mixture.add_dir_noises(noises, brirs)
             metadata['directional'] = {}
             metadata['directional']['number'] = len(angles)
+            metadata['directional']['sources'] = []
 
         else:
 
