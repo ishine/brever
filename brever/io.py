@@ -488,9 +488,9 @@ def get_all_filepaths(speaker, def_cfg=None):
                     all_filepaths.append(os.path.join(root, file)) 
     elif dset_alias == 'libri':
         pattern = speaker.split('_')[1].lower()
-        if '^' not in pattern:
+        if not pattern.startswith('^'):
             pattern = f'^{pattern}'
-        if '$' not in pattern:
+        if not pattern.endswith('$'):
             pattern = f'{pattern}$'
         for root, dirs, files in os.walk(dirpath):
             basename = os.path.basename(root)
