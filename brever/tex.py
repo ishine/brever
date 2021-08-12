@@ -3,14 +3,6 @@ import sys
 import pandas as pd
 
 
-def str_join(str_, iterable, precision=None):
-    if precision is None:
-        list_ = [str(item) for item in iterable] 
-    else:
-        list_ = [f'{item:.2f}' for item in iterable] 
-    return str_.join(list_)
-
-
 class TexWriter:
     def __init__(self, filename=None, stdout=True, end='\n', indent=4):
         if filename is None:
@@ -30,7 +22,7 @@ class TexWriter:
     def unindent(self):
         self._indent -= self.indent_size
         if self._indent < 0:
-            raise ValueError('unindenting to negative ident')
+            raise ValueError('unindenting to negative indent')
 
     def write(self, data, end=None):
         if data is None:
@@ -43,76 +35,79 @@ class TexWriter:
         if self._newline:
             to_write = ' '*self._indent + to_write
             self._newline = False
+        if to_write.endswith('\n'):
+            self._newline = True
         if self.file is not None:
             self.file.write(to_write)
             self.file.flush()
         if self.stdout:
             sys.stdout.write(to_write)
             sys.stdout.flush()
-        if to_write.endswith('\n'):
-            self._newline = True
 
-    def command(self, command, *args, options_first=True, **kwargs):
+    def command(self, command, *args, options=[]):
         self.write(f'\\{command}', end='')
-        if not options_first:
-            for arg in args:
-                self.write(f'{{{arg}}}', end='')
-        if kwargs:
-            self.write('[', end='')
-            to_write = []
-            for key, item in kwargs.items():
-                if item is None:
-                    to_write.append(key)
-                else:
-                    to_write.append(f'{key}={item}')
-            self.write(', '.join(to_write), end='')
-            self.write(']', end='')
-        if options_first:
-            for arg in args:
-                self.write(f'{{{arg}}}', end='')
+        for option in options:
+            self.write(f'[{option}]', end='')
+        for arg in args:
+            self.write(f'{{{arg}}}', end='')
         self.write('')
 
-    def begin(self, env, *args, indent=True, **kwargs):
-        self.command('begin', env, *args, options_first=False, **kwargs)
+    def begin(self, env, *args, indent=True, options=[]):
+        self.write(f'\\begin{{{env}}}', end='')
+        for option in options:
+            self.write(f'[{option}]', end='')
+        for arg in args:
+            self.write(f'{{{arg}}}', end='')
+        self.write('')
         self._env_struct.append(env)
         if indent:
             self.indent()
 
-    def end(self, env, *args, unindent=True, **kwargs):
+    def end(self, env, *args, unindent=True):
         if unindent:
             self.unindent()
-        self.command('end', env, *args, options_first=False, **kwargs)
+        self.write(f'\\end{{{env}}}')
         current_env = self._env_struct.pop()
         if current_env != env:
-            raise ValueError('ending an environment that has not begun')
+            raise ValueError('closing an environment that is not the last '
+                             'opened environment')
 
 
-def df_to_tex(df, writer=None, precision=2, loc=None, label='my_label',
-              caption='Caption'):
+def df_to_tex(df, writer=None, filename=None, precision=2, loc=None,
+              label='my_label', caption='Caption', star=False, bold=[]):
     if writer is None:
-        writer = TexWriter()
-    writer.begin('table', h=None)
+        writer = TexWriter(filename)
+    if star:
+        table = 'table*'
+    else:
+        table = 'table'
+    writer.begin(table, options=['h'])
     writer.command('centering')
     table_spec = '|'.join(['c' for i in range(df.shape[1] + 1)])
     writer.begin('tabular', table_spec)
     writer.write(df.index.name, end=' & ')
-    writer.write(str_join(' & ', df.columns), end=' \\\\\n')
+    writer.write(' & '.join([str(c) for c in df.columns]), end=' \\\\\n')
     writer.command('hline')
-    for index, data in df.iterrows():
+    for i, (index, data) in enumerate(df.iterrows()):
         writer.write(index, end=' & ')
-        writer.write(str_join(' & ', data, precision), end=' \\\\\n')
+        data = [f'{x:.{precision}f}' for x in data]
+        for j in range(len(data)):
+            if (i, j) in bold:
+                data[j] = f'\\textbf{{{data[j]}}}'
+        writer.write(' & '.join(data), end=' \\\\\n')
     writer.end('tabular')
     writer.command('caption', caption)
-    writer.command('label', f'tab:{label}')
-    writer.end('table')
+    writer.command('label', label)
+    writer.end(table)
 
 
-def np_to_tex(array, writer=None, precision=2, loc=None, label='my_label',
-              caption='Caption', columns=None, index=None, index_name=None):
+def np_to_tex(array, writer=None, filename=None, precision=2, loc=None,
+              label='my_label', caption='Caption', columns=None, index=None,
+              index_name=None, star=False, bold=[]):
     if index is None:
         index = pd.RangeIndex(0, len(array), name=index_name)
     else:
         index = pd.Index(index, name=index_name)
     df = pd.DataFrame(array, index, columns)
-    df_to_tex(df, writer=writer, precision=precision, loc=loc, label=label,
-              caption=caption)
+    df_to_tex(df, writer=writer, filename=filename, precision=precision,
+              loc=loc, label=label, caption=caption, star=star, bold=bold)

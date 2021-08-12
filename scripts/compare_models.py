@@ -5,12 +5,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
+from matplotlib.colors import to_rgb
 from scipy.stats import sem
 
 import brever.modelmanagement as bmm
 from brever.config import defaults
 from brever.display import barplot, get_color_cycle
-from matplotlib.colors import to_rgb
+from brever.tex import np_to_tex
 
 
 def check_models(models, dims):
@@ -261,6 +262,63 @@ def set_ax_lims(ax, xmin=None, xmax=None, ymin=None, ymax=None):
         ax.set_ylim(ax_ymin, ymax)
 
 
+def format_tex_cell(str_, makecell_if_linebreak=True):
+    if str_ is None:
+        return None
+
+    str_ = list(str_)
+    math = False
+    for i in range(len(str_)):
+        if str_[i] == '$':
+            if not math:
+                math = True
+            else:
+                math = False
+        elif str_[i] == '_' and not math:
+            str_[i] = r'\_'
+    str_ = ''.join(str_)
+
+    if makecell_if_linebreak and r'\\' in str_:
+        str_ = rf'\makecell{{{str_}}}'
+    return str_
+
+
+def write_tex(scores, dir_, columns, index, caption, metric,
+              index_name=None):
+    scores = np.asarray(scores)
+
+    scaling = int(np.floor(np.log10(scores.mean())))
+    scores *= 10**(-scaling)
+    if scaling != 0:
+        scaling = scaling = f'($\\times 10^{{{scaling}}}$)'
+    else:
+        scaling = ''
+    caption = caption.format(metric=metric, scaling=scaling)
+    if caption.endswith(' .'):
+        caption = caption[:-2] + '.'
+
+    scores = scores.reshape(scores.shape[0], np.prod(scores.shape[1:])).T
+    columns = [format_tex_cell(x) for x in columns]
+    index = [format_tex_cell(x, makecell_if_linebreak=False) for x in index]
+    index_name = format_tex_cell(index_name)
+    bold = [(i, 0) for i in range(scores.shape[0])]
+    if metric == 'MSE':
+        func = min
+    else:
+        func = max
+    for i in range(scores.shape[0]):
+        for j in range(scores.shape[1]):
+            if columns[j] not in ('ref', 'oracle'):
+                if scores[i, j] == func(scores[i, j], scores[bold[i]]):
+                    bold[i] = (i, j)
+    if not os.path.exists(dir_):
+        os.makedirs(dir_)
+    filename = os.path.join(dir_, f'{metric}.tex')
+    np_to_tex(scores, filename=filename, precision=2, loc=None,
+              label='tab:my_label', caption=caption, columns=columns,
+              index=index, index_name=index_name, star=True, bold=bold)
+
+
 def main(models, args, filter_):
     # add default params to filter is user requested
     if args.default:
@@ -375,8 +433,6 @@ def main(models, args, filter_):
             labels = None
         barplot(scores, ax, errs=errs, ylabel=metric, labels=labels,
                 colors=colors, xticklabels=[])
-        if metric == 'PESQ':
-            set_ax_lims(ax, ymin=args.ymin_pesq, ymax=args.ymax_pesq)
     LegendFormatter(fig, ncol=args.ncol)
     figs['summary'] = fig
 
@@ -463,165 +519,176 @@ def main(models, args, filter_):
     LegendFormatter(fig, lh=lh, ncol=args.ncol)
     figs['page'] = fig
 
-    # if summary stop here
-    if not args.summary:
-
-        # individual metric plots
-        metrics = [
-            'MSE',
-            'PESQ',
-            'STOI',
-            'segSSNR',
-            'segBR',
-            'segNR',
-            'segRR',
-        ]
-        for metric in metrics:
-            fig, ax = plt.subplots(1, 1, figsize=args.figsize)
-            remove_patches(fig, ax)
-            scores = []
-            errs = []
-            labels = []
-            colors = []
-            # first add reference score
-            if not args.no_ref and metric in ref_metrics:
-                score, err = make_score_matrix(
-                    [groups[0][0]], args.test_dirs, 'ref', metric
-                )
-                scores.append(score)
-                errs.append(err)
-                colors.append(color_cycle[0])
-                labels.append('ref')
-            # then add oracle score
-            if not args.no_oracle and metric in oracle_metrics:
-                score, err = make_score_matrix(
-                    [groups[0][0]], args.test_dirs, 'oracle', metric
-                )
-                scores.append(score)
-                errs.append(err)
-                colors.append(color_cycle[1])
-                labels.append('oracle')
-            # finally add model scores
-            for i, group in enumerate(groups):
-                score, err = make_score_matrix(
-                    group, args.test_dirs, 'model', metric,
-                )
-                scores.append(score)
-                errs.append(err)
-                colors.append(color_cycle[(i+2) % len(color_cycle)])
-                if args.legend is None:
-                    labels += [str(model['val']) for model in group]
-            if args.legend is not None:
-                labels += args.legend
-            barplot(scores, ax, errs=errs, ylabel=metric, labels=labels,
-                    colors=colors, xticklabels=args.xticks,
-                    rotation=args.rotation, lw=args.lw)
-            LegendFormatter(fig, ncol=args.ncol)
-            figs[metric] = fig
-            if metric == 'PESQ':
-                set_ax_lims(ax, ymin=args.ymin_pesq, ymax=args.ymax_pesq)
-
-        # delta PESQ and delta STOI plots
-        delta_metrics = [
-            'PESQ',
-            'STOI',
-        ]
-        for metric in delta_metrics:
-            fig, ax = plt.subplots(1, 1, figsize=args.figsize)
-            remove_patches(fig, ax)
-            scores = []
-            errs = []
-            labels = []
-            colors = []
-            # load reference score
-            score_ref, err_ref = make_score_matrix(
+    # individual metric plots
+    metrics = [
+        'MSE',
+        'PESQ',
+        'STOI',
+        'segSSNR',
+        'segBR',
+        'segNR',
+        'segRR',
+    ]
+    for metric in metrics:
+        fig, ax = plt.subplots(1, 1, figsize=args.figsize)
+        remove_patches(fig, ax)
+        scores = []
+        errs = []
+        labels = []
+        colors = []
+        # first add reference score
+        if not args.no_ref and metric in ref_metrics:
+            score, err = make_score_matrix(
                 [groups[0][0]], args.test_dirs, 'ref', metric
             )
-            # add oracle score
-            if not args.no_oracle and metric in oracle_metrics:
-                score, err = make_score_matrix(
-                    [groups[0][0]], args.test_dirs, 'oracle', metric
-                )
-                scores.append(score - score_ref)
-                errs.append(err - err_ref)
-                colors.append(color_cycle[1])
-                labels.append('oracle')
-            # finally add model scores
-            for i, group in enumerate(groups):
-                score, err = make_score_matrix(
-                    group, args.test_dirs, 'model', metric,
-                )
-                scores.append(score - score_ref)
-                errs.append(err - err_ref)
-                colors.append(color_cycle[(i+2) % len(color_cycle)])
-                if args.legend is None:
-                    labels += [str(model['val']) for model in group]
-            if args.legend is not None:
-                labels += args.legend
-            ylabel = r'$\Delta$' + metric
-            barplot(scores, ax, errs=errs, ylabel=ylabel, labels=labels,
-                    colors=colors, xticklabels=args.xticks,
-                    rotation=args.rotation, lw=args.lw)
-            LegendFormatter(fig, ncol=args.ncol)
-            figs[f'd{metric}'] = fig
-
-        # segSSNR vs segBR plot
-        symbols = ['o', 's', '^', 'v', '<', '>']
-        fig, ax = plt.subplots(1, 1, sharey=True, sharex=True)
-        remove_patches(fig, ax)
-        fig_legend_handles = []
-        fig_legend_labels = []
-        ax_legend_handles = []
-        ax_legend_labels = []
-        model_count = 0
+            scores.append(score)
+            errs.append(err)
+            colors.append(color_cycle[0])
+            labels.append('ref')
+        # then add oracle score
+        if not args.no_oracle and metric in oracle_metrics:
+            score, err = make_score_matrix(
+                [groups[0][0]], args.test_dirs, 'oracle', metric
+            )
+            scores.append(score)
+            errs.append(err)
+            colors.append(color_cycle[1])
+            labels.append('oracle')
+        # finally add model scores
         for i, group in enumerate(groups):
-            color = color_cycle[(i+2) % len(color_cycle)]
-            for j, model in enumerate(group):
-                x, _ = make_score_matrix(
-                    [model], args.test_dirs, 'model', 'segBR'
-                )
-                y, _ = make_score_matrix(
-                    [model], args.test_dirs, 'model', 'segSSNR'
-                )
-                color = to_rgb(color)
-                color = color + (1-j/len(group), )
-                patch = mpatches.Patch(color=color)
-                if args.legend is None:
-                    label = str(model['val'])
-                else:
-                    try:
-                        label = args.legend[model_count]
-                    except IndexError:
-                        label = ''
-                fig_legend_handles.append(patch)
-                fig_legend_labels.append(label)
-                for k in range(len(args.test_dirs)):
-                    symbol = symbols[k % len(symbols)]
-                    ax.plot(x[k], y[k], marker=symbol, markersize=10,
-                            linestyle='', color=color)
-                    if i == j == 0:
-                        line = mlines.Line2D([], [], linestyle='', color='k',
-                                             markersize=10, marker=symbol)
-                        label = args.test_dirs[k]
-                        ax_legend_handles.append(line)
-                        ax_legend_labels.append(label)
-                model_count += 1
-        ax.legend(ax_legend_handles, ax_legend_labels)
-        ax.set_xlabel('segBR (dB)')
-        ax.set_ylabel('segSSNR (dB)')
-        ax.grid(linestyle='dotted')
-        ax.set_axisbelow(True)
-        lh = fig.legend(fig_legend_handles, fig_legend_labels, loc=9)
-        LegendFormatter(fig, lh=lh, ncol=args.ncol)
-        figs['segmental'] = fig
+            score, err = make_score_matrix(
+                group, args.test_dirs, 'model', metric,
+            )
+            scores.append(score)
+            errs.append(err)
+            colors.append(color_cycle[(i+2) % len(color_cycle)])
+            if args.legend is None:
+                labels += [str(model['val']) for model in group]
+        if args.legend is not None:
+            labels += args.legend
+        barplot(scores, ax, errs=errs, ylabel=metric, labels=labels,
+                colors=colors, xticklabels=args.xticks,
+                rotation=args.rotation, lw=args.lw)
+        if args.tex is not None:
+            write_tex(scores, args.tex, columns=labels,
+                      index=args.xticks, caption=args.tex_caption,
+                      metric=metric)
+        LegendFormatter(fig, ncol=args.ncol)
+        figs[metric] = fig
 
-    plt.show()
+    # delta PESQ and delta STOI plots
+    delta_metrics = [
+        'PESQ',
+        'STOI',
+    ]
+    for metric in delta_metrics:
+        fig, ax = plt.subplots(1, 1, figsize=args.figsize)
+        remove_patches(fig, ax)
+        scores = []
+        errs = []
+        labels = []
+        colors = []
+        # load reference score
+        score_ref, err_ref = make_score_matrix(
+            [groups[0][0]], args.test_dirs, 'ref', metric
+        )
+        # add oracle score
+        if not args.no_oracle and metric in oracle_metrics:
+            score, err = make_score_matrix(
+                [groups[0][0]], args.test_dirs, 'oracle', metric
+            )
+            scores.append(score - score_ref)
+            errs.append(err - err_ref)
+            colors.append(color_cycle[1])
+            labels.append('oracle')
+        # finally add model scores
+        for i, group in enumerate(groups):
+            score, err = make_score_matrix(
+                group, args.test_dirs, 'model', metric,
+            )
+            scores.append(score - score_ref)
+            errs.append(err - err_ref)
+            colors.append(color_cycle[(i+2) % len(color_cycle)])
+            if args.legend is None:
+                labels += [str(model['val']) for model in group]
+        if args.legend is not None:
+            labels += args.legend
+        ylabel = r'$\Delta$' + metric
+        barplot(scores, ax, errs=errs, ylabel=ylabel, labels=labels,
+                colors=colors, xticklabels=args.xticks,
+                rotation=args.rotation, lw=args.lw)
+        LegendFormatter(fig, ncol=args.ncol)
+        figs[f'd{metric}'] = fig
 
-    if args.output_dir is not None:
-        if not os.path.exists(args.output_dir):
-            os.mkdir(args.output_dir)
-        for key, fig in figs.items():
-            fig.savefig(f'{args.output_dir}/{key}.{args.format}')
+    # segSSNR vs segBR plot
+    symbols = ['o', 's', '^', 'v', '<', '>']
+    fig, ax = plt.subplots(1, 1, sharey=True, sharex=True)
+    remove_patches(fig, ax)
+    fig_legend_handles = []
+    fig_legend_labels = []
+    ax_legend_handles = []
+    ax_legend_labels = []
+    model_count = 0
+    for i, group in enumerate(groups):
+        color = color_cycle[(i+2) % len(color_cycle)]
+        for j, model in enumerate(group):
+            x, _ = make_score_matrix(
+                [model], args.test_dirs, 'model', 'segBR'
+            )
+            y, _ = make_score_matrix(
+                [model], args.test_dirs, 'model', 'segSSNR'
+            )
+            color = to_rgb(color)
+            color = color + (1-j/len(group), )
+            patch = mpatches.Patch(color=color)
+            if args.legend is None:
+                label = str(model['val'])
+            else:
+                try:
+                    label = args.legend[model_count]
+                except IndexError:
+                    label = ''
+            fig_legend_handles.append(patch)
+            fig_legend_labels.append(label)
+            for k in range(len(args.test_dirs)):
+                symbol = symbols[k % len(symbols)]
+                ax.plot(x[k], y[k], marker=symbol, markersize=10,
+                        linestyle='', color=color)
+                if i == j == 0:
+                    line = mlines.Line2D([], [], linestyle='', color='k',
+                                         markersize=10, marker=symbol)
+                    label = args.test_dirs[k]
+                    ax_legend_handles.append(line)
+                    ax_legend_labels.append(label)
+            model_count += 1
+    ax.legend(ax_legend_handles, ax_legend_labels)
+    ax.set_xlabel('segBR (dB)')
+    ax.set_ylabel('segSSNR (dB)')
+    ax.grid(linestyle='dotted')
+    ax.set_axisbelow(True)
+    lh = fig.legend(fig_legend_handles, fig_legend_labels, loc=9)
+    LegendFormatter(fig, lh=lh, ncol=args.ncol)
+    figs['segmental'] = fig
+
+    if not args.no_show:
+        # show before saving so legend placement is updated
+        plt.show(block=False)
+        plt.pause(0.1)
+
+        # if summary only keep a few plots open
+        if args.summary:
+            for key, fig in figs.items():
+                if key not in ['summary', 'page', 'train_curve']:
+                    plt.close(fig)
+
+        # save after showing so legend placement is correct 
+        if args.output_dir is not None:
+            if not os.path.exists(args.output_dir):
+                os.makedirs(args.output_dir)
+            for key, fig in figs.items():
+                fig.savefig(f'{args.output_dir}/{key}.{args.format}')
+
+        plt.show()
 
 
 if __name__ == '__main__':
@@ -652,10 +719,6 @@ if __name__ == '__main__':
                         help='plot only the summary of scores')
     parser.add_argument('--figsize', nargs=2, type=float,
                         help='figure size')
-    parser.add_argument('--ymax-pesq', type=float,
-                        help='pesq y axis upper limits')
-    parser.add_argument('--ymin-pesq', type=float,
-                        help='pesq y axis lower limits')
     parser.add_argument('--train-curve', action='store_true',
                         help='plot training curves')
     parser.add_argument('--no-ref', action='store_true',
@@ -672,6 +735,12 @@ if __name__ == '__main__':
                         help='test dirs label rotation')
     parser.add_argument('--lw', type=float,
                         help='error bar line width')
+    parser.add_argument('--tex',
+                        help='output tex dir')
+    parser.add_argument('--tex-caption',
+                        help='table caption template')
+    parser.add_argument('--no-show', action='store_true',
+                        help='do not show figures')
     filter_args, args = parser.parse_args()
 
     model_dirs = []

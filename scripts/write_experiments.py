@@ -51,6 +51,9 @@ def write_exp(
             output_dir,
             rotation=None,
             lw=None,
+            tex=None,
+            tex_caption=None,
+            pre_models_n_configs=None,
         ):
     assert len(model_dim_vals) == len(model_labels)
     assert len(cond_dim_vals) == len(cond_labels)
@@ -69,6 +72,10 @@ def write_exp(
         kind='train',
         **{dim: None for dim in dim},
     )
+    if pre_models_n_configs is None:
+        pre_models, pre_configs = bmm.find_model(return_configs=True)
+    else:
+        pre_models, pre_configs = pre_models_n_configs
     for val in model_dim_vals:
         dsets = find_dset(
             dsets=pre_dsets,
@@ -82,6 +89,8 @@ def write_exp(
                 normalizations = [args.normalization]
             for normalization in normalizations:
                 models = bmm.find_model(
+                    models=pre_models,
+                    configs=pre_configs,
                     train_path=[dset],
                     dropout=[True],
                     normalization=normalization,
@@ -128,12 +137,27 @@ def write_exp(
     logger.write('normalization')
     logger.write('train-path')
     logger.write('--summary')
+    if tex is not None:
+        logger.write('--tex')
+        logger.write(tex)
+    if tex_caption is not None:
+        logger.write('--tex-caption')
+        logger.write(tex_caption)
+    logger.write('$1')
 
 
 def main():
-    write_exp(
+
+    pre_models_n_configs = bmm.find_model(return_configs=True)
+
+    def write_exp_(*args, **kwargs):
+        write_exp(*args, **kwargs, pre_models_n_configs=pre_models_n_configs)
+
+    write_exp_(
         dim='noise_types',
         model_dim_vals=[
+            {'ssn'},
+            {'bbl'},
             {'dcase_airport'},
             {'dcase_bus'},
             {'dcase_metro'},
@@ -155,22 +179,28 @@ def main():
                 'dcase_street_pedestrian',
                 'dcase_street_traffic',
                 'dcase_tram',
+                'ssn',
+                'bbl',
             },
         ],
         model_labels=[
-            'airport',
-            'bus',
-            'metro',
-            'metro_station',
-            'park',
-            'public_square',
-            'shopping_mall',
-            'street_pedestrian',
-            'street_traffic',
-            'tram',
+            'ssn',
+            'bbl',
+            'u1',  # 'airport',
+            'u2',  # 'bus',
+            'u3',  # 'metro',
+            'u4',  # 'metro_station',
+            'u5',  # 'park',
+            'u6',  # 'public_square',
+            'u7',  # 'shopping_mall',
+            'u8',  # 'street_pedestrian',
+            'u9',  # 'street_traffic',
+            'u10',  # 'tram',
             'general',
         ],
         cond_dim_vals=[
+            {'ssn'},
+            {'bbl'},
             {'dcase_airport'},
             {'dcase_bus'},
             {'dcase_metro'},
@@ -183,23 +213,27 @@ def main():
             {'dcase_tram'},
         ],
         cond_labels=[
-            'airport',
-            'bus',
-            'metro',
-            'metro_station',
-            'park',
-            'public_square',
-            'shopping_mall',
-            'street_pedestrian',
-            'street_traffic',
-            'tram',
+            'ssn',
+            'bbl',
+            'u1',  # 'airport',
+            'u2',  # 'bus',
+            'u3',  # 'metro',
+            'u4',  # 'metro_station',
+            'u5',  # 'park',
+            'u6',  # 'public_square',
+            'u7',  # 'shopping_mall',
+            'u8',  # 'street_pedestrian',
+            'u9',  # 'street_traffic',
+            'u10',  # 'tram',
             ],
         filename=f'experiments/noise_{args.normalization}.sh',
         output_dir='pics/exp/noise',
         rotation='45',
         lw='0.4',
+        tex='tex/exp/noise',
+        tex_caption='"{metric} scores for the noise type dimension experiment {scaling}."',
     )
-    write_exp(
+    write_exp_(
         dim='speakers',
         model_dim_vals=[
             {'ieee'},
@@ -213,13 +247,13 @@ def main():
         ],
         model_labels=[
             'ieee',
-            'timit_all',
-            'timit_FCJF0',
-            'timit_all_but_FCJF0',
-            'libri_all',
-            'libri_19',
-            'libri_all_but_19',
-            'timit_all and libri_all',
+            'timit_*',
+            'timit_1',
+            r'timit_$\overline{1}$',
+            'libri_*',
+            'libri_1',
+            r'libri_$\overline{1}$',
+            r'timit_* \\\\ libri_*',
         ],
         cond_dim_vals=[
             {'ieee'},
@@ -232,17 +266,19 @@ def main():
         ],
         cond_labels=[
             'ieee',
-            'timit_all',
-            'timit_FCJF0',
-            'timit_all_but_FCJF0',
-            'libri_all',
-            'libri_19',
-            'libri_all_but_19',
+            'timit_*',
+            'timit_1',
+            r'timit_$\overline{1}$',
+            'libri_*',
+            'libri_1',
+            r'libri_$\overline{1}$',
         ],
         filename=f'experiments/speaker_{args.normalization}.sh',
         output_dir='pics/exp/speaker',
+        tex='tex/exp/speaker',
+        tex_caption='"{metric} scores for the speaker dimension experiment {scaling}."',
     )
-    write_exp(
+    write_exp_(
         dim='snr_dist_args',
         model_dim_vals=[
             [-5, -5],
@@ -252,11 +288,11 @@ def main():
             [-5, 10],
         ],
         model_labels=[
-            '-5 dB SNR',
-            '0 dB SNR',
-            '5 dB SNR',
-            '10 dB SNR',
-            '-5 -- 10 dB SNR',
+            '-5 dB',
+            '0 dB',
+            '5 dB',
+            '10 dB',
+            '-5 -- 10 dB',
         ],
         cond_dim_vals=[
             [-5, -5],
@@ -265,15 +301,17 @@ def main():
             [10, 10],
         ],
         cond_labels=[
-            '-5 dB SNR',
-            '0 dB SNR',
-            '5 dB SNR',
-            '10 dB SNR',
+            '-5 dB',
+            '0 dB',
+            '5 dB',
+            '10 dB',
         ],
         filename=f'experiments/snr_{args.normalization}.sh',
         output_dir='pics/exp/snr',
+        tex='tex/exp/snr',
+        tex_caption='"{metric} scores for the SNR dimension experiment {scaling}."',
     )
-    write_exp(
+    write_exp_(
         dim='rooms',
         model_dim_vals=[
             {'surrey_room_a'},
@@ -282,24 +320,24 @@ def main():
             {'surrey_room_d'},
             {'surrey_room_.'},
             {'ash_r01'},
+            {'^ash_r(?!01$).*$'},
             {'ash_r0.*'},
             {'^ash_r(?!0).*$'},
-            {'^ash_r(?!01$).*$'},
             {'ash_r.*'},
             {'surrey_room_.', 'ash_r.*'},
         ],
         model_labels=[
-            'SURREY A',
-            'SURREY B',
-            'SURREY C',
-            'SURREY D',
-            'SURREY all',
-            'ASH 01',
-            'ASH 01-09',
-            'ASH all but 01-09',
-            'ASH all but 01',
-            'ASH all',
-            'SURREY all and ASH all',
+            r'\$S_A$',
+            r'\$S_B$',
+            r'\$S_C$',
+            r'\$S_D$',
+            r'\$S_*$',
+            r'\$A_{01}$',
+            r'\$A_{\overline{01}}$',
+            r'\$A_{01-09}$',
+            r'\$A_{\overline{01-09}}$',
+            r'\$A_*$',
+            r'\$S_* \cup A_*$',
         ],
         cond_dim_vals=[
             {'surrey_room_a'},
@@ -308,48 +346,52 @@ def main():
             {'surrey_room_d'},
             {'surrey_room_.'},
             {'ash_r01'},
+            {'^ash_r(?!01$).*$'},
             {'ash_r0.*'},
             {'^ash_r(?!0).*$'},
-            {'^ash_r(?!01$).*$'},
             {'ash_r.*'},
         ],
         cond_labels=[
-            'SURREY A',
-            'SURREY B',
-            'SURREY C',
-            'SURREY D',
-            'SURREY all',
-            'ASH 01',
-            'ASH 01-09',
-            'ASH all but 01-09',
-            'ASH all but 01',
-            'ASH all',
+            r'\$S_A$',
+            r'\$S_B$',
+            r'\$S_C$',
+            r'\$S_D$',
+            r'\$S_*$',
+            r'\$A_01$',
+            r'\$A_{\overline{01}}$',
+            r'\$A_{01-09}$',
+            r'\$A_{\overline{01-09}}$',
+            r'\$A_*$',
         ],
         filename=f'experiments/room_{args.normalization}.sh',
         output_dir='pics/exp/room',
+        tex='tex/exp/room',
+        tex_caption='"{metric} scores for the room dimension experiment {scaling}."',
     )
-    write_exp(
+    write_exp_(
         dim=('target_angle_min', 'target_angle_max'),
         model_dim_vals=[
             (0, 0),
             (-90, 90),
         ],
         model_labels=[
-            'fixed speaker location',
-            'random speaker location',
+            '0°',
+            '-90° -- 90°',
         ],
         cond_dim_vals=[
             (0, 0),
             (-90, 90),
         ],
         cond_labels=[
-            'fixed speaker location',
-            'random speaker location',
+            '0°',
+            '-90° -- 90°',
         ],
         filename=f'experiments/angle_{args.normalization}.sh',
         output_dir='pics/exp/angle',
+        tex='tex/exp/angle',
+        tex_caption='"{metric} scores for the direction dimension experiment {scaling}."',
     )
-    write_exp(
+    write_exp_(
         dim='random_rms',
         model_dim_vals=[
             False,
@@ -369,6 +411,8 @@ def main():
         ],
         filename=f'experiments/rms_{args.normalization}.sh',
         output_dir='pics/exp/rms',
+        tex='tex/exp/rms',
+        tex_caption='"{metric} scores for the level dimension experiment {scaling}."',
     )
 
 
