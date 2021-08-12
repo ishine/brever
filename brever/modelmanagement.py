@@ -338,7 +338,7 @@ def get_config_field(input_config_dict, argument_tag, default=None):
                           default)
 
 
-def find_model(**kwargs):
+def find_model(models=None, configs=None, return_configs=False, **kwargs):
     """
     Find a model in the project model directory.
 
@@ -351,6 +351,17 @@ def find_model(**kwargs):
 
     Parameters
     ----------
+    models: list of str, optional
+        Pre-computed list of model paths to scan. If `None`, the whole
+        project model directory is scanned. Default is `None`.
+    configs: list of dict, optional
+        Pre-computed list of model configuration dictionaries. If `None`,
+        the YAML configuration file in each directory in `models` will be
+        loaded. Default is `None`.
+    return_configs: bool, optional
+        If `True`, the list of model configuration dictionaries matching the
+        filtering arguments is also returned. Default is `False`, which means
+        only the list of matching paths is returned. 
     **kwargs :
         Parameters to filter the list of available models. The available
         parameters are the keys of
@@ -363,13 +374,28 @@ def find_model(**kwargs):
         List of model paths found in the project model directory that match
         the parameter filters.
     """
-    models_dir = defaults().PATH.MODELS
-    models = []
-    for model_id in os.listdir(models_dir):
-        config_file = os.path.join(models_dir, model_id, 'config_full.yaml')
-        if not os.path.exists(config_file):
-            config_file = os.path.join(models_dir, model_id, 'config.yaml')
-        config = read_yaml(config_file)
+    if models is None:
+        models = []
+        models_dir = defaults().PATH.MODELS
+        for model_id in os.listdir(models_dir):
+            models.append(os.path.join(models_dir, model_id))
+
+    if configs is None:
+        configs = []
+        for model in models:
+            config_file = os.path.join(model, 'config_full.yaml')
+            if not os.path.exists(config_file):
+                config_file = os.path.join(model, 'config.yaml')
+            config = read_yaml(config_file)
+            configs.append(config)
+
+    if not len(models) == len(configs):
+        raise ValueError('models and configs must have same length, got '
+                         f'{len(models)} and {len(configs)}')
+
+    filtered_models = []
+    filtered_configs = []
+    for model, config in zip(models, configs):
         valid = True
         for key, value in kwargs.items():
             keys = ModelFilterArgParser.arg_to_keys_map[key]
@@ -377,11 +403,17 @@ def find_model(**kwargs):
                 valid = False
                 break
         if valid:
-            models.append(os.path.join(models_dir, model_id))
-    return models
+            filtered_models.append(model)
+            filtered_configs.append(config)
+
+    if return_configs:
+        return filtered_models, filtered_configs
+    else:
+        return filtered_models
 
 
-def find_dataset(dsets=None, kind=None, **kwargs):
+def find_dataset(kind=None, dsets=None, configs=None, return_configs=False,
+                 **kwargs):
     """
     Find a dataset in the project dataset directory.
 
@@ -394,14 +426,22 @@ def find_dataset(dsets=None, kind=None, **kwargs):
 
     Parameters
     ----------
-    dsets: list of str, optional
-        Pre-computed list of dataset paths to scan. If `None`, the whole
-        project dataset directory is scanned. Default is `None`.
     kind: {'train', 'val', 'test'}, optional
         Sub-directory to scan. Default is `None`, which means all
         sub-directories are scanned.
+    dsets: list of str, optional
+        Pre-computed list of dataset paths to scan. If `None`, the whole
+        project dataset directory is scanned. Default is `None`.
+    configs: list of dict, optional
+        Pre-computed list of dataset configuration dictionaries. If `None`,
+        the YAML configuration file in each directory in `dsets` will be
+        loaded. Default is `None`.
+    return_configs: bool, optional
+        If `True`, the list of dataset configuration dictionaries matching the
+        filtering arguments is also returned. Default is `False`, which means
+        only the list of matching paths is returned. 
     **kwargs :
-        Parameters to filter the list of available models. The available
+        Parameters to filter the list of available datasets. The available
         parameters are the keys of
         `~.modelmanagement.DatasetInitArgParser.arg_to_keys_map`,
         and must be set as values of the appropriate type.
@@ -423,7 +463,20 @@ def find_dataset(dsets=None, kind=None, **kwargs):
         for root, folder, files in os.walk(directory):
             if 'config.yaml' in files:
                 dsets.append(root)
-    output = []
+
+    if configs is None:
+        configs = []
+        for dset in dsets:
+            config_file = os.path.join(dset, 'config.yaml')
+            config = read_yaml(config_file)
+            configs.append(config)
+
+    if not len(dsets) == len(configs):
+        raise ValueError('dsets and configs must have same length, got '
+                         f'{len(dsets)} and {len(configs)}')
+
+    filtered_dsets = []
+    filtered_configs = []
     for dset in dsets:
         config_file = os.path.join(dset, 'config.yaml')
         config = read_yaml(config_file)
@@ -435,8 +488,13 @@ def find_dataset(dsets=None, kind=None, **kwargs):
                     valid = False
                     break
         if valid:
-            output.append(dset.replace('\\', '/'))
-    return output
+            filtered_dsets.append(dset.replace('\\', '/'))
+            filtered_configs.append(config)
+
+    if return_configs:
+        return filtered_dsets, filtered_configs
+    else:
+        return filtered_dsets
 
 
 class ExtendableArgParser(argparse.ArgumentParser):
