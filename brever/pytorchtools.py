@@ -215,7 +215,6 @@ class H5Dataset(torch.utils.data.Dataset):
         self.features = features
         self.labels = labels
         self.load = load
-        self.transform = transform
         self.stack = stack
         self.decimation = decimation
         self.dct_toggle = dct_toggle
@@ -226,6 +225,10 @@ class H5Dataset(torch.utils.data.Dataset):
         self.datasets = None
         self.file_nums = None
         self.file_indices = self.get_file_indices()
+        self._transformed_when_prestacked = False  # an ugly flag to prevent
+        # the dataset from getting normalized twice when setting the transform
+        # before prestacking
+        self.transform = transform
         with h5py.File(self.filepath, 'r') as f:
             assert len(f['features']) == len(f['labels'])
             # calculate number of samples
@@ -256,6 +259,21 @@ class H5Dataset(torch.utils.data.Dataset):
                     logging.info('Prestacking')
                     self.datasets = self[:]
                     self._prestacked = True
+                    if self.transform:
+                        self._transformed_when_prestacked = True
+
+    @property
+    def transform(self):
+        return self._transform
+
+    @transform.setter
+    def transform(self, value):
+        if self._transformed_when_prestacked:
+            raise ValueError(
+                'Cannot set transform attribute anymore as the dataset was '
+                'already prestacked using the current transform object.'
+            )
+        self._transform = value
 
     def get_feature_indices(self):
         pipes_path = os.path.join(self.dirpath, 'pipes.pkl')
@@ -297,6 +315,8 @@ class H5Dataset(torch.utils.data.Dataset):
                 if self.prestack:
                     self.datasets = self[:]
                     self._prestacked = True
+                    if self.transform:
+                        self._transformed_when_prestacked = True
             else:
                 self.datasets = (f['features'], f['labels'])
                 self.file_nums = f['indexes']
@@ -304,7 +324,7 @@ class H5Dataset(torch.utils.data.Dataset):
             file_num = self.file_nums[index]
             if self._prestacked:
                 x, y = self.datasets[0][index], self.datasets[1][index]
-                if self.transform:
+                if not self._transformed_when_prestacked and self.transform:
                     if isinstance(self.transform, ResursiveTensorStandardizer):
                         if index == 0 or self.file_nums[index-1] != file_num:
                             self.transform.reset()
