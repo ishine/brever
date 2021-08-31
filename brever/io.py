@@ -222,6 +222,18 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
             - 'dcase_street_pedestrian'
             - 'dcase_street_traffic'
             - 'dcase_tram'
+            - 'icra_01'
+            - 'icra_02'
+            - 'icra_03'
+            - 'icra_04'
+            - 'icra_05'
+            - 'icra_06'
+            - 'icra_07'
+            - 'icra_08'
+            - 'icra_09'
+            Can also be a regexp. For example:
+            - 'dcase_.*'
+            - 'icra_.*'
         n_samples:
             Number of samples to load.
         lims:
@@ -253,13 +265,19 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
         m = re.match('^dcase_(.*)$', noise_alias)
         if m is None:
             raise ValueError(f'wrong noise type, got {noise_alias}')
-        prefix = f'{m.group(1)}-'
+        pattern = f'{m.group(1)}'
+        if not pattern.startswith('^'):
+            pattern = f'^{pattern}'
+        if not pattern.endswith('$'):
+            pattern = f'{pattern}$'
         for root, dirs, files in os.walk(dirpath):
             for file in files:
-                if file.endswith(('.wav', '.WAV')) and file.startswith(prefix):
-                    all_filepaths.append(os.path.join(root, file))
+                if file.endswith(('.wav', '.WAV')):
+                    noise_type = file.split('-')[0]
+                    if re.match(pattern, noise_type):
+                        all_filepaths.append(os.path.join(root, file))
         if not all_filepaths:
-            raise ValueError(f'No .wav file found in {dirpath}')
+            raise ValueError(f'No .wav file found matching {noise_alias}')
         random.Random(0).shuffle(all_filepaths)
         if lims is not None:
             n_files = len(all_filepaths)
@@ -289,8 +307,28 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
         m = re.match('^icra_(.*)$', noise_alias)
         if m is None:
             raise ValueError(f'wrong noise type, got {noise_alias}')
-        i = m.group(1)
-        filepath = os.path.join(dirpath, f'ICRA_{i}.wav')
+        pattern = f'{m.group(1)}'
+        if not pattern.startswith('^'):
+            pattern = f'^{pattern}'
+        if not pattern.endswith('$'):
+            pattern = f'{pattern}$'
+        all_filepaths = []
+        for root, dirs, files in os.walk(dirpath):
+            for file in files:
+                if file.endswith(('.wav', '.WAV')):
+                    m = re.match('^ICRA_(.*).wav$', file)
+                    if m is not None:
+                        icra_number = m.group(1)
+                        if re.match(pattern, icra_number):
+                            all_filepaths.append(os.path.join(root, file))
+        if not all_filepaths:
+            raise ValueError(f'No .wav file found matching {noise_alias}')
+        if len(all_filepaths) == 1:
+            filepath, = all_filepaths
+        else:
+            if randomizer is None:
+                randomizer = random
+            filepath = randomizer.choice(all_filepaths)
         x, fs_old = sf.read(filepath)
         if x.ndim == 2:
             x = x[:, 0]
