@@ -31,6 +31,10 @@ def main():
                 print(f'Model {model_id} train and val paths are not '
                       f'consistent! Got {train_path} and {val_path}')
                 sane = False
+            if not os.path.exists(train_path):
+                print(f'Model {model_id} train path does not exist!')
+            if not os.path.exists(val_path):
+                print(f'Model {model_id} val path does not exist!')
         elif train_path is not None:
             print(f'Model {model_id} has a train path but no val path!')
             sane = False
