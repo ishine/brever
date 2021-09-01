@@ -59,6 +59,8 @@ def load_random_target(speaker, lims=None, fs=16e3, randomizer=None,
     '''
     if all_filepaths is None:
         all_filepaths = get_all_filepaths(speaker, def_cfg)
+    # copy to prevent shuffling the list outside the function!
+    all_filepaths = all_filepaths.copy()
     random.Random(0).shuffle(all_filepaths)
     if lims is not None:
         n_files = len(all_filepaths)
@@ -231,9 +233,11 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
             - 'icra_07'
             - 'icra_08'
             - 'icra_09'
-            Can also be a regexp. For example:
+            Can also be a regexp. The regexp should come after the
+            noise database alias. For example:
             - 'dcase_.*'
             - 'icra_.*'
+            - 'dcase_bus|metro'
         n_samples:
             Number of samples to load.
         lims:
