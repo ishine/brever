@@ -11,16 +11,8 @@ def main(args, params):
 
     # parameters for the general dataset
     general_noise_types = {
-        'dcase_airport',
-        'dcase_bus',
-        'dcase_metro',
-        'dcase_metro_station',
-        'dcase_park',
-        'dcase_public_square',
-        'dcase_shopping_mall',
-        'dcase_street_pedestrian',
-        'dcase_street_traffic',
-        'dcase_tram',
+        'dcase_.*',
+        'icra_.*',
         'bbl',
         'ssn',
     }
@@ -50,6 +42,19 @@ def main(args, params):
         {'dcase_tram'},
         {'bbl'},
         {'ssn'},
+        {'icra_01'},
+        {'icra_02'},
+        {'icra_03'},
+        {'icra_04'},
+        {'icra_05'},
+        {'icra_06'},
+        {'icra_07'},
+        {'icra_08'},
+        {'icra_09'},
+        {'icra_01'},
+        {'dcase_.*'},
+        {'ssn', 'bbl'},
+        {'icra_.*'},
         general_noise_types,
     ]
     roomss = [
@@ -198,6 +203,24 @@ def main(args, params):
 
     print(f'{len(configs)} datasets attempted to be initialized.')
     print(f'{len(configs) - len(new_configs)} already exist.')
+
+    # build the list of dsets already in the filesystem
+    filesystem_dsets = []
+    for subdir in ['train', 'val']:
+        for file in os.listdir(os.path.join(processed_dir, subdir)):
+            filesystem_dsets.append(os.path.join(processed_dir, subdir, file))
+    # highlight the dsets in the filesystem that were not attempted to be
+    # created again; they might be deprecated
+    deprecated_dsets = []
+    for dset in filesystem_dsets:
+        if dset not in [config[1] for config in configs]:
+            deprecated_dsets.append(dset)
+    if deprecated_dsets:
+        print('The following datasets are in the filesystem but were not '
+              'attempted to be initialized again. They might be deprecated?')
+        for dset in deprecated_dsets:
+            print(dset)
+
     if not new_configs:
         print(f'{len(new_configs)} will be initialized.')
     else:
