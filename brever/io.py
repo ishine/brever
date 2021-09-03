@@ -549,7 +549,7 @@ def get_all_filepaths(speaker, def_cfg=None):
             for root, dirs, files in os.walk(speakers[key]):
                 for file in files:
                     if file.lower().endswith('.flac'):
-                        all_filepaths.append(os.path.join(speakers[key], file))
+                        all_filepaths.append(os.path.join(root, file))
     if not all_filepaths:
         raise ValueError(f'No audio file found for speaker {speaker}')
     return all_filepaths
