@@ -29,13 +29,24 @@ def load_random_target(speaker, lims=None, fs=16e3, randomizer=None,
 
     Parameters:
         speaker:
-            Speaker alias. Case insensitive. Can also be a regular expression. 
-            Examples:
-            - timit_FCJF0
-            - timit_fcjf0
-            - libri_19
-            - timit_f.*
+            Speaker alias. Can be either:
+            - timit_m{i} with i in [0, 437] for TIMIT male speakers
+            - timit_f{i} with i in [0, 191] for TIMIT female speakers
+            - libri_m{i} with i in [0, n_male-1] for LibriSpeech male speakers
+                - n_male is the number of different male speakers in the
+                  LibriSpeech set in your filesystem
+                - e.g. for the train-clean-100 LibriSpeech set, n_male=126
+            - libri_f{i} with i in [0, n_fem-1] for LibriSpeech female speakers
+                - n_fem is the number of different female speakers in the
+                  LibriSpeech set in your filesystem
+                - e.g. for the train-clean-100 LibriSpeech set, n_fem=125
             - ieee
+            Can also be a regexp. The regexp should come after the speech
+            database alias. For example:
+            - timit_.*
+            - timit_f.*
+            - libri_m.*
+            - timit_m[0-10]
         lims:
             Lower and upper fraction of files of the total list of files from
             which to randomly chose a target from. E.g. setting lims to
@@ -233,8 +244,8 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
             - 'icra_07'
             - 'icra_08'
             - 'icra_09'
-            Can also be a regexp. The regexp should come after the
-            noise database alias. For example:
+            Can also be a regexp. The regexp should come after the noise
+            database alias. For example:
             - 'dcase_.*'
             - 'icra_.*'
             - 'dcase_bus|metro'
@@ -515,14 +526,13 @@ def get_all_filepaths(speaker, def_cfg=None):
             pattern = f'^{pattern}'
         if not pattern.endswith('$'):
             pattern = f'{pattern}$'
-        for root, dirs, files in os.walk(dirpath):
-            basename = os.path.basename(root)
-            if re.match(pattern, basename.lower()):
-                for file in files:
-                    if (file.lower().endswith('.wav')
-                            and 'SA1' not in file
-                            and 'SA2' not in file):
-                        all_filepaths.append(os.path.join(root, file))
+        speakers = get_timit_speakers(dirpath)
+        for key in filter(re.compile(pattern).match, speakers):
+            for file in os.listdir(speakers[key]):
+                if (file.lower().endswith('.wav')
+                        and 'SA1' not in file
+                        and 'SA2' not in file):
+                    all_filepaths.append(os.path.join(speakers[key], file))
     elif dset_alias == 'ieee':
         for root, dirs, files in os.walk(dirpath):
             for file in files:
@@ -534,14 +544,12 @@ def get_all_filepaths(speaker, def_cfg=None):
             pattern = f'^{pattern}'
         if not pattern.endswith('$'):
             pattern = f'{pattern}$'
-        for root, dirs, files in os.walk(dirpath):
-            basename = os.path.basename(root)
-            if re.match(pattern, basename.lower()):
-                for dir_ in dirs:
-                    subroot = os.path.join(root, dir_)
-                    for file_ in os.listdir(subroot):
-                        if file_.lower().endswith('.flac'):
-                            all_filepaths.append(os.path.join(subroot, file_))
+        speakers = get_libri_speakers(dirpath)
+        for key in filter(re.compile(pattern).match, speakers):
+            for root, dirs, files in os.walk(speakers[key]):
+                for file in files:
+                    if file.lower().endswith('.flac'):
+                        all_filepaths.append(os.path.join(speakers[key], file))
     if not all_filepaths:
         raise ValueError(f'No audio file found for speaker {speaker}')
     return all_filepaths
@@ -582,3 +590,63 @@ def get_ltas(speaker=None, all_filepaths=None, def_cfg=None, n_fft=512,
     ltas_smooth = np.copy(ltas)
     ltas_smooth[1:] = g@ltas_smooth[1:]
     return ltas_smooth
+
+
+def get_timit_speakers(timit_dir):
+    male_speakers = []
+    female_speakers = []
+    for root, dirs, files in os.walk(timit_dir):
+        if root.endswith('TRAIN') or root.endswith('TEST'):
+            for dialect in dirs:
+                root_ = os.path.join(root, dialect)
+                for speaker_id in os.listdir(root_):
+                    item = os.path.join(root_, speaker_id)
+                    if speaker_id.startswith('M'):
+                        male_speakers.append(item)
+                    elif speaker_id.startswith('F'):
+                        female_speakers.append(item)
+                    else:
+                        raise ValueError(f'Found unexpected TIMIT speaker ID '
+                                         f'not starting with M nor F: {item}')
+    male_speakers.sort()
+    female_speakers.sort()
+    output = {}
+    for i, path in enumerate(male_speakers):
+        output[f'm{i}'] = path
+    for i, path in enumerate(female_speakers):
+        output[f'f{i}'] = path
+    return output
+
+
+def get_libri_speakers(libri_dir):
+    male_speakers = []
+    female_speakers = []
+    txt_file = os.path.join(libri_dir, 'SPEAKERS.TXT')
+    id_sex_dict = {}
+    with open(txt_file) as f:
+        for line in f.readlines():
+            if not line.startswith(';'):
+                id_ = line[:4].rstrip()
+                sex = line[7]
+                id_sex_dict[id_] = sex
+    for dset_name in os.listdir(libri_dir):
+        dset_path = os.path.join(libri_dir, dset_name)
+        if os.path.isdir(dset_path):
+            for speaker_id in os.listdir(dset_path):
+                speaker_path = os.path.join(dset_path, speaker_id)
+                sex = id_sex_dict[speaker_id]
+                if sex == 'M':
+                    male_speakers.append(speaker_path)
+                elif sex == 'F':
+                    female_speakers.append(speaker_path)
+                else:
+                    raise ValueError(f'Bad sex character pulled from '
+                                     f'SPEAKERS.TXT: {sex}')
+    male_speakers.sort(key=lambda x: int(os.path.basename(x)))
+    female_speakers.sort(key=lambda x: int(os.path.basename(x)))
+    output = {}
+    for i, path in enumerate(male_speakers):
+        output[f'm{i}'] = path
+    for i, path in enumerate(female_speakers):
+        output[f'f{i}'] = path
+    return output
