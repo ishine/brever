@@ -51,10 +51,10 @@ def main(args, params):
         {'icra_07'},
         {'icra_08'},
         {'icra_09'},
-        {'icra_01'},
         {'dcase_.*'},
         {'ssn', 'bbl'},
         {'icra_.*'},
+        {'dcase_airport|bus|metro|metro_station|park'},
         general_noise_types,
     ]
     roomss = [
@@ -65,9 +65,7 @@ def main(args, params):
         {'surrey_room_.'},
         {'ash_r.*'},
         {'ash_r01'},
-        {'^ash_r(?!01$).*$'},
-        {'ash_r0.*'},
-        {'^ash_r(?!0).*$'},
+        {'ash_r0[0-9]a?b?'},  # 0 to 9
         general_rooms,
     ]
     angle_limss = [
@@ -88,11 +86,27 @@ def main(args, params):
     speakerss = [
         {'ieee'},
         {'timit_.*'},
-        {'timit_FCJF0'},
-        {'timit_^(?!FCJF0$).*$'},
+        {'timit_m.*'},  # all female
+        {'timit_f.*'},  # all male
+        {'timit_m0'},  # male 0
+        {'timit_f0'},  # female 0
+        {'timit_m[0-9]'},  # males 0 to 9
+        {'timit_f[0-9]'},  # females 0 to 9
+        {'timit_m[0-9]?[0-9]'},  # males 0 to 99
+        {'timit_f[0-9]?[0-9]'},  # females 0 to 99
+        {'timit_(f[0-4]|m[0-4])'},  # males and females 0 to 4
+        {'timit_(f[0-4]?[0-9]|m[0-4]?[0-9])'},  # males and females 0 to 49
         {'libri_.*'},
-        {'libri_19'},
-        {'libri_^(?!19$).*$'},
+        {'libri_m.*'},  # all female
+        {'libri_f.*'},  # all male
+        {'libri_m0'},  # male 0
+        {'libri_f0'},  # female 0
+        {'libri_m[0-9]'},  # males 0 to 0
+        {'libri_f[0-9]'},  # females 0 to 9
+        {'libri_m[0-9]?[0-9]'},  # males 0 to 99
+        {'libri_f[0-9]?[0-9]'},  # females 0 to 99
+        {'libri_(f[0-4]|m[0-4])'},  # males and females 0 to 4
+        {'libri_(f[0-4]?[0-9]|m[0-4]?[0-9])'},  # males and females 0 to 49
         general_speakers,
     ]
 
