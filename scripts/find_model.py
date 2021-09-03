@@ -16,7 +16,7 @@ def main(delete=False, set_field=None, **kwargs):
     untrained = []
 
     for model in models:
-        score_file = os.path.join(model, 'scores.mat')
+        score_file = os.path.join(model, 'scores.json')
         loss_file = os.path.join(model, 'losses.npz')
         if os.path.exists(score_file):
             tested.append(model)
