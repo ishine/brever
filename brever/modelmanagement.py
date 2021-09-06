@@ -477,9 +477,7 @@ def find_dataset(kind=None, dsets=None, configs=None, return_configs=False,
 
     filtered_dsets = []
     filtered_configs = []
-    for dset in dsets:
-        config_file = os.path.join(dset, 'config.yaml')
-        config = read_yaml(config_file)
+    for dset, config in zip(dsets, configs):
         valid = True
         for key, value in kwargs.items():
             keys = DatasetInitArgParser.arg_to_keys_map[key]
