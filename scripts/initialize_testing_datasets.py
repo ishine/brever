@@ -106,7 +106,7 @@ def main(args, params):
     # created again; they might be deprecated
     deprecated_dsets = []
     for dset in filesystem_dsets:
-        if dset not in old_configs:
+        if dset not in old_paths:
             deprecated_dsets.append(dset)
     if deprecated_dsets:
         print('The following datasets are in the filesystem but were not '
