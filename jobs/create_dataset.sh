@@ -3,7 +3,7 @@ source jobs/parse_args.sh
 
 for input in "$@"
 do
-    if [ -f $input/dataset.hdf5 ] && [ "$FORCE" == "" ]
+    if [ -f $input/mixture_info.json ] && [ "$FORCE" == "" ]
     then
         echo "dataset already created: $input "
     else
