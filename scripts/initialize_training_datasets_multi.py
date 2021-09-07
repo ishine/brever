@@ -9,27 +9,29 @@ def main(args, params):
     def_cfg = defaults()
     processed_dir = def_cfg.PATH.PROCESSED
 
-    # parameters for the general dataset
-    general_noise_types = {
-        'dcase_.*',
-        'icra_.*',
-        'bbl',
-        'ssn',
-    }
-    general_rooms = {
-        'surrey_room_.',
-        'ash_r.*',
-    }
-    general_angle_lims = (-90.0, 90.0)
-    general_snr_lims = (-5, 10)
-    general_rms_jitter = True
-    general_speakers = {
-        'timit_.*',
-        'libri_.*',
-    }
+    # # parameters for the general dataset
+    # general_noise_types = {
+    #     'dcase_.*',
+    #     'icra_.*',
+    #     'bbl',
+    #     'ssn',
+    # }
+    # general_rooms = {
+    #     'surrey_room_.',
+    #     'ash_r.*',
+    # }
+    # general_angle_lims = (-90.0, 90.0)
+    # general_snr_lims = (-5, 10)
+    # general_rms_jitter = True
+    # general_speakers = {
+    #     'timit_.*',
+    #     'libri_.*',
+    # }
 
     # actual grid of dataset parameters
     noise_typess = [
+        # {'bbl'},
+        # {'ssn'},
         {'dcase_airport'},
         {'dcase_bus'},
         {'dcase_metro'},
@@ -40,8 +42,6 @@ def main(args, params):
         {'dcase_street_pedestrian'},
         {'dcase_street_traffic'},
         {'dcase_tram'},
-        {'bbl'},
-        {'ssn'},
         {'icra_01'},
         {'icra_02'},
         {'icra_03'},
@@ -51,63 +51,128 @@ def main(args, params):
         {'icra_07'},
         {'icra_08'},
         {'icra_09'},
+        # {'ssn', 'bbl'},
         {'dcase_.*'},
-        {'ssn', 'bbl'},
         {'icra_.*'},
-        {'dcase_airport|bus|metro|metro_station|park'},
-        general_noise_types,
+        {'demand'},
+        {'noisex'},
+        {'arte'},
+        {'icra_.*', 'demand', 'noisex', 'arte'},
+        {'dcase_.*', 'demand', 'noisex', 'arte'},
+        {'dcase_.*', 'icra_.*', 'noisex', 'arte'},
+        {'dcase_.*', 'icra_.*', 'demand', 'arte'},
+        {'dcase_.*', 'icra_.*', 'demand', 'noisex'},
+        {
+            'dcase_airport',
+            'dcase_bus',
+            'dcase_metro',
+            'dcase_metro_station',
+            'dcase_park',
+        },
+        {
+            'dcase_public_square',
+            'dcase_shopping_mall',
+            'dcase_street_pedestrian',
+            'dcase_street_traffic',
+            'dcase_tram',
+        },
+        {
+            'dcase_airport',
+            'dcase_metro',
+            'dcase_park',
+            'dcase_shopping_mall',
+            'dcase_street_traffic',
+        },
+        {
+            'dcase_bus',
+            'dcase_metro_station',
+            'dcase_public_square',
+            'dcase_street_pedestrian',
+            'dcase_tram',
+        },
+        # general_noise_types,
     ]
     roomss = [
+        {'surrey_anechoic'},
         {'surrey_room_a'},
         {'surrey_room_b'},
         {'surrey_room_c'},
         {'surrey_room_d'},
-        {'surrey_room_.'},
-        {'ash_r.*'},
         {'ash_r01'},
+        {'ash_r02'},
+        {'ash_r03'},
+        {'ash_r04'},
+        {'ash_r05a?b?'},
         {'ash_r0[0-9]a?b?'},  # 0 to 9
-        general_rooms,
+        {'ash_r1[0-9]'},  # 10 to 19
+        {'ash_r2[0-9]'},  # 20 to 29
+        {'ash_r3[0-9]'},  # 30 to 39
+        {'surrey_.*'},
+        {'ash_.*'},
+        {'air_.*'},
+        {'catt_.*'},
+        {'avil_.*'},
+        {'ash_.*', 'air_.*', 'catt_.*', 'avil_.*'},
+        {'surrey_.*', 'air_.*', 'catt_.*', 'avil_.*'},
+        {'surrey_.*', 'ash_.*', 'catt_.*', 'avil_.*'},
+        {'surrey_.*', 'ash_.*', 'air_.*', 'avil_.*'},
+        {'surrey_.*', 'ash_.*', 'air_.*', 'catt_.*'},
+        # general_rooms,
     ]
     angle_limss = [
         (0.0, 0.0),
-        general_angle_lims,
+        # general_angle_lims,
     ]
     snr_limss = [
         (-5, -5),
         (0, 0),
         (5, 5),
         (10, 10),
-        general_snr_lims,
+        # general_snr_lims,
     ]
     rms_jitters = [
         False,
-        general_rms_jitter,
+        # general_rms_jitter,
     ]
     speakerss = [
-        {'ieee'},
-        {'timit_.*'},
-        {'timit_m.*'},  # all female
-        {'timit_f.*'},  # all male
         {'timit_m0'},  # male 0
         {'timit_f0'},  # female 0
-        {'timit_m[0-9]'},  # males 0 to 9
-        {'timit_f[0-9]'},  # females 0 to 9
-        {'timit_m[0-9]?[0-9]'},  # males 0 to 99
-        {'timit_f[0-9]?[0-9]'},  # females 0 to 99
+        {'timit_m1'},  # male 1
+        {'timit_f1'},  # female 1
+        {'timit_m2'},  # male 2
+        {'timit_f2'},  # female 2
         {'timit_(f[0-4]|m[0-4])'},  # males and females 0 to 4
+        {'timit_(f[5-9]|m[5-9])'},  # males and females 5 to 9
+        {'timit_(f1[0-4]|m1[0-4])'},  # males and females 10 to 14
+        {'timit_(f1[5-9]|m1[5-9])'},  # males and females 15 to 19
+        {'timit_(f2[0-4]|m2[0-4])'},  # males and females 20 to 24
         {'timit_(f[0-4]?[0-9]|m[0-4]?[0-9])'},  # males and females 0 to 49
-        {'libri_.*'},
-        {'libri_m.*'},  # all female
-        {'libri_f.*'},  # all male
+        {'timit_(f[4-9][0-9]|m[4-9][0-9])'},  # males and females 49 to 99
+        {'timit_(f1[0-4][0-9]|m1[0-4][0-9])'},  # males and females 100 to 149
         {'libri_m0'},  # male 0
         {'libri_f0'},  # female 0
-        {'libri_m[0-9]'},  # males 0 to 0
-        {'libri_f[0-9]'},  # females 0 to 9
-        {'libri_m[0-9]?[0-9]'},  # males 0 to 99
-        {'libri_f[0-9]?[0-9]'},  # females 0 to 99
+        {'libri_m1'},  # male 1
+        {'libri_f1'},  # female 1
+        {'libri_m2'},  # male 2
+        {'libri_f2'},  # female 2
         {'libri_(f[0-4]|m[0-4])'},  # males and females 0 to 4
+        {'libri_(f[5-9]|m[5-9])'},  # males and females 5 to 9
+        {'libri_(f1[0-4]|m1[0-4])'},  # males and females 10 to 14
+        {'libri_(f1[5-9]|m1[5-9])'},  # males and females 15 to 19
+        {'libri_(f2[0-4]|m2[0-4])'},  # males and females 20 to 24
         {'libri_(f[0-4]?[0-9]|m[0-4]?[0-9])'},  # males and females 0 to 49
-        general_speakers,
+        {'libri_(f[4-9][0-9]|m[4-9][0-9])'},  # males and females 49 to 99
+        {'ieee'},
+        {'timit_.*'},
+        {'libri_.*'},
+        {'arctic'},
+        {'hint'},
+        {'libri_.*', 'timit_.*', 'arctic', 'hint'},
+        {'ieee', 'timit_.*', 'arctic', 'hint'},
+        {'ieee', 'libri_.*', 'arctic', 'hint'},
+        {'ieee', 'libri_.*', 'timit_.*', 'hint'},
+        {'ieee', 'libri_.*', 'timit_.*', 'arctic'},
+        # general_speakers,
     ]
 
     # the default config is a very specialized one
@@ -199,16 +264,16 @@ def main(args, params):
     for speakers in speakerss:
         add_config(configs, speakers=speakers)
 
-    # don't forget to add the general config!
-    add_config(
-        configs,
-        noise_types=general_noise_types,
-        rooms=general_rooms,
-        angle_lims=general_angle_lims,
-        snr_lims=general_snr_lims,
-        rms_jitter=general_rms_jitter,
-        speakers=general_speakers,
-    )
+    # # don't forget to add the general config!
+    # add_config(
+    #     configs,
+    #     noise_types=general_noise_types,
+    #     rooms=general_rooms,
+    #     angle_lims=general_angle_lims,
+    #     snr_lims=general_snr_lims,
+    #     rms_jitter=general_rms_jitter,
+    #     speakers=general_speakers,
+    # )
 
     new_configs = []
     for config_dict, dset_path in configs:

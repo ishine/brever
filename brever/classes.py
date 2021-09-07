@@ -485,8 +485,11 @@ class RandomMixtureMaker:
 
         if types and types[0] == 'bbl':
 
-            angles = [a for a in get_available_angles(room, self.def_cfg)
-                      if a != metadata['target']['angle']]
+            angles = get_available_angles(room, self.def_cfg)
+            if len(angles) == 1:
+                raise ValueError('cannot use bbl noise with a room that only '
+                                 'has one brir')
+            angles = [a for a in angles if a != metadata['target']['angle']]
             brirs = self._load_brirs(room, angles)
             brirs = [decayer.run(brir) for brir in brirs]
             noises = []
@@ -522,9 +525,11 @@ class RandomMixtureMaker:
             types = [t for t in types if t != 'bbl']
             number = len(types)
             angles = [a for a in get_available_angles(room, self.def_cfg)
-                      if a != metadata['target']['angle']
-                      and self.dir_noise_angle_min <= a <=
+                      if self.dir_noise_angle_min <= a <=
                       self.dir_noise_angle_max]
+            if len(angles) > 1:
+                angles = [a for a in angles if a !=
+                          metadata['target']['angle']]
             self.dir_noise_angles.set_pool(angles)
             angles = self.dir_noise_angles.get(number)
             noises, files, indices = self._load_noises(

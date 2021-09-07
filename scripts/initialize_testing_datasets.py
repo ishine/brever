@@ -9,11 +9,21 @@ def main(args, params):
 
     def_cfg = defaults()
     processed_dir = def_cfg.PATH.PROCESSED
+    test_dir = os.path.join(processed_dir, 'test')
 
     new_configs = []
     new_paths = []
     old_configs = []
     old_paths = []
+
+    default = {
+        'room': {'surrey_room_a'},
+        'snr': [0, 0],
+        'noise': {'dcase_airport'},
+        'speaker': {'ieee'},
+        'rms': False,
+        'angle': [0.0, 0.0],
+    }
 
     for room, snr, noise, angle, rms, speaker in itertools.product(
                 args.test_rooms,
@@ -25,12 +35,12 @@ def main(args, params):
             ):
 
         if sum([
-            room == args.test_rooms[0],
-            snr == args.test_snrs[0],
-            noise == args.test_noises[0],
-            angle == args.test_angles[0],
-            rms == args.test_rms[0],
-            speaker == args.test_speakers[0],
+            room == default['room'],
+            snr == default['snr'],
+            noise == default['noise'],
+            angle == default['angle'],
+            rms == default['rms'],
+            speaker == default['speaker'],
         ]) < 5:
             continue
 
@@ -75,7 +85,6 @@ def main(args, params):
         def_cfg.update(config)  # throws an error if config is not valid
 
         dset_id = bmm.get_unique_id(config)
-        test_dir = os.path.join(processed_dir, 'test')
         dset_path = os.path.join(test_dir, dset_id)
 
         if not os.path.exists(dset_path):
@@ -88,6 +97,22 @@ def main(args, params):
     print(f'{len(new_paths) + len(old_paths)} datasets attempted to be '
           'initialized.')
     print(f'{len(old_paths)} already exist.')
+
+    # build the list of dsets already in the filesystem
+    filesystem_dsets = []
+    for file in os.listdir(test_dir):
+        filesystem_dsets.append(os.path.join(test_dir, file))
+    # highlight the dsets in the filesystem that were not attempted to be
+    # created again; they might be deprecated
+    deprecated_dsets = []
+    for dset in filesystem_dsets:
+        if dset not in old_configs:
+            deprecated_dsets.append(dset)
+    if deprecated_dsets:
+        print('The following datasets are in the filesystem but were not '
+              'attempted to be initialized again. They might be deprecated?')
+        for dset in deprecated_dsets:
+            print(dset)
 
     if not new_paths:
         print(f'{len(new_paths)} will be initialized.')
@@ -116,16 +141,16 @@ if __name__ == '__main__':
     parser.add_argument('--test-rooms', nargs='+',
                         type=bmm.arg_set_type,
                         default=[
+                            {'surrey_anechoic'},
                             {'surrey_room_a'},
                             {'surrey_room_b'},
                             {'surrey_room_c'},
                             {'surrey_room_d'},
-                            {'surrey_room_.'},
-                            {'ash_r.*'},
-                            {'ash_r01'},
-                            {'ash_r0[0-9]a?b?'},  # 0 to 9
-                            {'ash_r(?!01$).*'},
-                            {'ash_r(?!0[0-9]a?b?$).*'},  # 0 to 9
+                            {'surrey_.*'},
+                            {'ash_.*'},
+                            {'air_.*'},
+                            {'catt_.*'},
+                            {'avil_.*'},
                         ],
                         help='rooms for the grid of test conditions')
     parser.add_argument('--test-snrs', nargs='+',
@@ -140,6 +165,8 @@ if __name__ == '__main__':
     parser.add_argument('--test-noises', nargs='+',
                         type=bmm.arg_set_type,
                         default=[
+                            # {'bbl'},
+                            # {'ssn'},
                             {'dcase_airport'},
                             {'dcase_bus'},
                             {'dcase_metro'},
@@ -159,8 +186,11 @@ if __name__ == '__main__':
                             {'icra_07'},
                             {'icra_08'},
                             {'icra_09'},
-                            {'bbl'},
-                            {'ssn'},
+                            {'dcase_.*'},
+                            {'icra_.*'},
+                            {'demand'},
+                            {'noisex'},
+                            {'arte'},
                         ],
                         help='noises for the grid of test conditions')
     parser.add_argument('--test-angles', nargs='+',
@@ -182,55 +212,9 @@ if __name__ == '__main__':
                         default=[
                             {'ieee'},
                             {'timit_.*'},
-                            {'timit_m.*'},
-                            {'timit_f.*'},
-                            {'timit_m0'},
-                            {'timit_f0'},
-                            {'timit_m[0-9]'},
-                            {'timit_f[0-9]'},
-                            {'timit_m[0-9]?[0-9]'},
-                            {'timit_f[0-9]?[0-9]'},
-                            {'timit_(f[0-4]|m[0-4])'},
-                            {'timit_(f[0-4]?[0-9]|m[0-4]?[0-9])'},
                             {'libri_.*'},
-                            {'libri_m.*'},
-                            {'libri_f.*'},
-                            {'libri_m0'},
-                            {'libri_f0'},
-                            {'libri_m[0-9]'},
-                            {'libri_f[0-9]'},
-                            {'libri_m[0-9]?[0-9]'},
-                            {'libri_f[0-9]?[0-9]'},
-                            {'libri_(f[0-4]|m[0-4])'},
-                            {'libri_(f[0-4]?[0-9]|m[0-4]?[0-9])'},
-                            {'timit_m(?!0$).*'},
-                            {'timit_(?!m0$).*'},
-                            {'timit_f(?!0$).*'},
-                            {'timit_(?!f0$).*'},
-                            {'timit_m(?![0-9]$).*'},
-                            {'timit_f(?![0-9]$).*'},
-                            {'timit_(?!m[0-9]$).*'},
-                            {'timit_(?!f[0-9]$).*'},
-                            {'timit_m(?![0-9]?[0-9]$).*'},
-                            {'timit_f(?![0-9]?[0-9]$).*'},
-                            {'timit_(?!m[0-9]?[0-9]$).*'},
-                            {'timit_(?!f[0-9]?[0-9]$).*'},
-                            {'timit_(?!(f[0-4]|m[0-4])$).*'},
-                            {'timit_(?!(m[0-4]|m[0-4])$).*'},
-                            {'libri_m(?!0$).*'},
-                            {'libri_(?!m0$).*'},
-                            {'libri_f(?!0$).*'},
-                            {'libri_(?!f0$).*'},
-                            {'libri_m(?![0-9]$).*'},
-                            {'libri_f(?![0-9]$).*'},
-                            {'libri_(?!m[0-9]$).*'},
-                            {'libri_(?!f[0-9]$).*'},
-                            {'libri_m(?![0-9]?[0-9]$).*'},
-                            {'libri_f(?![0-9]?[0-9]$).*'},
-                            {'libri_(?!m[0-9]?[0-9]$).*'},
-                            {'libri_(?!f[0-9]?[0-9]$).*'},
-                            {'libri_(?!(f[0-4]|m[0-4])$).*'},
-                            {'libri_(?!(m[0-4]|m[0-4])$).*'},
+                            {'arctic'},
+                            {'hint'},
                         ],
                         help='speakers for the grid of test conditions')
     dataset_args, args = parser.parse_args()

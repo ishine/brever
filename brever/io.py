@@ -30,23 +30,27 @@ def load_random_target(speaker, lims=None, fs=16e3, randomizer=None,
     Parameters:
         speaker:
             Speaker alias. Can be either:
-            - timit_m{i} with i in [0, 437] for TIMIT male speakers
-            - timit_f{i} with i in [0, 191] for TIMIT female speakers
-            - libri_m{i} with i in [0, n_male-1] for LibriSpeech male speakers
+            - 'timit_m{i}'' with i in [0, 437] for TIMIT male speakers
+            - 'timit_f{i}' with i in [0, 191] for TIMIT female speakers
+            - 'libri_m{i}' with i in [0, n_male-1] for LibriSpeech male
+              speakers
                 - n_male is the number of different male speakers in the
                   LibriSpeech set in your filesystem
                 - e.g. for the train-clean-100 LibriSpeech set, n_male=126
-            - libri_f{i} with i in [0, n_fem-1] for LibriSpeech female speakers
+            - 'libri_f{i}' with i in [0, n_fem-1] for LibriSpeech female
+              speakers
                 - n_fem is the number of different female speakers in the
                   LibriSpeech set in your filesystem
                 - e.g. for the train-clean-100 LibriSpeech set, n_fem=125
-            - ieee
+            - 'ieee'
+            - 'hint'
+            - 'arctic'
             Can also be a regexp. The regexp should come after the speech
             database alias. For example:
-            - timit_.*
-            - timit_f.*
-            - libri_m.*
-            - timit_m[0-10]
+            - 'timit_.*'
+            - 'timit_f.*'
+            - 'libri_m.*'
+            - 'timit_m[0-10]'
         lims:
             Lower and upper fraction of files of the total list of files from
             which to randomly chose a target from. E.g. setting lims to
@@ -114,6 +118,7 @@ def load_brirs(room_alias, angles=None, fs=16e3, def_cfg=None):
             - 'huddersfield_lw6m'
             - 'huddersfield_lw8m'
             - 'ash_rXX' with XX ranging from 01 to 39
+            - 'air_{room}_{head}_{number}'
         angles:
             Angles from which the BRIRs were recorded.
         fs:
@@ -210,6 +215,40 @@ def load_brirs(room_alias, angles=None, fs=16e3, def_cfg=None):
         filename = f'BRIR_R{room_number}_P1_E0_A{angle}.wav'
         filepath = os.path.join(dirpath, filename)
         brir, fs_ = sf.read(filepath)
+    elif room_alias.startswith('air_'):
+        dirpath = get_path('AACHEN', def_cfg)
+        m = re.match('^air_(.*)$', room_alias)
+        if m is None:
+            raise ValueError(f'wrong room alias: {room_alias}')
+        room = m.group(1)
+        # inconsistency in angle directions in AACHEN dataset!
+        # for aula_carolina, angles go from left (0) to right (180)
+        # for stairway, angles go from right (0) to left (180)
+        if room.startswith('aula_carolina'):
+            angle = angle + 90
+            file = f'air_binaural_{room}_{angle}_3.wav'
+        elif room.startswith('stairway'):
+            angle = - angle + 90
+            file = f'air_binaural_{room}_{angle}.wav'
+        else:
+            file = f'air_binaural_{room}.wav'
+        brir, fs_ = sf.read(os.path.join(dirpath, file))
+    elif room_alias.startswith('catt_'):
+        dirpath = get_path('CATT', def_cfg)
+        m = re.match('^catt_([0-9])([0-9])$', room_alias)
+        i, j = m.group(1), m.group(2)
+        folder = os.path.join(dirpath, f'{i}_{j}s')
+        filename = f'CATT_{i}_{j}s_{angle}.wav'
+        brir, fs_ = sf.read(os.path.join(folder, filename))
+    elif room_alias.startswith('avil_'):
+        dirpath = get_path('AVIL', def_cfg)
+        m = re.match('^avil_(.*)$', room_alias)
+        if m is None:
+            raise ValueError(f'wrong room alias: {room_alias}')
+        folder = os.path.join(dirpath, m.group(1))
+        angle = (360 - angle) % 360
+        filename = f'{m.group(1)}_azim_{angle}_degree.wav'
+        brir, fs_ = sf.read(os.path.join(folder, filename))
     else:
         raise ValueError(f'wrong room alias: {room_alias}')
     if fs_ != fs:
@@ -244,6 +283,9 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
             - 'icra_07'
             - 'icra_08'
             - 'icra_09'
+            - 'arte'
+            - 'demand'
+            - 'noisex'
             Can also be a regexp. The regexp should come after the noise
             database alias. For example:
             - 'dcase_.*'
@@ -274,6 +316,18 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
             Starting and ending indices of the audio sample extracted from
             filepath.
     '''
+
+    def is_long_recordings(noise_alias):
+        '''
+        if the database consists of a few long recordings, the split into
+        train/val/test is done one the file level rather than on the
+        folder level
+        '''
+        if noise_alias.startswith(('icra', 'arte', 'demand', 'noisex')):
+            return True
+        else:
+            return False
+
     if noise_alias.startswith('dcase_'):
         dirpath = get_path('DCASE', def_cfg)
         all_filepaths = []
@@ -291,31 +345,6 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
                     noise_type = file.split('-')[0]
                     if re.match(pattern, noise_type):
                         all_filepaths.append(os.path.join(root, file))
-        if not all_filepaths:
-            raise ValueError(f'No .wav file found matching {noise_alias}')
-        random.Random(0).shuffle(all_filepaths)
-        if lims is not None:
-            n_files = len(all_filepaths)
-            i_min, i_max = round(lims[0]*n_files), round(lims[1]*n_files)
-            all_filepaths = all_filepaths[i_min:i_max]
-        if randomizer is None:
-            randomizer = random
-        filepath = randomizer.choice(all_filepaths)
-        x, fs_old = sf.read(filepath)
-        if x.ndim == 2:
-            x = x[:, 0]
-        if fs_old != fs:
-            x = resample(x, fs_old, fs)
-        if len(x) < n_samples:
-            i_start = randomizer.randint(0, n_samples)
-            indices = np.arange(n_samples) + i_start
-            indices = indices % len(x)
-            x = x[indices]
-            i_end = None
-        else:
-            i_start = randomizer.randint(0, len(x) - n_samples)
-            i_end = i_start+n_samples
-            x = x[i_start:i_end]
     elif noise_alias.startswith('icra_'):
         dirpath = get_path('ICRA', def_cfg)
         all_filepaths = []
@@ -336,35 +365,78 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
                         icra_number = m.group(1)
                         if re.match(pattern, icra_number):
                             all_filepaths.append(os.path.join(root, file))
-        if not all_filepaths:
-            raise ValueError(f'No .wav file found matching {noise_alias}')
-        if len(all_filepaths) == 1:
-            filepath, = all_filepaths
-        else:
-            if randomizer is None:
-                randomizer = random
-            filepath = randomizer.choice(all_filepaths)
-        x, fs_old = sf.read(filepath)
-        if x.ndim == 2:
-            x = x[:, 0]
-        if fs_old != fs:
-            x = resample(x, fs_old, fs)
-        if lims is not None:
-            i_start = round(lims[0]*len(x))
-            i_end = round(lims[1]*len(x))
-            x = x[i_start:i_end]
-        if len(x) < n_samples:
-            i_start = randomizer.randint(0, n_samples)
-            indices = np.arange(n_samples) + i_start
-            indices = indices % len(x)
-            x = x[indices]
-            i_end = None
-        else:
-            i_start = randomizer.randint(0, len(x) - n_samples)
-            i_end = i_start+n_samples
-            x = x[i_start:i_end]
+    elif noise_alias == 'arte':
+        filenames = [
+            '01_Library_binaural_withEQ.wav',
+            '02_Office_binaural_withEQ.wav',
+            '03_Church_1_binaural_withEQ.wav',
+            '04_Living_Room_binaural_withEQ.wav',
+            '05_Church_2_binaural_withEQ.wav',
+            '06_Diffuse_noise_binaural_withEQ.wav',
+            '07_Cafe_1_binaural_withEQ.wav',
+            '08_Cafe_2_binaural_withEQ.wav',
+            '09_Dinner_party_binaural_withEQ.wav',
+            '10_Street_Balcony_binaural_withEQ.wav',
+            '11_Train_Station_binaural_withEQ.wav',
+            '12_Food_Court_1_binaural_withEQ.wav',
+            '13_Food_Court_2_binaural_withEQ.wav',
+        ]
+        all_filepaths = []
+        dirpath = get_path('ARTE', def_cfg)
+        for file in filenames:
+            found = False
+            for root, dirs, files in os.walk(dirpath):
+                if file in files:
+                    all_filepaths.append(os.path.join(root, file))
+                    found = True
+                    break
+            if not found:
+                raise ValueError('the ARTE database in the filesystem seems '
+                                 f'incomplete, could not find {file}')
+    elif noise_alias == 'demand':
+        dirpath = get_path('DEMAND', def_cfg)
+        all_filepaths = []
+        for root, dirs, files in os.walk(dirpath):
+            for file in files:
+                if file.endswith('ch01.wav'):
+                    all_filepaths.append(os.path.join(dirpath, file))
+    elif noise_alias == 'noisex':
+        dirpath = get_path('NOISEX', def_cfg)
+        all_filepaths = []
+        for file in os.listdir(dirpath):
+            if file.endswith('.wav'):
+                all_filepaths.append(os.path.join(dirpath, file))
     else:
         raise ValueError(f'wrong noise alias: {noise_alias}')
+    if not all_filepaths:
+        raise ValueError(f'No .wav file found matching {noise_alias}')
+    random.Random(0).shuffle(all_filepaths)
+    if not is_long_recordings(noise_alias) and lims is not None:
+        n_files = len(all_filepaths)
+        i_min, i_max = round(lims[0]*n_files), round(lims[1]*n_files)
+        all_filepaths = all_filepaths[i_min:i_max]
+    if randomizer is None:
+        randomizer = random
+    filepath = randomizer.choice(all_filepaths)
+    x, fs_old = sf.read(filepath)
+    if x.ndim == 2:
+        x = x[:, 0]
+    if fs_old != fs:
+        x = resample(x, fs_old, fs)
+    if is_long_recordings(noise_alias) and lims is not None:
+        i_start = round(lims[0]*len(x))
+        i_end = round(lims[1]*len(x))
+        x = x[i_start:i_end]
+    if len(x) < n_samples:
+        i_start = randomizer.randint(0, n_samples)
+        indices = np.arange(n_samples) + i_start
+        indices = indices % len(x)
+        x = x[indices]
+        i_end = None
+    else:
+        i_start = randomizer.randint(0, len(x) - n_samples)
+        i_end = i_start+n_samples
+        x = x[i_start:i_end]
     return x, filepath, (i_start, i_end)
 
 
@@ -386,7 +458,7 @@ def get_available_angles(room_alias, def_cfg=None):
         room_dir = os.path.join(dirpath, room_folder, '16kHz')
         r = re.compile(r'CortexBRIR_.*s_(-?\d{1,2})deg_16k\.wav')
         filenames = list(filter(r.match, os.listdir(room_dir)))
-        angles = sorted(set(int(r.match(fn).group(1)) for fn in filenames))
+        angles = [int(r.match(f).group(1)) for f in filenames]
     elif room_alias.startswith('huddersfield_'):
         dirpath = get_path('HUDDERSFIELD', def_cfg)
         m = re.match('^huddersfield_(.*)m$', room_alias)
@@ -418,8 +490,39 @@ def get_available_angles(room_alias, def_cfg=None):
                 angles.append(int(m.group(1)))
         if not angles:
             raise ValueError(f'no brir found for room {room_alias}')
+    elif room_alias.startswith('air_'):
+        dirpath = get_path('AACHEN', def_cfg)
+        m = re.match('^air_(.*)$', room_alias)
+        if m is None:
+            raise ValueError(f'wrong room alias: {room_alias}')
+        room = m.group(1)
+        if room == 'aula_carolina_1_3':
+            angles = [-90, -45, 0, 45, 90]
+        elif room.startswith('stairway'):
+            angles = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
+        else:
+            angles = [0]
+    elif room_alias.startswith('catt_'):
+        dirpath = get_path('CATT', def_cfg)
+        m = re.match('^catt_([0-9])([0-9])$', room_alias)
+        if m is None:
+            raise ValueError(f'wrong room alias: {room_alias}')
+        i, j = m.group(1), m.group(2)
+        folder = os.path.join(dirpath, f'{i}_{j}s')
+        r = re.compile(rf'^CATT_{i}_{j}s_(-?\d{{1,2}}).wav$')
+        angles = [int(r.match(f).group(1)) for f in os.listdir(folder)]
+    elif room_alias.startswith('avil_'):
+        dirpath = get_path('AVIL', def_cfg)
+        m = re.match('^avil_(.*)$', room_alias)
+        if m is None:
+            raise ValueError(f'wrong room alias: {room_alias}')
+        folder = os.path.join(dirpath, m.group(1))
+        r = re.compile(rf'^{m.group(1)}_azim_(\d{{1,3}})_degree.wav$')
+        angles = [int(r.match(f).group(1)) for f in os.listdir(folder)]
+        angles = [-((a + 180) % 360) + 180 for a in angles]
     else:
         raise ValueError(f'wrong room alias: {room_alias}')
+    angles = sorted(angles)
     return angles
 
 
@@ -430,21 +533,21 @@ def get_rooms(regexps):
         'surrey_room_b',
         'surrey_room_c',
         'surrey_room_d',
-        'huddersfield_c1m',
-        'huddersfield_c2m',
-        'huddersfield_c4m',
-        'huddersfield_c6m',
-        'huddersfield_c8m',
-        'huddersfield_l1m',
-        'huddersfield_l2m',
-        'huddersfield_l4m',
-        'huddersfield_l6m',
-        'huddersfield_l8m',
-        'huddersfield_lw1m',
-        'huddersfield_lw2m',
-        'huddersfield_lw4m',
-        'huddersfield_lw6m',
-        'huddersfield_lw8m',
+        # 'huddersfield_c1m',
+        # 'huddersfield_c2m',
+        # 'huddersfield_c4m',
+        # 'huddersfield_c6m',
+        # 'huddersfield_c8m',
+        # 'huddersfield_l1m',
+        # 'huddersfield_l2m',
+        # 'huddersfield_l4m',
+        # 'huddersfield_l6m',
+        # 'huddersfield_l8m',
+        # 'huddersfield_lw1m',
+        # 'huddersfield_lw2m',
+        # 'huddersfield_lw4m',
+        # 'huddersfield_lw6m',
+        # 'huddersfield_lw8m',
         'ash_r01',
         'ash_r02',
         'ash_r03',
@@ -485,6 +588,65 @@ def get_rooms(regexps):
         'ash_r37',
         'ash_r38',
         'ash_r39',
+        'air_aula_carolina_1_1',
+        'air_aula_carolina_1_2',
+        'air_aula_carolina_1_3',
+        'air_aula_carolina_1_4',
+        'air_aula_carolina_1_5',
+        'air_aula_carolina_1_6',
+        'air_aula_carolina_1_7',
+        'air_booth_0_1',
+        'air_booth_0_2',
+        'air_booth_0_3',
+        'air_booth_1_1',
+        'air_booth_1_2',
+        'air_booth_1_3',
+        'air_lecture_0_1',
+        'air_lecture_0_2',
+        'air_lecture_0_3',
+        'air_lecture_0_4',
+        'air_lecture_0_5',
+        'air_lecture_0_6',
+        'air_lecture_1_1',
+        'air_lecture_1_2',
+        'air_lecture_1_3',
+        'air_lecture_1_4',
+        'air_lecture_1_5',
+        'air_lecture_1_6',
+        'air_meeting_0_1',
+        'air_meeting_0_2',
+        'air_meeting_0_3',
+        'air_meeting_0_4',
+        'air_meeting_0_5',
+        'air_meeting_1_1',
+        'air_meeting_1_2',
+        'air_meeting_1_3',
+        'air_meeting_1_4',
+        'air_meeting_1_5',
+        'air_office_0_1',
+        'air_office_0_2',
+        'air_office_0_3',
+        'air_office_1_1',
+        'air_office_1_2',
+        'air_office_1_3',
+        'air_stairway_1_1',
+        'air_stairway_1_2',
+        'air_stairway_1_3',
+        'catt_00',
+        'catt_01',
+        'catt_02',
+        'catt_03',
+        'catt_04',
+        'catt_05',
+        'catt_06',
+        'catt_07',
+        'catt_08',
+        'catt_09',
+        'catt_10',
+        'avil_anechoic',
+        'avil_high',
+        'avil_low',
+        'avil_medium',
     ]
     output = set()
     for regexp in regexps:
@@ -511,6 +673,8 @@ def get_all_filepaths(speaker, def_cfg=None):
         'timit': 'TIMIT',
         'libri': 'LIBRI',
         'ieee': 'IEEE',
+        'hint': 'HINT',
+        'arctic': 'ARCTIC',
     }
     dset_alias = speaker.split('_')[0]
     if dset_alias in alias_to_key_map.keys():
@@ -550,6 +714,16 @@ def get_all_filepaths(speaker, def_cfg=None):
                 for file in files:
                     if file.lower().endswith('.flac'):
                         all_filepaths.append(os.path.join(root, file))
+    elif dset_alias == 'hint':
+        for root, dirs, files in os.walk(dirpath):
+            for file in files:
+                if file.lower().endswith('.wav'):
+                    all_filepaths.append(os.path.join(root, file))
+    elif dset_alias == 'arctic':
+        for root, dirs, files in os.walk(dirpath):
+            for file in files:
+                if file.lower().endswith('.wav'):
+                    all_filepaths.append(os.path.join(root, file)) 
     if not all_filepaths:
         raise ValueError(f'No audio file found for speaker {speaker}')
     return all_filepaths
