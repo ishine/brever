@@ -38,7 +38,8 @@ def add_to_dset(dset, data):
 def main(dataset_dir, force):
     # check if dataset already exists
     datasets_output_path = os.path.join(dataset_dir, 'dataset.hdf5')
-    if os.path.exists(datasets_output_path) and not force:
+    metadatas_output_path = os.path.join(dataset_dir, 'mixture_info.json')
+    if os.path.exists(metadatas_output_path) and not force:
         logging.info('Dataset already exists')
         return
 
@@ -322,7 +323,6 @@ def main(dataset_dir, force):
     h5f.close()
 
     # save mixtures metadata
-    metadatas_output_path = os.path.join(dataset_dir, 'mixture_info.json')
     bmm.dump_json(metadatas, metadatas_output_path)
 
     # save pipes
