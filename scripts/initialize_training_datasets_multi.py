@@ -9,26 +9,7 @@ def main(args, params):
     def_cfg = defaults()
     processed_dir = def_cfg.PATH.PROCESSED
 
-    # # parameters for the general dataset
-    # general_noise_types = {
-    #     'dcase_.*',
-    #     'icra_.*',
-    #     'bbl',
-    #     'ssn',
-    # }
-    # general_rooms = {
-    #     'surrey_room_.',
-    #     'ash_r.*',
-    # }
-    # general_angle_lims = (-90.0, 90.0)
-    # general_snr_lims = (-5, 10)
-    # general_rms_jitter = True
-    # general_speakers = {
-    #     'timit_.*',
-    #     'libri_.*',
-    # }
-
-    # actual grid of dataset parameters
+    # grid of dataset parameters
     noise_typess = [
         # {'bbl'},
         # {'ssn'},
@@ -90,7 +71,6 @@ def main(args, params):
             'dcase_street_pedestrian',
             'dcase_tram',
         },
-        # general_noise_types,
     ]
     roomss = [
         {'surrey_anechoic'},
@@ -117,22 +97,21 @@ def main(args, params):
         {'surrey_.*', 'ash_.*', 'catt_.*', 'avil_.*'},
         {'surrey_.*', 'ash_.*', 'air_.*', 'avil_.*'},
         {'surrey_.*', 'ash_.*', 'air_.*', 'catt_.*'},
-        # general_rooms,
     ]
     angle_limss = [
-        (0.0, 0.0),
-        # general_angle_lims,
+        [0.0, 0.0],
+        [-90.0, 90.0],
     ]
     snr_limss = [
-        (-5, -5),
-        (0, 0),
-        (5, 5),
-        (10, 10),
-        # general_snr_lims,
+        [-5, -5],
+        [0, 0],
+        [5, 5],
+        [10, 10],
+        [-5, 10],
     ]
     rms_jitters = [
         False,
-        # general_rms_jitter,
+        True,
     ]
     speakerss = [
         {'timit_m0'},  # male 0
@@ -172,7 +151,6 @@ def main(args, params):
         {'ieee', 'libri_.*', 'arctic', 'hint'},
         {'ieee', 'libri_.*', 'timit_.*', 'hint'},
         {'ieee', 'libri_.*', 'timit_.*', 'arctic'},
-        # general_speakers,
     ]
 
     # the default config is a very specialized one
@@ -263,17 +241,6 @@ def main(args, params):
         add_config(configs, rms_jitter=rms_jitter)
     for speakers in speakerss:
         add_config(configs, speakers=speakers)
-
-    # # don't forget to add the general config!
-    # add_config(
-    #     configs,
-    #     noise_types=general_noise_types,
-    #     rooms=general_rooms,
-    #     angle_lims=general_angle_lims,
-    #     snr_lims=general_snr_lims,
-    #     rms_jitter=general_rms_jitter,
-    #     speakers=general_speakers,
-    # )
 
     new_configs = []
     for config_dict, dset_path in configs:

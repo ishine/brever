@@ -160,6 +160,7 @@ if __name__ == '__main__':
                             [-5, -5],
                             [5, 5],
                             [10, 10],
+                            [-5, 10],
                         ],
                         help='snr limits for the grid of test conditions')
     parser.add_argument('--test-noises', nargs='+',
