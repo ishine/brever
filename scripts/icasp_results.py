@@ -212,7 +212,7 @@ def libri_wise():
 
 
 def speaker_cross_corpus_naive():
-    print('Speaker cross-corpus naive')
+    print('Speaker cross-corpus naive; single reference model')
     speakers = [
         {'ieee'},
         {'libri_.*'},
@@ -235,8 +235,32 @@ def speaker_cross_corpus_naive():
     print(np.round(gap))
 
 
+def speaker_cross_corpus_naive_adapt():
+    print('Speaker cross-corpus naive; adapted reference model')
+    speakers = [
+        {'ieee'},
+        {'libri_.*'},
+        {'timit_.*'},
+        {'arctic'},
+        {'hint'},
+    ]
+    gaps = []
+    for model_speaker in speakers:
+        ref_speaker = set(s.copy().pop() for s in speakers if s != model_speaker)
+        for cond_speaker in speakers:
+            if cond_speaker != model_speaker:
+                gaps.append(get_generalization_gap(
+                    'speakers',
+                    model_speaker,
+                    ref_speaker,
+                    cond_speaker,
+                ))
+    gap = np.mean(gaps, axis=0)
+    print(np.round(gap))
+
+
 def speaker_cross_corpus_fair():
-    print('Speaker cross-corpus naive')
+    print('Speaker cross-corpus fair; single reference model')
     speakers = [
         {'ieee'},
         {'libri_.*'},
@@ -247,10 +271,33 @@ def speaker_cross_corpus_fair():
     ref_speakers = {'ieee', 'libri_.*', 'timit_.*', 'arctic', 'hint'}
     gaps = []
     for cond_speaker in speakers:
+        model_speaker = set(s.copy().pop() for s in speakers if s != cond_speaker)
         gaps.append(get_generalization_gap(
             'speakers',
             model_speaker,
             ref_speakers,
+            cond_speaker,
+        ))
+    gap = np.mean(gaps, axis=0)
+    print(np.round(gap))
+
+
+def speaker_cross_corpus_fair_adapt():
+    print('Speaker cross-corpus fair; adapted reference model')
+    speakers = [
+        {'ieee'},
+        {'libri_.*'},
+        {'timit_.*'},
+        {'arctic'},
+        {'hint'},
+    ]
+    gaps = []
+    for cond_speaker in speakers:
+        model_speaker = set(s.copy().pop() for s in speakers if s != cond_speaker)
+        gaps.append(get_generalization_gap(
+            'speakers',
+            model_speaker,
+            cond_speaker,
             cond_speaker,
         ))
     gap = np.mean(gaps, axis=0)
@@ -673,23 +720,25 @@ libri_naive()
 libri_fair()
 libri_wise()
 speaker_cross_corpus_naive()
+speaker_cross_corpus_naive_adapt()
 speaker_cross_corpus_fair()
-dcase_naive_1()
-dcase_naive_2()
-dcase_fair_1()
-dcase_fair_2()
-noise_cross_corpus_naive()
-noise_cross_corpus_fair()
-surrey_naive_1()
-surrey_naive_2()
-ash_naive()
-ash_fair()
-room_cross_corpus_naive()
-room_cross_corpus_fair()
-snr_naive_1()
+speaker_cross_corpus_fair_adapt()
+# dcase_naive_1()
+# dcase_naive_2()
+# dcase_fair_1()
+# dcase_fair_2()
+# noise_cross_corpus_naive()
+# noise_cross_corpus_fair()
+# surrey_naive_1()
+# surrey_naive_2()
+# ash_naive()
+# ash_fair()
+# room_cross_corpus_naive()
+# room_cross_corpus_fair()
+# snr_naive_1()
 # snr_naive_2()
-snr_worst_worst_case()
-snr_best_worst_case()
+# snr_worst_worst_case()
+# snr_best_worst_case()
 # direction_naive()
 # direction_fair()
 # level_naive()
