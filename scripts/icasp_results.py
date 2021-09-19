@@ -60,9 +60,11 @@ test_dsets, test_configs = bmm.find_dataset('test', return_configs=True)
 def get_generalization_gap(
             dim,
             model_dim_val,
-            ref_model_dim_val,
             cond_dim_val,
+            ref_dim_val=None
         ):
+    if ref_dim_val is None:
+        ref_dim_val = cond_dim_val
     train_dset, = find_dset(
         dsets=train_dsets,
         configs=train_configs,
@@ -76,7 +78,7 @@ def get_generalization_gap(
     train_dset_ref, = find_dset(
         dsets=train_dsets,
         configs=train_configs,
-        **{dim: ref_model_dim_val}
+        **{dim: ref_dim_val}
     )
     model_ref, = bmm.find_model(
         models=models,
@@ -96,650 +98,478 @@ def get_generalization_gap(
     return gap
 
 
+def get_mean_gap(
+            dim,
+            model_dim_vals,
+            cond_dim_vals,
+        ):
+    gaps = []
+    for model_dim_val, cond_dim_val in zip(
+                model_dim_vals, cond_dim_vals
+            ):
+        print(model_dim_val, cond_dim_val)
+        gaps.append(get_generalization_gap(
+            dim,
+            model_dim_val,
+            cond_dim_val,
+        ))
+    [print(np.round(gap)) for gap in gaps]
+    return np.mean(gaps, axis=0)
+
+
+def get_mean_gap_cross_corpus_naive(
+            dim,
+            corpora,
+        ):
+    gaps = []
+    for model_dim_val in corpora:
+        ref_dim_val = set(
+            x.copy().pop() for x in corpora if x != model_dim_val
+        )
+        for cond_dim_val in ref_dim_val:
+            gaps.append(get_generalization_gap(
+                dim,
+                model_dim_val,
+                set([cond_dim_val]),
+                ref_dim_val,
+            ))
+    [print(np.round(gap)) for gap in gaps]
+    return np.mean(gaps, axis=0)
+
+
+def get_mean_gap_cross_corpus_fair(
+            dim,
+            corpora,
+        ):
+    model_dim_vals = [set(
+            x.copy().pop() for x in corpora if x != y
+        ) for y in corpora]
+    return get_mean_gap(dim, model_dim_vals, corpora)
+
+
 def timit_naive():
     print('TIMIT naive')
-    gap = np.mean([
-        get_generalization_gap(
-            'speakers',
-            speaker,
-            {'timit_.*'},
-            {'timit_.*'},
-        )
-        for speaker in [
+    print(np.round(get_mean_gap(
+        'speakers',
+        [
             {'timit_m0'},  # male 0
             {'timit_f0'},  # female 0
             {'timit_m1'},  # male 1
             {'timit_f1'},  # female 1
             {'timit_m2'},  # male 2
             {'timit_f2'},  # female 2
-        ]], axis=0)
-    print(np.round(gap))
+        ],
+        [
+            {'timit_(?!m0$).*'},  # male 0
+            {'timit_(?!f0$).*'},  # female 0
+            {'timit_(?!m1$).*'},  # male 1
+            {'timit_(?!f1$).*'},  # female 1
+            {'timit_(?!m2$).*'},  # male 2
+            {'timit_(?!f2$).*'},  # female 2
+        ],
+    )))
 
 
 def timit_fair():
     print('TIMIT fair')
-    gap = np.mean([
-        get_generalization_gap(
-            'speakers',
-            speaker,
-            {'timit_.*'},
-            {'timit_.*'},
-        )
-        for speaker in [
+    print(np.round(get_mean_gap(
+        'speakers',
+        [
             {'timit_(f[0-4]|m[0-4])'},  # males and females 0 to 4
             {'timit_(f[5-9]|m[5-9])'},  # males and females 5 to 9
             {'timit_(f1[0-4]|m1[0-4])'},  # males and females 10 to 14
             {'timit_(f1[5-9]|m1[5-9])'},  # males and females 15 to 19
             {'timit_(f2[0-4]|m2[0-4])'},  # males and females 20 to 24
-        ]], axis=0)
-    print(np.round(gap))
+        ],
+        [
+            {'timit_(?!(f[0-4]|m[0-4])$).*'},  # males and females 0 to 4
+            {'timit_(?!(f[5-9]|m[5-9])$).*'},  # males and females 5 to 9
+            {'timit_(?!(f1[0-4]|m1[0-4])$).*'},  # males and females 10 to 14
+            {'timit_(?!(f1[5-9]|m1[5-9])$).*'},  # males and females 15 to 19
+            {'timit_(?!(f2[0-4]|m2[0-4])$).*'},  # males and females 20 to 24
+        ],
+    )))
 
 
 def timit_wise():
     print('TIMIT wise')
-    gap = np.mean([
-        get_generalization_gap(
-            'speakers',
-            speaker,
-            {'timit_.*'},
-            {'timit_.*'},
-        )
-        for speaker in [
+    print(np.round(get_mean_gap(
+        'speakers',
+        [
             {'timit_(f[0-4]?[0-9]|m[0-4]?[0-9])'},  # males and females 0 to 49
             {'timit_(f[4-9][0-9]|m[4-9][0-9])'},  # males and females 49 to 99
             {'timit_(f1[0-4][0-9]|m1[0-4][0-9])'},  # males and females 100 to 149
             {'timit_(f[0-9]?[02468]|m[0-9]?[02468])'},  # even males and females 0 to 99
             {'timit_(f[0-9]?[13579]|m[0-9]?[13579])'},  # odd males and females 0 to 99
-        ]], axis=0)
-    print(np.round(gap))
+        ],
+        [
+            {'timit_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},  # males and females 0 to 49
+            {'timit_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},  # males and females 49 to 99
+            {'timit_(?!(f1[0-4][0-9]|m1[0-4][0-9])$).*'},  # males and females 100 to 149
+            {'timit_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},  # even males and females 0 to 99
+            {'timit_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},  # odd males and females 0 to 99
+        ],
+    )))
 
 
 def libri_naive():
     print('LibriSpeech naive')
-    gap = np.mean([
-        get_generalization_gap(
-            'speakers',
-            speaker,
-            {'libri_.*'},
-            {'libri_.*'},
-        )
-        for speaker in [
+    print(np.round(get_mean_gap(
+        'speakers',
+        [
             {'libri_m0'},  # male 0
             {'libri_f0'},  # female 0
             {'libri_m1'},  # male 1
             {'libri_f1'},  # female 1
             {'libri_m2'},  # male 2
             {'libri_f2'},  # female 2
-        ]], axis=0)
-    print(np.round(gap))
+        ],
+        [
+            {'libri_(?!m0$).*'},  # male 0
+            {'libri_(?!f0$).*'},  # female 0
+            {'libri_(?!m1$).*'},  # male 1
+            {'libri_(?!f1$).*'},  # female 1
+            {'libri_(?!m2$).*'},  # male 2
+            {'libri_(?!f2$).*'},  # female 2
+        ],
+    )))
 
 
 def libri_fair():
     print('LibriSpeech fair')
-    gap = np.mean([
-        get_generalization_gap(
-            'speakers',
-            speaker,
-            {'libri_.*'},
-            {'libri_.*'},
-        )
-        for speaker in [
+    print(np.round(get_mean_gap(
+        'speakers',
+        [
             {'libri_(f[0-4]|m[0-4])'},  # males and females 0 to 4
             {'libri_(f[5-9]|m[5-9])'},  # males and females 5 to 9
             {'libri_(f1[0-4]|m1[0-4])'},  # males and females 10 to 14
             {'libri_(f1[5-9]|m1[5-9])'},  # males and females 15 to 19
             {'libri_(f2[0-4]|m2[0-4])'},  # males and females 20 to 24
-        ]], axis=0)
-    print(np.round(gap))
+        ],
+        [
+            {'libri_(?!(f[0-4]|m[0-4])$).*'},  # males and females 0 to 4
+            {'libri_(?!(f[5-9]|m[5-9])$).*'},  # males and females 5 to 9
+            {'libri_(?!(f1[0-4]|m1[0-4])$).*'},  # males and females 10 to 14
+            {'libri_(?!(f1[5-9]|m1[5-9])$).*'},  # males and females 15 to 19
+            {'libri_(?!(f2[0-4]|m2[0-4])$).*'},  # males and females 20 to 24
+        ],
+    )))
 
 
 def libri_wise():
     print('LibriSpeech wise')
-    gap = np.mean([
-        get_generalization_gap(
-            'speakers',
-            speaker,
-            {'libri_.*'},
-            {'libri_.*'},
-        )
-        for speaker in [
+    print(np.round(get_mean_gap(
+        'speakers',
+        [
             {'libri_(f[0-4]?[0-9]|m[0-4]?[0-9])'},  # males and females 0 to 49
             {'libri_(f[4-9][0-9]|m[4-9][0-9])'},  # males and females 49 to 99
             {'libri_(f[0-9]?[02468]|m[0-9]?[02468])'},  # even males and females 0 to 99
             {'libri_(f[0-9]?[13579]|m[0-9]?[13579])'},  # odd males and females 0 to 99
-        ]], axis=0)
-    print(np.round(gap))
+        ],
+        [
+            {'libri_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},  # males and females 0 to 49
+            {'libri_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},  # males and females 49 to 99
+            {'libri_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},  # even males and females 0 to 99
+            {'libri_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},  # odd males and females 0 to 99
+        ],
+    )))
 
 
 def speaker_cross_corpus_naive():
-    print('Speaker cross-corpus naive; single reference model')
-    speakers = [
-        {'ieee'},
-        {'libri_.*'},
-        {'timit_.*'},
-        {'arctic'},
-        {'hint'},
-    ]
-    ref_speakers = {'ieee', 'libri_.*', 'timit_.*', 'arctic', 'hint'}
-    gaps = []
-    for model_speaker in speakers:
-        for cond_speaker in speakers:
-            if cond_speaker != model_speaker:
-                gaps.append(get_generalization_gap(
-                    'speakers',
-                    model_speaker,
-                    ref_speakers,
-                    cond_speaker,
-                ))
-    gap = np.mean(gaps, axis=0)
-    print(np.round(gap))
-
-
-def speaker_cross_corpus_naive_adapt():
-    print('Speaker cross-corpus naive; adapted reference model')
-    speakers = [
-        {'ieee'},
-        {'libri_.*'},
-        {'timit_.*'},
-        {'arctic'},
-        {'hint'},
-    ]
-    gaps = []
-    for model_speaker in speakers:
-        ref_speaker = set(s.copy().pop() for s in speakers if s != model_speaker)
-        for cond_speaker in speakers:
-            if cond_speaker != model_speaker:
-                gaps.append(get_generalization_gap(
-                    'speakers',
-                    model_speaker,
-                    ref_speaker,
-                    cond_speaker,
-                ))
-    gap = np.mean(gaps, axis=0)
-    print(np.round(gap))
+    print('Speaker cross-corpus naive')
+    print(np.round(get_mean_gap_cross_corpus_naive(
+        'speakers',
+        [
+            {'ieee'},
+            {'timit_.*'},
+            {'libri_.*'},
+            {'arctic'},
+            {'hint'},
+        ]
+    )))
 
 
 def speaker_cross_corpus_fair():
-    print('Speaker cross-corpus fair; single reference model')
-    speakers = [
-        {'ieee'},
-        {'libri_.*'},
-        {'timit_.*'},
-        {'arctic'},
-        {'hint'},
-    ]
-    ref_speakers = {'ieee', 'libri_.*', 'timit_.*', 'arctic', 'hint'}
-    gaps = []
-    for cond_speaker in speakers:
-        model_speaker = set(s.copy().pop() for s in speakers if s != cond_speaker)
-        gaps.append(get_generalization_gap(
-            'speakers',
-            model_speaker,
-            ref_speakers,
-            cond_speaker,
-        ))
-    gap = np.mean(gaps, axis=0)
-    print(np.round(gap))
-
-
-def speaker_cross_corpus_fair_adapt():
-    print('Speaker cross-corpus fair; adapted reference model')
-    speakers = [
-        {'ieee'},
-        {'libri_.*'},
-        {'timit_.*'},
-        {'arctic'},
-        {'hint'},
-    ]
-    gaps = []
-    for cond_speaker in speakers:
-        model_speaker = set(s.copy().pop() for s in speakers if s != cond_speaker)
-        gaps.append(get_generalization_gap(
-            'speakers',
-            model_speaker,
-            cond_speaker,
-            cond_speaker,
-        ))
-    gap = np.mean(gaps, axis=0)
-    print(np.round(gap))
+    print('Speaker cross-corpus fair')
+    print(np.round(get_mean_gap_cross_corpus_fair(
+        'speakers',
+        [
+            {'ieee'},
+            {'timit_.*'},
+            {'libri_.*'},
+            {'arctic'},
+            {'hint'},
+        ]
+    )))
 
 
 def dcase_naive():
     print('DCASE naive')
-    noises = [
-        {'dcase_airport'},
-        {'dcase_bus'},
-        {'dcase_metro'},
-        {'dcase_metro_station'},
-        {'dcase_park'},
-        {'dcase_public_square'},
-        {'dcase_shopping_mall'},
-        {'dcase_street_pedestrian'},
-        {'dcase_street_traffic'},
-        {'dcase_tram'},
-    ]
-    gaps = []
-    for model_noise in noises:
-        for cond_noise in noises:
-            if cond_noise != model_noise:
-                gaps.append(get_generalization_gap(
-                    'noise_types',
-                    model_noise,
-                    cond_noise,
-                ))
-    gap = np.mean(gaps, axis=0)
-    print(np.round(gap))
-
-
-def dcase_naive_2():
-    print('DCASE naive 2')
-    gap = np.mean([
-        get_generalization_gap(
-            'noise_types',
-            noise,
-            {'dcase_.*'},
-        )
-        for noise in [
+    print(np.round(get_mean_gap(
+        'noise_types',
+        [
             {'dcase_airport'},
             {'dcase_bus'},
             {'dcase_metro'},
             {'dcase_metro_station'},
             {'dcase_park'},
-            {'dcase_public_square'},
-            {'dcase_shopping_mall'},
-            {'dcase_street_pedestrian'},
-            {'dcase_street_traffic'},
-            {'dcase_tram'},
-        ]], axis=0)
-    print(np.round(gap))
+        ],
+        [
+            {'dcase_(?!airport$).*'},
+            {'dcase_(?!bus$).*'},
+            {'dcase_(?!metro$).*'},
+            {'dcase_(?!metro_station$).*'},
+            {'dcase_(?!park$).*'},
+        ],
+    )))
 
 
-def dcase_fair_1():
-    print('DCASE fair 1')
-    model_noises = [
-        {
-            'dcase_airport',
-            'dcase_bus',
-            'dcase_metro',
-            'dcase_metro_station',
-            'dcase_park',
-        },
-        {
-            'dcase_public_square',
-            'dcase_shopping_mall',
-            'dcase_street_pedestrian',
-            'dcase_street_traffic',
-            'dcase_tram',
-        },
-        {
-            'dcase_airport',
-            'dcase_metro',
-            'dcase_park',
-            'dcase_shopping_mall',
-            'dcase_street_traffic',
-        },
-        {
-            'dcase_bus',
-            'dcase_metro_station',
-            'dcase_public_square',
-            'dcase_street_pedestrian',
-            'dcase_tram',
-        },
-    ]
-    cond_noises = [
-        {'dcase_airport'},
-        {'dcase_bus'},
-        {'dcase_metro'},
-        {'dcase_metro_station'},
-        {'dcase_park'},
-        {'dcase_public_square'},
-        {'dcase_shopping_mall'},
-        {'dcase_street_pedestrian'},
-        {'dcase_street_traffic'},
-        {'dcase_tram'},
-    ]
-    gaps = []
-    for model_noise in model_noises:
-        for cond_noise in cond_noises:
-            if cond_noise.copy().pop() not in model_noise:
-                gaps.append(get_generalization_gap(
-                    'noise_types',
-                    model_noise,
-                    cond_noise,
-                ))
-    gap = np.mean(gaps, axis=0)
-    print(np.round(gap))
-
-
-def dcase_fair_2():
-    print('DCASE fair 2')
-    gap = np.mean([
-        get_generalization_gap(
-            'noise_types',
-            noise,
-            {'dcase_.*'},
-        )
-        for noise in [
-            {
-                'dcase_airport',
-                'dcase_bus',
-                'dcase_metro',
-                'dcase_metro_station',
-                'dcase_park',
-            },
-            {
-                'dcase_public_square',
-                'dcase_shopping_mall',
-                'dcase_street_pedestrian',
-                'dcase_street_traffic',
-                'dcase_tram',
-            },
-            {
-                'dcase_airport',
-                'dcase_metro',
-                'dcase_park',
-                'dcase_shopping_mall',
-                'dcase_street_traffic',
-            },
-            {
-                'dcase_bus',
-                'dcase_metro_station',
-                'dcase_public_square',
-                'dcase_street_pedestrian',
-                'dcase_tram',
-            },
-        ]], axis=0)
-    print(np.round(gap))
+def dcase_fair():
+    print('DCASE fair ')
+    print(np.round(get_mean_gap(
+        'noise_types',
+        [
+            {'dcase_(?!airport$).*'},
+            {'dcase_(?!bus$).*'},
+            {'dcase_(?!metro$).*'},
+            {'dcase_(?!metro_station$).*'},
+            {'dcase_(?!park$).*'},
+        ],
+        [
+            {'dcase_airport'},
+            {'dcase_bus'},
+            {'dcase_metro'},
+            {'dcase_metro_station'},
+            {'dcase_park'},
+        ],
+    )))
 
 
 def noise_cross_corpus_naive():
     print('Noise cross-corpus naive')
-    noises = [
-        {'dcase_.*'},
-        {'icra_.*'},
-        {'demand'},
-        {'noisex'},
-        {'arte'},
-    ]
-    gaps = []
-    for model_noise in noises:
-        for cond_noise in noises:
-            if cond_noise != model_noise:
-                gaps.append(get_generalization_gap(
-                    'noise_types',
-                    model_noise,
-                    cond_noise,
-                ))
-    gap = np.mean(gaps, axis=0)
-    print(np.round(gap))
+    print(np.round(get_mean_gap_cross_corpus_naive(
+        'noise_types',
+        [
+            {'dcase_.*'},
+            {'icra_.*'},
+            {'demand'},
+            {'noisex'},
+            {'arte'},
+        ]
+    )))
 
 
 def noise_cross_corpus_fair():
     print('Noise cross-corpus fair')
-    noises = [
-        {'dcase_.*'},
-        {'icra_.*'},
-        {'demand'},
-        {'noisex'},
-        {'arte'},
-    ]
-    gaps = []
-    for cond_noise in noises:
-        model_noise = [s.copy() for s in noises if s != cond_noise]
-        model_noise = set(s.pop() for s in model_noise)
-        gaps.append(get_generalization_gap(
-            'noise_types',
-            model_noise,
-            cond_noise,
-        ))
-    gap = np.mean(gaps, axis=0)
-    print(np.round(gap))
+    print(np.round(get_mean_gap_cross_corpus_fair(
+        'noise_types',
+        [
+            {'dcase_.*'},
+            {'icra_.*'},
+            {'demand'},
+            {'noisex'},
+            {'arte'},
+        ]
+    )))
 
 
-def surrey_naive_1():
-    print('Surrey naive 1')
-    rooms = [
-        {'surrey_anechoic'},
-        {'surrey_room_a'},
-        {'surrey_room_b'},
-        {'surrey_room_c'},
-        {'surrey_room_d'},
-    ]
-    gaps = []
-    for model_room in rooms:
-        for cond_room in rooms:
-            if cond_room != model_room:
-                gaps.append(get_generalization_gap(
-                    'rooms',
-                    model_room,
-                    cond_room,
-                ))
-    gap = np.mean(gaps, axis=0)
-    print(np.round(gap))
-
-
-def surrey_naive_2():
-    print('Surrey naive 2')
-    gap = np.mean([
-        get_generalization_gap(
-            'rooms',
-            room,
-            {'surrey_.*'},
-        )
-        for room in [
+def surrey_naive():
+    print('Surrey naive')
+    print(np.round(get_mean_gap(
+        'rooms',
+        [
             {'surrey_anechoic'},
             {'surrey_room_a'},
             {'surrey_room_b'},
             {'surrey_room_c'},
             {'surrey_room_d'},
-        ]], axis=0)
-    print(np.round(gap))
+        ],
+        [
+            {'surrey_(?!anechoic$).*'},
+            {'surrey_(?!room_a$).*'},
+            {'surrey_(?!room_b$).*'},
+            {'surrey_(?!room_c$).*'},
+            {'surrey_(?!room_d$).*'},
+        ],
+    )))
 
 
 def ash_naive():
     print('ASH naive')
-    gap = np.mean([
-        get_generalization_gap(
-            'rooms',
-            room,
-            {'ash_.*'},
-        )
-        for room in [
+    print(np.round(get_mean_gap(
+        'rooms',
+        [
             {'ash_r01'},
             {'ash_r02'},
             {'ash_r03'},
             {'ash_r04'},
             {'ash_r05a?b?'},
-        ]], axis=0)
-    print(np.round(gap))
+        ],
+        [
+            {'ash_(?!r01$).*'},
+            {'ash_(?!r02$).*'},
+            {'ash_(?!r03$).*'},
+            {'ash_(?!r04$).*'},
+            {'ash_(?!r05a?b?$).*'},
+        ],
+    )))
 
 
 def ash_fair():
     print('ASH fair')
-    gap = np.mean([
-        get_generalization_gap(
-            'rooms',
-            room,
-            {'ash_.*'},
-        )
-        for room in [
+    print(np.round(get_mean_gap(
+        'rooms',
+        [
             {'ash_r0[0-9]a?b?'},  # 0 to 9
             {'ash_r1[0-9]'},  # 10 to 19
             {'ash_r2[0-9]'},  # 20 to 29
             {'ash_r3[0-9]'},  # 30 to 39
-        ]], axis=0)
-    print(np.round(gap))
+            {'ash_r(00|04|08|12|16|20|24|18|32|36)'},  # every 4th room from 0 to 39
+        ],
+        [
+            {'ash_(?!r0[0-9]a?b?$).*'},  # 0 to 9
+            {'ash_(?!r1[0-9]$).*'},  # 10 to 19
+            {'ash_(?!r2[0-9]$).*'},  # 20 to 29
+            {'ash_(?!r3[0-9]$).*'},  # 30 to 39
+            {'ash_(?!r(00|04|08|12|16|20|24|18|32|36)$).*'},  # every 4th room from 0 to 39
+        ],
+    )))
 
 
 def room_cross_corpus_naive():
     print('Room cross-corpus naive')
-    rooms = [
-        {'surrey_.*'},
-        {'ash_.*'},
-        {'air_.*'},
-        {'catt_.*'},
-        {'avil_.*'},
-    ]
-    gaps = []
-    for model_room in rooms:
-        for cond_room in rooms:
-            if cond_room != model_room:
-                gaps.append(get_generalization_gap(
-                    'rooms',
-                    model_room,
-                    cond_room,
-                ))
-    gap = np.mean(gaps, axis=0)
-    print(np.round(gap))
+    print(np.round(get_mean_gap_cross_corpus_naive(
+        'rooms',
+        [
+            {'surrey_.*'},
+            {'ash_.*'},
+            {'air_.*'},
+            {'catt_.*'},
+            {'avil_.*'},
+        ]
+    )))
 
 
 def room_cross_corpus_fair():
     print('Room cross-corpus fair')
+    print(np.round(get_mean_gap_cross_corpus_fair(
+        'rooms',
+        [
+            {'surrey_.*'},
+            {'ash_.*'},
+            {'air_.*'},
+            {'catt_.*'},
+            {'avil_.*'},
+        ]
+    )))
+
+
+def rooms():
+    print('rooms')
     rooms = [
         {'surrey_.*'},
         {'ash_.*'},
         {'air_.*'},
         {'catt_.*'},
         {'avil_.*'},
+        {'ash_.*', 'air_.*', 'catt_.*', 'avil_.*'},
+        {'surrey_.*', 'air_.*', 'catt_.*', 'avil_.*'},
+        {'surrey_.*', 'ash_.*', 'catt_.*', 'avil_.*'},
+        {'surrey_.*', 'ash_.*', 'air_.*', 'avil_.*'},
+        {'surrey_.*', 'ash_.*', 'air_.*', 'catt_.*'},
     ]
-    gaps = []
-    for cond_room in rooms:
-        model_room = [s.copy() for s in rooms if s != cond_room]
-        model_room = set(s.pop() for s in model_room)
-        gaps.append(get_generalization_gap(
-            'rooms',
-            model_room,
-            cond_room,
-        ))
-    gap = np.mean(gaps, axis=0)
-    print(np.round(gap))
+    gaps = np.zeros((3, len(rooms), len(rooms)))
+    for i, cond_dim_val in enumerate(rooms):
+        for j, model_dim_val in enumerate(rooms):
+            if len(cond_dim_val) == 1:
+                gaps[:, i, j] = get_generalization_gap(
+                    'rooms',
+                    model_dim_val,
+                    cond_dim_val,
+                )
+            else:
+                gaps[:, i, j] = np.mean([get_generalization_gap(
+                    'rooms',
+                    model_dim_val,
+                    set([x]),
+                    cond_dim_val,
+                ) for x in cond_dim_val], axis=0)
+    print(np.round(gaps))
 
 
-def snr_naive_1():
-    print('SNR naive 1')
-    snrs = [
+def snr():
+    print('SNR')
+    snr_dist_args = [
         [-5, -5],
         [0, 0],
         [5, 5],
         [10, 10],
+        [-5, 10],
     ]
-    gaps = []
-    for model_snr in snrs:
-        for cond_snr in snrs:
-            if cond_snr != model_snr:
-                gaps.append(get_generalization_gap(
-                    'snr_dist_args',
-                    model_snr,
-                    cond_snr,
-                ))
-    gap = np.mean(gaps, axis=0)
-    print(np.round(gap))
+    gaps = np.zeros((3, 5, 5))
+    for i, cond_dim_val in enumerate(snr_dist_args):
+        for j, model_dim_val in enumerate(snr_dist_args):
+            gaps[:, i, j] = get_generalization_gap(
+                'snr_dist_args',
+                model_dim_val,
+                cond_dim_val,
+            )
+    print(np.round(gaps))
 
 
-def snr_naive_2():
-    print('SNR naive 2')
-    gap = np.mean([
-        get_generalization_gap(
-            'snr_dist_args',
-            snr,
-            [-5, 10],
-        )
-        for snr in [
-            [-5, -5],
-            [0, 0],
-            [5, 5],
-            [10, 10],
-        ]], axis=0)
-    print(np.round(gap))
+def direction():
+    print('Direction')
+    target_angle_lims = [
+        [0.0, 0.0],
+        [-90.0, 90.0],
+    ]
+    gaps = np.zeros((3, 2, 2))
+    for i, cond_dim_val in enumerate(target_angle_lims):
+        for j, model_dim_val in enumerate(target_angle_lims):
+            gaps[:, i, j] = get_generalization_gap(
+                'target_angle_lims',
+                model_dim_val,
+                cond_dim_val,
+            )
+    print(np.round(gaps))
 
 
-def snr_worst_worst_case():
-    print('SNR worst worst case')
-    gap = get_generalization_gap(
-        'snr_dist_args',
-        [10, 10],
-        [-5, -5],
-    )
-    print(np.round(gap))
-
-
-def snr_best_worst_case():
-    print('SNR best worst case')
-    gap = get_generalization_gap(
-        'snr_dist_args',
-        [-5, -5],
-        [10, 10],
-    )
-    print(np.round(gap))
-
-
-def direction_naive():
-    print('Direction naive')
-    gap = get_generalization_gap(
-        'target_angle_lims',
-        [0, 0],
-        [-90, -90],
-    )
-    print(np.round(gap))
-
-
-def direction_fair():
-    print('Direction fair')
-    gap = get_generalization_gap(
-        'target_angle_lims',
-        [-90, -90],
-        [0, 0],
-    )
-    print(np.round(gap))
-
-
-def level_naive():
-    print('Level naive')
-    gap = get_generalization_gap(
-        'random_rms',
+def level():
+    print('Level')
+    rms_jitters = [
         False,
         True,
-    )
-    print(np.round(gap))
+    ]
+    gaps = np.zeros((3, 2, 2))
+    for i, cond_dim_val in enumerate(rms_jitters):
+        for j, model_dim_val in enumerate(rms_jitters):
+            gaps[:, i, j] = get_generalization_gap(
+                'random_rms',
+                model_dim_val,
+                cond_dim_val,
+            )
+    print(np.round(gaps))
 
 
-def level_fair():
-    print('Level fair')
-    gap = get_generalization_gap(
-        'random_rms',
-        True,
-        False,
-    )
-    print(np.round(gap))
-
-
-timit_naive()
-timit_fair()
-timit_wise()
-libri_naive()
-libri_fair()
-libri_wise()
-speaker_cross_corpus_naive()
-speaker_cross_corpus_naive_adapt()
-speaker_cross_corpus_fair()
-speaker_cross_corpus_fair_adapt()
-# dcase_naive_1()
-# dcase_naive_2()
-# dcase_fair_1()
-# dcase_fair_2()
+# timit_naive()
+# timit_fair()
+# timit_wise()
+# libri_naive()
+# libri_fair()
+# libri_wise()
+# speaker_cross_corpus_naive()
+# speaker_cross_corpus_fair()
+# dcase_naive()
+# # dcase_fair()
 # noise_cross_corpus_naive()
 # noise_cross_corpus_fair()
-# surrey_naive_1()
-# surrey_naive_2()
+# # surrey_naive()
 # ash_naive()
 # ash_fair()
 # room_cross_corpus_naive()
 # room_cross_corpus_fair()
-# snr_naive_1()
-# snr_naive_2()
-# snr_worst_worst_case()
-# snr_best_worst_case()
-# direction_naive()
-# direction_fair()
-# level_naive()
-# level_fair()
+
+rooms()
+snr()
+direction()
+level()
