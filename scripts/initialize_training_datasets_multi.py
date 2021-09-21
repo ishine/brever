@@ -345,8 +345,8 @@ if __name__ == '__main__':
                         help='overwrite config file if already exists')
     parser.add_argument('--train-duration', type=int, default=36000,
                         help='training duration, defaults to 36000 seconds')
-    parser.add_argument('--val-duration', type=int, default=7200,
-                        help='validation duration, defaults to 7200 seconds')
+    parser.add_argument('--val-duration', type=int, default=100,
+                        help='validation duration, defaults to 100 seconds')
     parser.add_argument('--seed-train', type=int, default=0,
                         help='seed for the training dataset')
     parser.add_argument('--seed-val', type=int, default=1,
