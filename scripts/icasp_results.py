@@ -107,13 +107,11 @@ def get_mean_gap(
     for model_dim_val, cond_dim_val in zip(
                 model_dim_vals, cond_dim_vals
             ):
-        print(model_dim_val, cond_dim_val)
         gaps.append(get_generalization_gap(
             dim,
             model_dim_val,
             cond_dim_val,
         ))
-    [print(np.round(gap)) for gap in gaps]
     return np.mean(gaps, axis=0)
 
 
@@ -133,7 +131,6 @@ def get_mean_gap_cross_corpus_naive(
                 set([cond_dim_val]),
                 ref_dim_val,
             ))
-    [print(np.round(gap)) for gap in gaps]
     return np.mean(gaps, axis=0)
 
 
@@ -394,6 +391,27 @@ def surrey_naive():
     )))
 
 
+def surrey_fair():
+    print('Surrey fair ')
+    print(np.round(get_mean_gap(
+        'rooms',
+        [
+            {'surrey_(?!anechoic$).*'},
+            {'surrey_(?!room_a$).*'},
+            {'surrey_(?!room_b$).*'},
+            {'surrey_(?!room_c$).*'},
+            {'surrey_(?!room_d$).*'},
+        ],
+        [
+            {'surrey_anechoic'},
+            {'surrey_room_a'},
+            {'surrey_room_b'},
+            {'surrey_room_c'},
+            {'surrey_room_d'},
+        ],
+    )))
+
+
 def ash_naive():
     print('ASH naive')
     print(np.round(get_mean_gap(
@@ -551,23 +569,24 @@ def level():
     print(np.round(gaps))
 
 
-# timit_naive()
-# timit_fair()
-# timit_wise()
-# libri_naive()
-# libri_fair()
-# libri_wise()
-# speaker_cross_corpus_naive()
-# speaker_cross_corpus_fair()
-# dcase_naive()
-# # dcase_fair()
-# noise_cross_corpus_naive()
-# noise_cross_corpus_fair()
-# # surrey_naive()
-# ash_naive()
-# ash_fair()
-# room_cross_corpus_naive()
-# room_cross_corpus_fair()
+timit_naive()
+timit_fair()
+timit_wise()
+libri_naive()
+libri_fair()
+libri_wise()
+speaker_cross_corpus_naive()
+speaker_cross_corpus_fair()
+dcase_naive()
+dcase_fair()
+noise_cross_corpus_naive()
+noise_cross_corpus_fair()
+surrey_naive()
+surrey_fair()
+ash_naive()
+ash_fair()
+room_cross_corpus_naive()
+room_cross_corpus_fair()
 
 rooms()
 snr()

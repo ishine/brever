@@ -285,7 +285,7 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
             - 'icra_09'
             - 'arte'
             - 'demand'
-            - 'noisex'
+            - 'noisex_{type}'
             Can also be a regexp. The regexp should come after the noise
             database alias. For example:
             - 'dcase_.*'
@@ -400,11 +400,19 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
             for file in files:
                 if file.endswith('ch01.wav'):
                     all_filepaths.append(os.path.join(dirpath, file))
-    elif noise_alias == 'noisex':
+    elif noise_alias.startswith('noisex'):
         dirpath = get_path('NOISEX', def_cfg)
         all_filepaths = []
+        m = re.match('^noisex_(.*)$', noise_alias)
+        if m is None:
+            raise ValueError(f'wrong noise type, got {noise_alias}')
+        pattern = f'{m.group(1)}'
+        if not pattern.startswith('^'):
+            pattern = f'^{pattern}'
+        if not pattern.endswith('$'):
+            pattern = f'{pattern}$'
         for file in os.listdir(dirpath):
-            if file.endswith('.wav'):
+            if file.endswith('.wav') and re.match(pattern, file[:-4]):
                 all_filepaths.append(os.path.join(dirpath, file))
     else:
         raise ValueError(f'wrong noise alias: {noise_alias}')
