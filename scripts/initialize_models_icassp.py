@@ -93,8 +93,7 @@ def main(args):
     train_dsets, train_configs = bmm.find_dataset('train', return_configs=True)
     test_dsets, test_configs = bmm.find_dataset('test', return_configs=True)
 
-    # ADD SPEECH, NOISE AND ROOM MODELS
-
+    # add speech, noise and room models
     speakerss = [
         {'timit_m0'},  # male 0
         {'timit_f0'},  # female 0
@@ -460,8 +459,7 @@ def main(args):
 
     all_configs = configs
 
-    # ADD SNR, DIRECTION AND LEVEL MODELS
-
+    # add snr, direction and level models
     angle_limss = [
         [0.0, 0.0],
         [-90.0, 90.0],
@@ -563,8 +561,10 @@ def main(args):
             bmm.set_config_field(config, 'test_path', test_path)
             config.pop('path_index')
 
+    # merge speech, noise and room models with snr, direction and level models
     all_configs += configs
 
+    # deal with the default model which appeared in both lists before merging
     doubles = []
     for i, config_1 in enumerate(all_configs):
         for j, config_2 in enumerate(all_configs):
@@ -579,6 +579,7 @@ def main(args):
     assert doubles[0][0] == doubles[1][1]
     assert doubles[0][1] == doubles[1][0]
 
+    # delt with by making test paths match such that a dupe is detected later
     merged_paths = bmm.get_config_field(
         all_configs[doubles[0][0]],
         'test_path',
@@ -586,7 +587,6 @@ def main(args):
         all_configs[doubles[0][1]],
         'test_path',
     )
-
     bmm.set_config_field(
         all_configs[doubles[0][0]],
         'test_path',
@@ -598,6 +598,7 @@ def main(args):
         merged_paths,
     )
 
+    # just renaming here
     configs = all_configs
 
     def_cfg = defaults()
@@ -609,9 +610,17 @@ def main(args):
         print('Aborting')
         return
 
+    # check for dupes
+    temp = []
+    for c in configs:
+        if c not in temp:
+            temp.append(c)
+    dupes = len(configs) - len(temp)
+    configs = temp
+    del temp
+
     new_configs = []
     skipped = 0
-    dupes = 0
     exists = 0
 
     for config in configs:
@@ -633,11 +642,9 @@ def main(args):
             skipped += 1
             continue
 
-        if config not in new_configs:
-            new_configs.append(config)
-        else:
-            dupes += 1
+        new_configs.append(config)
 
+    # find existing models only differing by their test paths
     totally_new_configs = []
     exist_but_with_different_test_path = []
     existing_models = []
@@ -668,6 +675,7 @@ def main(args):
                     existing_tests[index]
                 ))
 
+    # if such models exists, ask user what to do with them
     if exist_but_with_different_test_path:
         print(f'{len(exist_but_with_different_test_path)} models were '
               'attempted to be initialized but already exist using different '
@@ -678,6 +686,9 @@ def main(args):
         while resp not in ['overwrite', 'merge', 'new']:
             resp = input(msg)
             if resp.lower() == 'overwrite':
+                print("Overwriting. It is recommended to run "
+                      "'python scripts/check_sanity.py' afterwards to rename "
+                      "all the models")
                 for model, tests, old_model, old_tests in exist_but_with_different_test_path:
                     cfg_path = os.path.join(old_model, 'config.yaml')
                     cfg = bmm.read_yaml(cfg_path)
@@ -686,6 +697,9 @@ def main(args):
                 new_configs = totally_new_configs
                 break
             elif resp.lower() == 'merge':
+                print("Merging. It is recommended to run "
+                      "'python scripts/check_sanity.py' afterwards to rename "
+                      "all the models")
                 for model, tests, old_model, old_tests in exist_but_with_different_test_path:
                     cfg_path = os.path.join(old_model, 'config.yaml')
                     cfg = bmm.read_yaml(cfg_path)
@@ -698,7 +712,7 @@ def main(args):
             else:
                 print('Could not interpret answer')
 
-    print(f'{len(configs)-skipped} config(s) attempted to be initialized.')
+    print(f'{len(configs)-skipped+dupes} config(s) attempted to be initialized.')
     print(f'{exists} already exist.')
     print(f'{dupes} are duplicates.')
 
