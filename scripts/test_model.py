@@ -160,27 +160,27 @@ def main(model_dir, args):
 
             # load mixture
             mixture = h5f['mixture'][k].reshape(-1, 2)
-            foreground = h5f['foreground'][k].reshape(-1, 2)
-            background = h5f['background'][k].reshape(-1, 2)
-            noise = h5f['noise'][k].reshape(-1, 2)
-            reverb = h5f['late_target'][k].reshape(-1, 2)
+            # foreground = h5f['foreground'][k].reshape(-1, 2)
+            # background = h5f['background'][k].reshape(-1, 2)
+            # noise = h5f['noise'][k].reshape(-1, 2)
+            # reverb = h5f['late_target'][k].reshape(-1, 2)
             i_start, i_end = test_dataset.file_indices[k]
 
             # scale signal
             scaler.fit(mixture)
             mixture = scaler.scale(mixture)
-            foreground = scaler.scale(foreground)
-            background = scaler.scale(background)
-            noise = scaler.scale(noise)
-            reverb = scaler.scale(reverb)
+            # foreground = scaler.scale(foreground)
+            # background = scaler.scale(background)
+            # noise = scaler.scale(noise)
+            # reverb = scaler.scale(reverb)
             scaler.__init__(scaler.active)
 
             # apply filterbank
             mixture_filt = filterbank.filt(mixture)
-            foreground_filt = filterbank.filt(foreground)
-            background_filt = filterbank.filt(background)
-            noise_filt = filterbank.filt(noise)
-            reverb_filt = filterbank.filt(reverb)
+            # foreground_filt = filterbank.filt(foreground)
+            # background_filt = filterbank.filt(background)
+            # noise_filt = filterbank.filt(noise)
+            # reverb_filt = filterbank.filt(reverb)
 
             # extract features
             features, IRM = test_dataset[i_start:i_end]
@@ -205,33 +205,33 @@ def main(model_dir, args):
 
             # apply predicted mask and reverse filter
             mixture_enhanced = filterbank.rfilt(mixture_filt*PRM)
-            foreground_enhanced = filterbank.rfilt(foreground_filt*PRM)
-            background_enhanced = filterbank.rfilt(background_filt*PRM)
-            noise_enhanced = filterbank.rfilt(noise_filt*PRM)
-            reverb_enhanced = filterbank.rfilt(reverb_filt*PRM)
+            # foreground_enhanced = filterbank.rfilt(foreground_filt*PRM)
+            # background_enhanced = filterbank.rfilt(background_filt*PRM)
+            # noise_enhanced = filterbank.rfilt(noise_filt*PRM)
+            # reverb_enhanced = filterbank.rfilt(reverb_filt*PRM)
 
             # load reference signals
             mixture_ref = h5f['mixture_ref'][k].reshape(-1, 2)
             foreground_ref = h5f['foreground_ref'][k].reshape(-1, 2)
-            background_ref = h5f['background_ref'][k].reshape(-1, 2)
-            noise_ref = h5f['noise_ref'][k].reshape(-1, 2)
-            reverb_ref = h5f['late_target_ref'][k].reshape(-1, 2)
+            # background_ref = h5f['background_ref'][k].reshape(-1, 2)
+            # noise_ref = h5f['noise_ref'][k].reshape(-1, 2)
+            # reverb_ref = h5f['late_target_ref'][k].reshape(-1, 2)
 
-            # segmental SNRs
-            segSSNR, segBR, segNR, segRR = segmental_scores(
-                foreground_ref,
-                foreground_enhanced,
-                background_ref,
-                background_enhanced,
-                noise_ref,
-                noise_enhanced,
-                reverb_ref,
-                reverb_enhanced,
-            )
-            scores[test_dir]['model']['segSSNR'].append(segSSNR)
-            scores[test_dir]['model']['segBR'].append(segBR)
-            scores[test_dir]['model']['segNR'].append(segNR)
-            scores[test_dir]['model']['segRR'].append(segRR)
+            # # segmental SNRs
+            # segSSNR, segBR, segNR, segRR = segmental_scores(
+            #     foreground_ref,
+            #     foreground_enhanced,
+            #     background_ref,
+            #     background_enhanced,
+            #     noise_ref,
+            #     noise_enhanced,
+            #     reverb_ref,
+            #     reverb_enhanced,
+            # )
+            # scores[test_dir]['model']['segSSNR'].append(segSSNR)
+            # scores[test_dir]['model']['segBR'].append(segBR)
+            # scores[test_dir]['model']['segNR'].append(segNR)
+            # scores[test_dir]['model']['segRR'].append(segRR)
 
             # write mixtures
             if args.save:
@@ -260,46 +260,46 @@ def main(model_dir, args):
                 #     config.PRE.FS,
                 # )
 
-            # load oracle signals
-            _tag = f'oracle_{next(iter(config.POST.LABELS))}'
-            mixture_o = h5f[f'mixture_{_tag}'][k].reshape(-1, 2)
-            foreground_o = h5f[f'foreground_{_tag}'][k].reshape(-1, 2)
-            background_o = h5f[f'background_{_tag}'][k].reshape(-1, 2)
-            noise_o = h5f[f'noise_{_tag}'][k].reshape(-1, 2)
-            reverb_o = h5f[f'late_target_{_tag}'][k].reshape(-1, 2)
+            # # load oracle signals
+            # _tag = f'oracle_{next(iter(config.POST.LABELS))}'
+            # mixture_o = h5f[f'mixture_{_tag}'][k].reshape(-1, 2)
+            # foreground_o = h5f[f'foreground_{_tag}'][k].reshape(-1, 2)
+            # background_o = h5f[f'background_{_tag}'][k].reshape(-1, 2)
+            # noise_o = h5f[f'noise_{_tag}'][k].reshape(-1, 2)
+            # reverb_o = h5f[f'late_target_{_tag}'][k].reshape(-1, 2)
 
-            # segmental SNRs
-            segSSNR, segBR, segNR, segRR = segmental_scores(
-                foreground_ref,
-                foreground_o,
-                background_ref,
-                background_o,
-                noise_ref,
-                noise_o,
-                reverb_ref,
-                reverb_o,
-            )
-            scores[test_dir]['oracle']['segSSNR'].append(segSSNR)
-            scores[test_dir]['oracle']['segBR'].append(segBR)
-            scores[test_dir]['oracle']['segNR'].append(segNR)
-            scores[test_dir]['oracle']['segRR'].append(segRR)
+            # # segmental SNRs
+            # segSSNR, segBR, segNR, segRR = segmental_scores(
+            #     foreground_ref,
+            #     foreground_o,
+            #     background_ref,
+            #     background_o,
+            #     noise_ref,
+            #     noise_o,
+            #     reverb_ref,
+            #     reverb_o,
+            # )
+            # scores[test_dir]['oracle']['segSSNR'].append(segSSNR)
+            # scores[test_dir]['oracle']['segBR'].append(segBR)
+            # scores[test_dir]['oracle']['segNR'].append(segNR)
+            # scores[test_dir]['oracle']['segRR'].append(segRR)
 
-            # write oracle enhanced mixture
-            if args.save_oracle:
-                gain = 1/mixture.max()
-                dir_name = os.path.basename(test_dir)
-                output_dir = os.path.join(model_dir, 'audio', dir_name)
-                # TODO: testing a model on two datasets having the same
-                # basename but different absolute paths will result in
-                # identical output audio directories! Risk of overwriting
-                # files unintentionally
-                if not os.path.exists(output_dir):
-                    os.makedirs(output_dir)
-                sf.write(
-                    os.path.join(output_dir, f'mixture_oracle_{k}.wav'),
-                    mixture_o*gain,
-                    config.PRE.FS,
-                )
+            # # write oracle enhanced mixture
+            # if args.save_oracle:
+            #     gain = 1/mixture.max()
+            #     dir_name = os.path.basename(test_dir)
+            #     output_dir = os.path.join(model_dir, 'audio', dir_name)
+            #     # TODO: testing a model on two datasets having the same
+            #     # basename but different absolute paths will result in
+            #     # identical output audio directories! Risk of overwriting
+            #     # files unintentionally
+            #     if not os.path.exists(output_dir):
+            #         os.makedirs(output_dir)
+            #     sf.write(
+            #         os.path.join(output_dir, f'mixture_oracle_{k}.wav'),
+            #         mixture_o*gain,
+            #         config.PRE.FS,
+            #     )
 
             # calculate PESQ
             scores[test_dir]['model']['PESQ'].append(pesq(
@@ -308,12 +308,12 @@ def main(model_dir, args):
                 mixture_enhanced.mean(axis=1),
                 'wb',
             ))
-            scores[test_dir]['oracle']['PESQ'].append(pesq(
-                config.PRE.FS,
-                foreground_ref.mean(axis=1),
-                mixture_o.mean(axis=1),
-                'wb',
-            ))
+            # scores[test_dir]['oracle']['PESQ'].append(pesq(
+            #     config.PRE.FS,
+            #     foreground_ref.mean(axis=1),
+            #     mixture_o.mean(axis=1),
+            #     'wb',
+            # ))
             scores[test_dir]['ref']['PESQ'].append(pesq(
                 config.PRE.FS,
                 foreground_ref.mean(axis=1),
@@ -327,11 +327,11 @@ def main(model_dir, args):
                 mixture_enhanced.mean(axis=1),
                 config.PRE.FS,
             ))
-            scores[test_dir]['oracle']['STOI'].append(stoi(
-                foreground_ref.mean(axis=1),
-                mixture_o.mean(axis=1),
-                config.PRE.FS,
-            ))
+            # scores[test_dir]['oracle']['STOI'].append(stoi(
+            #     foreground_ref.mean(axis=1),
+            #     mixture_o.mean(axis=1),
+            #     config.PRE.FS,
+            # ))
             scores[test_dir]['ref']['STOI'].append(stoi(
                 foreground_ref.mean(axis=1),
                 mixture_ref.mean(axis=1),

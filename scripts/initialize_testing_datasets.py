@@ -136,8 +136,8 @@ if __name__ == '__main__':
     parser = bmm.DatasetInitArgParser(description='initialize test datasets')
     parser.add_argument('-f', '--force', action='store_true',
                         help='overwrite config file if already exists')
-    parser.add_argument('--test-duration', type=int, default=300,
-                        help='total duration, defaults to 300 seconds')
+    parser.add_argument('--test-duration', type=int, default=1800,
+                        help='total duration, defaults to 1800 seconds')
     parser.add_argument('--test-rooms', nargs='+',
                         type=bmm.arg_set_type,
                         default=[
