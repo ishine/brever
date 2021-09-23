@@ -61,10 +61,15 @@ def get_generalization_gap(
             dim,
             model_dim_val,
             cond_dim_val,
-            ref_dim_val=None
+            ref_dim_val=None,
+            seed=[0],
         ):
+    # print(model_dim_val, cond_dim_val)
+    # print(ref_dim_val, cond_dim_val)
     if ref_dim_val is None:
         ref_dim_val = cond_dim_val
+    print(model_dim_val, cond_dim_val)
+    print(ref_dim_val, cond_dim_val)
     train_dset, = find_dset(
         dsets=train_dsets,
         configs=train_configs,
@@ -74,6 +79,7 @@ def get_generalization_gap(
         models=models,
         configs=configs,
         train_path=[train_dset],
+        seed=seed,
     )
     train_dset_ref, = find_dset(
         dsets=train_dsets,
@@ -84,6 +90,7 @@ def get_generalization_gap(
         models=models,
         configs=configs,
         train_path=[train_dset_ref],
+        seed=seed,
     )
     test_dset, = find_dset(
         dsets=test_dsets,
@@ -404,7 +411,7 @@ def noise_cross_corpus_naive():
             {'dcase_.*'},
             {'icra_.*'},
             {'demand'},
-            {'noisex'},
+            {'noisex_.*'},
             {'arte'},
         ]
     )
@@ -423,7 +430,7 @@ def noise_cross_corpus_fair():
             {'dcase_.*'},
             {'icra_.*'},
             {'demand'},
-            {'noisex'},
+            {'noisex_.*'},
             {'arte'},
         ]
     )
@@ -619,7 +626,7 @@ def snr():
         [10, 10],
         [-5, 10],
     ]
-    gaps = np.zeros((3, 5, 5))
+    gaps = np.zeros((6, 5, 5))
     for i, cond_dim_val in enumerate(snr_dist_args):
         for j, model_dim_val in enumerate(snr_dist_args):
             gaps[:, i, j] = get_generalization_gap(
@@ -636,7 +643,7 @@ def direction():
         [0.0, 0.0],
         [-90.0, 90.0],
     ]
-    gaps = np.zeros((3, 2, 2))
+    gaps = np.zeros((6, 2, 2))
     for i, cond_dim_val in enumerate(target_angle_lims):
         for j, model_dim_val in enumerate(target_angle_lims):
             gaps[:, i, j] = get_generalization_gap(
@@ -653,7 +660,7 @@ def level():
         False,
         True,
     ]
-    gaps = np.zeros((3, 2, 2))
+    gaps = np.zeros((6, 2, 2))
     for i, cond_dim_val in enumerate(rms_jitters):
         for j, model_dim_val in enumerate(rms_jitters):
             gaps[:, i, j] = get_generalization_gap(
@@ -664,26 +671,26 @@ def level():
     print(gaps)
 
 
-timit_naive()
-timit_fair()
-timit_wise()
-libri_naive()
-libri_fair()
-libri_wise()
-speaker_cross_corpus_naive()
-speaker_cross_corpus_fair()
-dcase_naive()
-dcase_fair()
-noise_cross_corpus_naive()
-noise_cross_corpus_fair()
-surrey_naive()
-surrey_fair()
-ash_naive()
-ash_fair()
-room_cross_corpus_naive()
-room_cross_corpus_fair()
+# timit_naive()
+# timit_fair()
+# timit_wise()
+# libri_naive()
+# libri_fair()
+# libri_wise()
+# speaker_cross_corpus_naive()
+# speaker_cross_corpus_fair()
+# dcase_naive()
+# dcase_fair()
+# noise_cross_corpus_naive()
+# noise_cross_corpus_fair()
+# surrey_naive()
+# surrey_fair()
+# ash_naive()
+# ash_fair()
+# room_cross_corpus_naive()
+# room_cross_corpus_fair()
 
 # rooms()
 # snr()
-# direction()
+direction()
 # level()
