@@ -26,10 +26,10 @@ def main(delete=False, set_field=None, **kwargs):
             untrained.append(model)
 
     print(f'{len(models)} total models found')
-    print(f'{len(tested)} tested models:')
+    print(f'{len(tested)} trained and tested models:')
     for model in tested:
         print(model)
-    print(f'{len(trained)} trained models:')
+    print(f'{len(trained)} trained and untested models:')
     for model in trained:
         print(model)
     print(f'{len(untrained)} untrained models:')
