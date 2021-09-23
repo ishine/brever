@@ -1,6 +1,7 @@
 import os
 import shutil
 import itertools
+import copy
 
 from brever.config import defaults
 import brever.modelmanagement as bmm
@@ -636,6 +637,66 @@ def main(args):
             new_configs.append(config)
         else:
             dupes += 1
+
+    totally_new_configs = []
+    exist_but_with_different_test_path = []
+    existing_models = []
+    existing_configs = []
+    for model_id in os.listdir(models_dir):
+        model_dir = os.path.join(models_dir, model_id)
+        cfg_path = os.path.join(model_dir, 'config.yaml')
+        cfg = bmm.read_yaml(cfg_path)
+        existing_models.append(model_dir)
+        existing_configs.append(cfg)
+    existing_tests = [c['POST']['PATH'].pop('TEST') for c in existing_configs]
+    for config in new_configs:
+        model_id = bmm.get_unique_id(config)
+        model_dir = os.path.join(models_dir, model_id)
+        if not(os.path.exists(model_dir)):
+            copy_ = copy.deepcopy(config)   
+            copy_id = bmm.get_unique_id(config)
+            new_tests = copy_['POST']['PATH'].pop('TEST')
+            try:
+                index = existing_configs.index(copy_)
+            except ValueError:
+                totally_new_configs.append(config)
+            else:
+                exist_but_with_different_test_path.append((
+                    os.path.join(models_dir, copy_id),
+                    new_tests,
+                    existing_models[index],
+                    existing_tests[index]
+                ))
+
+    if exist_but_with_different_test_path:
+        print(f'{len(exist_but_with_different_test_path)} models were '
+              'attempted to be initialized but already exist using different '
+              'test paths')
+        msg = 'Would you like to add the test paths to the old list of ' \
+              'paths intead? [overwrite/merge/new]'
+        resp = None
+        while resp not in ['overwrite', 'merge', 'new']:
+            resp = input(msg)
+            if resp.lower() == 'overwrite':
+                for model, tests, old_model, old_tests in exist_but_with_different_test_path:
+                    cfg_path = os.path.join(old_model, 'config.yaml')
+                    cfg = bmm.read_yaml(cfg_path)
+                    bmm.set_config_field(cfg, 'test_path', tests)
+                    bmm.dump_yaml(cfg, cfg_path)
+                new_configs = totally_new_configs
+                break
+            elif resp.lower() == 'merge':
+                for model, tests, old_model, old_tests in exist_but_with_different_test_path:
+                    cfg_path = os.path.join(old_model, 'config.yaml')
+                    cfg = bmm.read_yaml(cfg_path)
+                    bmm.set_config_field(cfg, 'test_path', tests | old_tests)
+                    bmm.dump_yaml(cfg, cfg_path)
+                new_configs = totally_new_configs
+                break
+            elif resp.lower() == 'new':
+                break
+            else:
+                print('Could not interpret answer')
 
     print(f'{len(configs)-skipped} config(s) attempted to be initialized.')
     print(f'{exists} already exist.')
