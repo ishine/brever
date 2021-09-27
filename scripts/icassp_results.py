@@ -64,44 +64,51 @@ def get_generalization_gap(
             ref_dim_val=None,
             seed=[0],
         ):
-    # print(model_dim_val, cond_dim_val)
-    # print(ref_dim_val, cond_dim_val)
     if ref_dim_val is None:
         ref_dim_val = cond_dim_val
-    print(model_dim_val, cond_dim_val)
-    print(ref_dim_val, cond_dim_val)
     train_dset, = find_dset(
         dsets=train_dsets,
         configs=train_configs,
         **{dim: model_dim_val}
     )
-    model, = bmm.find_model(
+    models_ = bmm.find_model(
         models=models,
         configs=configs,
         train_path=[train_dset],
         seed=seed,
     )
+    assert len(models_) == len(seed)
     train_dset_ref, = find_dset(
         dsets=train_dsets,
         configs=train_configs,
         **{dim: ref_dim_val}
     )
-    model_ref, = bmm.find_model(
+    models_ref = bmm.find_model(
         models=models,
         configs=configs,
         train_path=[train_dset_ref],
         seed=seed,
     )
+    assert len(models_ref) == len(seed)
     test_dset, = find_dset(
         dsets=test_dsets,
         configs=test_configs,
         **{dim: cond_dim_val}
     )
     gap = []
-    for score_name in ['MSE', 'dPESQ', 'dSTOI']:
-        score = get_score(model, test_dset, score_name)
-        score_ref = get_score(model_ref, test_dset, score_name)
-        gap.append(score)
+    scores_names = ['MSE', 'dPESQ', 'dSTOI']
+    scalings = [100, 10, 100]
+    for score_name, scaling in zip(scores_names, scalings):
+        scores = []
+        scores_ref = []
+        for model, model_ref in zip(models_, models_ref):
+            score = get_score(model, test_dset, score_name)
+            score_ref = get_score(model_ref, test_dset, score_name)
+            scores.append(score)
+            scores_ref.append(score_ref)
+        score = np.mean(scores)
+        score_ref = np.mean(scores_ref)
+        gap.append(score*scaling)
         gap.append((score - score_ref)/score_ref*100)
     return gap
 
@@ -152,8 +159,11 @@ def get_mean_gap_cross_corpus_fair(
     return get_mean_gap(dim, model_dim_vals, corpora)
 
 
-def significant_figures(x, n):
-    return np.round(x, -int(np.floor(np.log10(x))) + (n - 1)) 
+def precision_fmt(x):
+    """
+    Significant figures.
+    """
+    return f'{x:.2f}'
 
 
 def timit_naive():
@@ -178,9 +188,9 @@ def timit_naive():
     )
     print(
         'TIMIT & 1 speaker & 629 speakers & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -204,9 +214,9 @@ def timit_fair():
     )
     print(
         'TIMIT & 10 speaker & 620 speakers & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -230,9 +240,9 @@ def timit_wise():
     )
     print(
         'TIMIT & 100 speaker & 530 speakers & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -258,9 +268,9 @@ def libri_naive():
     )
     print(
         'LibriSpeech & 1 speaker & 250 speakers & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -284,9 +294,9 @@ def libri_fair():
     )
     print(
         'LibriSpeech & 10 speaker & 241 speakers & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -308,9 +318,9 @@ def libri_wise():
     )
     print(
         'LibriSpeech & 100 speaker & 151 speakers & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -327,9 +337,9 @@ def speaker_cross_corpus_naive():
     )
     print(
         'Cross-corpus & 1 corpus & 4 corpora & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -346,9 +356,9 @@ def speaker_cross_corpus_fair():
     )
     print(
         'Cross-corpus & 4 corpora & 1 corpus & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -372,9 +382,9 @@ def dcase_naive():
     )
     print(
         'TAU & 1 noise type & 9 noise types & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -398,9 +408,9 @@ def dcase_fair():
     )
     print(
         'TAU & 9 noise types & 1 noise type & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -417,9 +427,9 @@ def noise_cross_corpus_naive():
     )
     print(
         'Cross-corpus & 1 corpus & 4 corpora & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -436,9 +446,9 @@ def noise_cross_corpus_fair():
     )
     print(
         'Cross-corpus & 4 corpora & 1 corpus & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -462,9 +472,9 @@ def surrey_naive():
     )
     print(
         'Surrey & 1 room & 4 rooms & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -488,9 +498,9 @@ def surrey_fair():
     )
     print(
         'Surrey & 4 rooms & 1 room & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -514,9 +524,9 @@ def ash_naive():
     )
     print(
         'ASH & 1 room & 38 rooms & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -540,9 +550,9 @@ def ash_fair():
     )
     print(
         'ASH & 10 room & 29 rooms & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -559,9 +569,9 @@ def room_cross_corpus_naive():
     )
     print(
         'Cross-corpus & 1 corpus & 4 corpora & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -578,9 +588,9 @@ def room_cross_corpus_fair():
     )
     print(
         'Cross-corpus & 4 corpora & 1 corpus & '
-        fr'{gaps[0]:.2f} ({round(gaps[1]):+.0f}\%) & '
-        fr'{gaps[2]:.2f} ({round(gaps[3]):+.0f}\%) & '
-        fr'{gaps[4]:.2f} ({round(gaps[5]):+.0f}\%) \\ \hline'
+        fr'{precision_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{precision_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
     )
 
 
@@ -598,7 +608,7 @@ def rooms():
         {'surrey_.*', 'ash_.*', 'air_.*', 'avil_.*'},
         {'surrey_.*', 'ash_.*', 'air_.*', 'catt_.*'},
     ]
-    gaps = np.zeros((3, len(rooms), len(rooms)))
+    gaps = np.zeros((6, len(rooms), len(rooms)))
     for i, cond_dim_val in enumerate(rooms):
         for j, model_dim_val in enumerate(rooms):
             if len(cond_dim_val) == 1:
@@ -618,7 +628,6 @@ def rooms():
 
 
 def snr():
-    print('SNR')
     snr_dist_args = [
         [-5, -5],
         [0, 0],
@@ -633,12 +642,19 @@ def snr():
                 'snr_dist_args',
                 model_dim_val,
                 cond_dim_val,
+                seed=[0, 1, 2, 3, 4],
             )
-    print(gaps)
+    raw = gaps[0, :, :]
+    per = gaps[1, :, :]
+    headers = ['-5 dB', '0 dB', '5 dB', '10 dB', '-5--10 dB']
+    for i in range(len(headers)):
+        items = [headers[i]]
+        for j in range(len(headers)):
+            items.append(fr'{raw[i, j]:.2f} ({round(per[i, j]):+.0f}\%)')
+        print(' & '.join(items) + r'\\')
 
 
 def direction():
-    print('Direction')
     target_angle_lims = [
         [0.0, 0.0],
         [-90.0, 90.0],
@@ -650,12 +666,19 @@ def direction():
                 'target_angle_lims',
                 model_dim_val,
                 cond_dim_val,
+                seed=[0, 1, 2, 3, 4],
             )
-    print(gaps)
+    raw = gaps[0, :, :]
+    per = gaps[1, :, :]
+    headers = ['Fixed (0°)', 'Random (-90°--90°)']
+    for i in range(len(headers)):
+        items = [headers[i]]
+        for j in range(len(headers)):
+            items.append(fr'{raw[i, j]:.2f} ({round(per[i, j]):+.0f}\%)')
+        print(' & '.join(items) + r'\\')
 
 
 def level():
-    print('Level')
     rms_jitters = [
         False,
         True,
@@ -667,30 +690,51 @@ def level():
                 'random_rms',
                 model_dim_val,
                 cond_dim_val,
+                seed=[0, 1, 2, 3, 4],
             )
-    print(gaps)
+    raw = gaps[0, :, :]
+    per = gaps[1, :, :]
+    headers = ['Fixed speaker level', 'RMS jitter']
+    for i in range(len(headers)):
+        items = [headers[i]]
+        for j in range(len(headers)):
+            items.append(fr'{raw[i, j]:.2f} ({round(per[i, j]):+.0f}\%)')
+        print(' & '.join(items) + r'\\')
 
 
-# timit_naive()
-# timit_fair()
-# timit_wise()
-# libri_naive()
-# libri_fair()
-# libri_wise()
-# speaker_cross_corpus_naive()
-# speaker_cross_corpus_fair()
-# dcase_naive()
-# dcase_fair()
-# noise_cross_corpus_naive()
-# noise_cross_corpus_fair()
-# surrey_naive()
-# surrey_fair()
-# ash_naive()
-# ash_fair()
-# room_cross_corpus_naive()
-# room_cross_corpus_fair()
+print(r'\multicolumn{6}{l}{\cellcolor{gray!30}Speaker} \\ \hline')
+timit_naive()
+timit_fair()
+timit_wise()
+print(r'\hline')
+libri_naive()
+libri_fair()
+libri_wise()
+print(r'\hline')
+speaker_cross_corpus_naive()
+speaker_cross_corpus_fair()
+print(r'\hline')
+print(r'\multicolumn{6}{l}{\cellcolor{gray!30}Noise types} \\ \hline')
+dcase_naive()
+dcase_fair()
+print(r'\hline')
+noise_cross_corpus_naive()
+noise_cross_corpus_fair()
+print(r'\hline')
+print(r'\multicolumn{6}{l}{\cellcolor{gray!30}Rooms} \\ \hline')
+surrey_naive()
+surrey_fair()
+print(r'\hline')
+ash_naive()
+ash_fair()
+print(r'\hline')
+room_cross_corpus_naive()
+room_cross_corpus_fair()
+print('')
 
 # rooms()
-# snr()
+snr()
+print('')
 direction()
-# level()
+print('')
+level()
