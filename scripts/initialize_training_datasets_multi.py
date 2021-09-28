@@ -16,51 +16,21 @@ def main(args, params):
         {'dcase_metro'},
         {'dcase_metro_station'},
         {'dcase_park'},
-        # {'dcase_public_square'},
-        # {'dcase_shopping_mall'},
-        # {'dcase_street_pedestrian'},
-        # {'dcase_street_traffic'},
-        # {'dcase_tram'},
         {'dcase_(?!airport$).*'},
         {'dcase_(?!bus$).*'},
         {'dcase_(?!metro$).*'},
         {'dcase_(?!metro_station$).*'},
         {'dcase_(?!park$).*'},
-        # {'dcase_(?!public_square$).*'},
-        # {'dcase_(?!shopping_mall$).*'},
-        # {'dcase_(?!street_pedestrian$).*'},
-        # {'dcase_(?!street_traffic$).*'},
-        # {'dcase_(?!tram$).*'},
         {'noisex_babble'},
         {'noisex_buccaneer1'},
-        # {'noisex_buccaneer2'},
         {'noisex_destroyerengine'},
-        # {'noisex_destroyerops'},
         {'noisex_f16'},
         {'noisex_factory1'},
-        # {'noisex_factory2'},
-        # {'noisex_hfchannel'},
-        # {'noisex_leopard'},
-        # {'noisex_m109'},
-        # {'noisex_machinegun'},
-        # {'noisex_pink'},
-        # {'noisex_volvo'},
-        # {'noisex_white'},
         {'noisex_(?!babble$).*'},
         {'noisex_(?!buccaneer1$).*'},
-        # {'noisex_(?!buccaneer2$).*'},
         {'noisex_(?!destroyerengine$).*'},
-        # {'noisex_(?!destroyerops$).*'},
         {'noisex_(?!f16$).*'},
         {'noisex_(?!factory1$).*'},
-        # {'noisex_(?!factory2$).*'},
-        # {'noisex_(?!hfchannel$).*'},
-        # {'noisex_(?!leopard$).*'},
-        # {'noisex_(?!m109$).*'},
-        # {'noisex_(?!machinegun$).*'},
-        # {'noisex_(?!pink$).*'},
-        # {'noisex_(?!volvo$).*'},
-        # {'noisex_(?!white$).*'},
         {'dcase_.*'},
         {'icra_.*'},
         {'noisex_.*'},
@@ -71,7 +41,6 @@ def main(args, params):
         {'dcase_.*', 'icra_.*', 'noisex_.*', 'arte'},
         {'dcase_.*', 'icra_.*', 'demand', 'arte'},
         {'dcase_.*', 'icra_.*', 'demand', 'noisex_.*'},
-        {'dcase_.*', 'icra_.*', 'demand', 'noisex_.*', 'arte'},
     ]
     roomss = [
         {'surrey_anechoic'},
@@ -94,16 +63,16 @@ def main(args, params):
         {'ash_(?!r03$).*'},
         {'ash_(?!r04$).*'},
         {'ash_(?!r05a?b?$).*'},
-        {'ash_r0[0-9]a?b?'},  # 0 to 9
-        {'ash_r1[0-9]'},  # 10 to 19
-        {'ash_r2[0-9]'},  # 20 to 29
-        {'ash_r3[0-9]'},  # 30 to 39
-        {'ash_r(00|04|08|12|16|20|24|18|32|36)'},  # every 4th room from 0 to 39
-        {'ash_(?!r0[0-9]a?b?$).*'},  # 0 to 9
-        {'ash_(?!r1[0-9]$).*'},  # 10 to 19
-        {'ash_(?!r2[0-9]$).*'},  # 20 to 29
-        {'ash_(?!r3[0-9]$).*'},  # 30 to 39
-        {'ash_(?!r(00|04|08|12|16|20|24|18|32|36)$).*'},  # every 4th room from 0 to 39
+        {'ash_r0[0-9]a?b?'},
+        {'ash_r1[0-9]'},
+        {'ash_r2[0-9]'},
+        {'ash_r3[0-9]'},
+        {'ash_r(00|04|08|12|16|20|24|18|32|36)'},
+        {'ash_(?!r0[0-9]a?b?$).*'},
+        {'ash_(?!r1[0-9]$).*'},
+        {'ash_(?!r2[0-9]$).*'},
+        {'ash_(?!r3[0-9]$).*'},
+        {'ash_(?!r(00|04|08|12|16|20|24|18|32|36)$).*'},
         {'surrey_.*'},
         {'ash_.*'},
         {'air_.*'},
@@ -114,7 +83,6 @@ def main(args, params):
         {'surrey_.*', 'ash_.*', 'catt_.*', 'avil_.*'},
         {'surrey_.*', 'ash_.*', 'air_.*', 'avil_.*'},
         {'surrey_.*', 'ash_.*', 'air_.*', 'catt_.*'},
-        {'surrey_.*', 'ash_.*', 'air_.*', 'catt_.*', 'avil_.*'},
     ]
     angle_limss = [
         [0.0, 0.0],
@@ -132,68 +100,68 @@ def main(args, params):
         True,
     ]
     speakerss = [
-        {'timit_m0'},  # male 0
-        {'timit_f0'},  # female 0
-        {'timit_m1'},  # male 1
-        {'timit_f1'},  # female 1
-        {'timit_m2'},  # male 2
-        {'timit_f2'},  # female 2
-        {'timit_(f[0-4]|m[0-4])'},  # males and females 0 to 4
-        {'timit_(f[5-9]|m[5-9])'},  # males and females 5 to 9
-        {'timit_(f1[0-4]|m1[0-4])'},  # males and females 10 to 14
-        {'timit_(f1[5-9]|m1[5-9])'},  # males and females 15 to 19
-        {'timit_(f2[0-4]|m2[0-4])'},  # males and females 20 to 24
-        {'timit_(f[0-4]?[0-9]|m[0-4]?[0-9])'},  # males and females 0 to 49
-        {'timit_(f[4-9][0-9]|m[4-9][0-9])'},  # males and females 49 to 99
-        {'timit_(f1[0-4][0-9]|m1[0-4][0-9])'},  # males and females 100 to 149
-        {'timit_(f[0-9]?[02468]|m[0-9]?[02468])'},  # even males and females 0 to 99
-        {'timit_(f[0-9]?[13579]|m[0-9]?[13579])'},  # odd males and females 0 to 99
-        {'timit_(?!m0$).*'},  # male 0
-        {'timit_(?!f0$).*'},  # female 0
-        {'timit_(?!m1$).*'},  # male 1
-        {'timit_(?!f1$).*'},  # female 1
-        {'timit_(?!m2$).*'},  # male 2
-        {'timit_(?!f2$).*'},  # female 2
-        {'timit_(?!(f[0-4]|m[0-4])$).*'},  # males and females 0 to 4
-        {'timit_(?!(f[5-9]|m[5-9])$).*'},  # males and females 5 to 9
-        {'timit_(?!(f1[0-4]|m1[0-4])$).*'},  # males and females 10 to 14
-        {'timit_(?!(f1[5-9]|m1[5-9])$).*'},  # males and females 15 to 19
-        {'timit_(?!(f2[0-4]|m2[0-4])$).*'},  # males and females 20 to 24
-        {'timit_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},  # males and females 0 to 49
-        {'timit_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},  # males and females 49 to 99
-        {'timit_(?!(f1[0-4][0-9]|m1[0-4][0-9])$).*'},  # males and females 100 to 149
-        {'timit_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},  # even males and females 0 to 99
-        {'timit_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},  # odd males and females 0 to 99
-        {'libri_m0'},  # male 0
-        {'libri_f0'},  # female 0
-        {'libri_m1'},  # male 1
-        {'libri_f1'},  # female 1
-        {'libri_m2'},  # male 2
-        {'libri_f2'},  # female 2
-        {'libri_(f[0-4]|m[0-4])'},  # males and females 0 to 4
-        {'libri_(f[5-9]|m[5-9])'},  # males and females 5 to 9
-        {'libri_(f1[0-4]|m1[0-4])'},  # males and females 10 to 14
-        {'libri_(f1[5-9]|m1[5-9])'},  # males and females 15 to 19
-        {'libri_(f2[0-4]|m2[0-4])'},  # males and females 20 to 24
-        {'libri_(f[0-4]?[0-9]|m[0-4]?[0-9])'},  # males and females 0 to 49
-        {'libri_(f[4-9][0-9]|m[4-9][0-9])'},  # males and females 49 to 99
-        {'libri_(f[0-9]?[02468]|m[0-9]?[02468])'},  # even males and females 0 to 99
-        {'libri_(f[0-9]?[13579]|m[0-9]?[13579])'},  # odd males and females 0 to 99
-        {'libri_(?!m0$).*'},  # male 0
-        {'libri_(?!f0$).*'},  # female 0
-        {'libri_(?!m1$).*'},  # male 1
-        {'libri_(?!f1$).*'},  # female 1
-        {'libri_(?!m2$).*'},  # male 2
-        {'libri_(?!f2$).*'},  # female 2
-        {'libri_(?!(f[0-4]|m[0-4])$).*'},  # males and females 0 to 4
-        {'libri_(?!(f[5-9]|m[5-9])$).*'},  # males and females 5 to 9
-        {'libri_(?!(f1[0-4]|m1[0-4])$).*'},  # males and females 10 to 14
-        {'libri_(?!(f1[5-9]|m1[5-9])$).*'},  # males and females 15 to 19
-        {'libri_(?!(f2[0-4]|m2[0-4])$).*'},  # males and females 20 to 24
-        {'libri_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},  # males and females 0 to 49
-        {'libri_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},  # males and females 49 to 99
-        {'libri_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},  # even males and females 0 to 99
-        {'libri_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},  # odd males and females 0 to 99
+        {'timit_m0'},
+        {'timit_f0'},
+        {'timit_m1'},
+        {'timit_f1'},
+        {'timit_m2'},
+        {'timit_f2'},
+        {'timit_(f[0-4]|m[0-4])'},
+        {'timit_(f[5-9]|m[5-9])'},
+        {'timit_(f1[0-4]|m1[0-4])'},
+        {'timit_(f1[5-9]|m1[5-9])'},
+        {'timit_(f2[0-4]|m2[0-4])'},
+        {'timit_(f[0-4]?[0-9]|m[0-4]?[0-9])'},
+        {'timit_(f[4-9][0-9]|m[4-9][0-9])'},
+        {'timit_(f1[0-4][0-9]|m1[0-4][0-9])'},
+        {'timit_(f[0-9]?[02468]|m[0-9]?[02468])'},
+        {'timit_(f[0-9]?[13579]|m[0-9]?[13579])'},
+        {'timit_(?!m0$).*'},
+        {'timit_(?!f0$).*'},
+        {'timit_(?!m1$).*'},
+        {'timit_(?!f1$).*'},
+        {'timit_(?!m2$).*'},
+        {'timit_(?!f2$).*'},
+        {'timit_(?!(f[0-4]|m[0-4])$).*'},
+        {'timit_(?!(f[5-9]|m[5-9])$).*'},
+        {'timit_(?!(f1[0-4]|m1[0-4])$).*'},
+        {'timit_(?!(f1[5-9]|m1[5-9])$).*'},
+        {'timit_(?!(f2[0-4]|m2[0-4])$).*'},
+        {'timit_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},
+        {'timit_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},
+        {'timit_(?!(f1[0-4][0-9]|m1[0-4][0-9])$).*'},
+        {'timit_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},
+        {'timit_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},
+        {'libri_m0'},
+        {'libri_f0'},
+        {'libri_m1'},
+        {'libri_f1'},
+        {'libri_m2'},
+        {'libri_f2'},
+        {'libri_(f[0-4]|m[0-4])'},
+        {'libri_(f[5-9]|m[5-9])'},
+        {'libri_(f1[0-4]|m1[0-4])'},
+        {'libri_(f1[5-9]|m1[5-9])'},
+        {'libri_(f2[0-4]|m2[0-4])'},
+        {'libri_(f[0-4]?[0-9]|m[0-4]?[0-9])'},
+        {'libri_(f[4-9][0-9]|m[4-9][0-9])'},
+        {'libri_(f[0-9]?[02468]|m[0-9]?[02468])'},
+        {'libri_(f[0-9]?[13579]|m[0-9]?[13579])'},
+        {'libri_(?!m0$).*'},
+        {'libri_(?!f0$).*'},
+        {'libri_(?!m1$).*'},
+        {'libri_(?!f1$).*'},
+        {'libri_(?!m2$).*'},
+        {'libri_(?!f2$).*'},
+        {'libri_(?!(f[0-4]|m[0-4])$).*'},
+        {'libri_(?!(f[5-9]|m[5-9])$).*'},
+        {'libri_(?!(f1[0-4]|m1[0-4])$).*'},
+        {'libri_(?!(f1[5-9]|m1[5-9])$).*'},
+        {'libri_(?!(f2[0-4]|m2[0-4])$).*'},
+        {'libri_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},
+        {'libri_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},
+        {'libri_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},
+        {'libri_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},
         {'ieee'},
         {'timit_.*'},
         {'libri_.*'},
@@ -204,7 +172,6 @@ def main(args, params):
         {'ieee', 'libri_.*', 'arctic', 'hint'},
         {'ieee', 'libri_.*', 'timit_.*', 'hint'},
         {'ieee', 'libri_.*', 'timit_.*', 'arctic'},
-        {'ieee', 'libri_.*', 'timit_.*', 'arctic', 'hint'},
     ]
 
     # the default config is a very specialized one
