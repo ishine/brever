@@ -562,7 +562,7 @@ def room_cross_corpus_naive():
         [
             {'surrey_.*'},
             {'ash_.*'},
-            {'air_.*'},
+            {'elospheres_.*'},
             {'catt_.*'},
             {'avil_.*'},
         ]
@@ -581,7 +581,7 @@ def room_cross_corpus_fair():
         [
             {'surrey_.*'},
             {'ash_.*'},
-            {'air_.*'},
+            {'elospheres_.*'},
             {'catt_.*'},
             {'avil_.*'},
         ]
@@ -599,14 +599,14 @@ def rooms():
     rooms = [
         {'surrey_.*'},
         {'ash_.*'},
-        {'air_.*'},
+        {'elospheres_.*'},
         {'catt_.*'},
         {'avil_.*'},
-        {'ash_.*', 'air_.*', 'catt_.*', 'avil_.*'},
-        {'surrey_.*', 'air_.*', 'catt_.*', 'avil_.*'},
+        {'ash_.*', 'elospheres_.*', 'catt_.*', 'avil_.*'},
+        {'surrey_.*', 'elospheres_.*', 'catt_.*', 'avil_.*'},
         {'surrey_.*', 'ash_.*', 'catt_.*', 'avil_.*'},
-        {'surrey_.*', 'ash_.*', 'air_.*', 'avil_.*'},
-        {'surrey_.*', 'ash_.*', 'air_.*', 'catt_.*'},
+        {'surrey_.*', 'ash_.*', 'elospheres_.*', 'avil_.*'},
+        {'surrey_.*', 'ash_.*', 'elospheres_.*', 'catt_.*'},
     ]
     gaps = np.zeros((6, len(rooms), len(rooms)))
     for i, cond_dim_val in enumerate(rooms):
