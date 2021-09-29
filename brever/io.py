@@ -249,6 +249,25 @@ def load_brirs(room_alias, angles=None, fs=16e3, def_cfg=None):
         angle = (360 - angle) % 360
         filename = f'{m.group(1)}_azim_{angle}_degree.wav'
         brir, fs_ = sf.read(os.path.join(folder, filename))
+    elif room_alias.startswith('elospheres_'):
+        dirpath = get_path('ELOSPHERES', def_cfg)
+        m = re.match('^elospheres_(.*)$', room_alias)
+        if m is None:
+            raise ValueError(f'wrong room alias: {room_alias}')
+        room_name = m.group(1)
+        room_name = room_name[0].upper() + room_name[1:]
+        filepath = os.path.join(dirpath, f'{room_name}.sofa')
+        HRTF = sofa.Database.open(filepath)
+        if room_name == 'Car':
+            angles = [(-90 - 2.5*i) for i in range(36)] + \
+                     [(180 - 2.5*i) for i in range(37)]
+        else:
+            angles = [90 - 2.5*i for i in range(73)]
+        measurement = angles.index(angle)
+        ir_l = HRTF.Data.IR.get_values({'M': measurement, 'R': 0, 'E': 1})
+        ir_r = HRTF.Data.IR.get_values({'M': measurement, 'R': 1, 'E': 1})
+        brir = np.vstack((ir_l, ir_r)).T
+        fs_ = HRTF.Data.SamplingRate.get_values(indices={'M': measurement})
     else:
         raise ValueError(f'wrong room alias: {room_alias}')
     if fs_ != fs:
@@ -528,6 +547,16 @@ def get_available_angles(room_alias, def_cfg=None):
         r = re.compile(rf'^{m.group(1)}_azim_(\d{{1,3}})_degree.wav$')
         angles = [int(r.match(f).group(1)) for f in os.listdir(folder)]
         angles = [-((a + 180) % 360) + 180 for a in angles]
+    elif room_alias.startswith('elospheres_'):
+        m = re.match('^elospheres_(.*)$', room_alias)
+        if m is None:
+            raise ValueError(f'wrong room alias: {room_alias}')
+        room_name = m.group(1)
+        if room_name == 'car':
+            angles = [(-90 - 2.5*i) for i in range(36)] + \
+                     [(180 - 2.5*i) for i in range(37)]
+        else:
+            angles = [90 - 2.5*i for i in range(73)]
     else:
         raise ValueError(f'wrong room alias: {room_alias}')
     angles = sorted(angles)
@@ -655,6 +684,10 @@ def get_rooms(regexps):
         'avil_high',
         'avil_low',
         'avil_medium',
+        'elospheres_anechoic',
+        'elospheres_restaurant',
+        'elospheres_kitchen',
+        # 'elospheres_car',
     ]
     output = set()
     for regexp in regexps:
@@ -737,12 +770,18 @@ def get_all_filepaths(speaker, def_cfg=None):
     return all_filepaths
 
 
-def get_average_duration(speaker, def_cfg=None):
+def get_corpus_duration(speaker, def_cfg=None):
     all_filepaths = get_all_filepaths(speaker, def_cfg)
-    t = 0
+    n_files = len(all_filepaths)
+    total_duration = 0
     for filepath in all_filepaths:
-        t += sf.info(filepath).duration
-    return t/len(all_filepaths)
+        total_duration += sf.info(filepath).duration
+    return n_files, total_duration
+
+
+def get_average_duration(speaker, def_cfg=None):
+    n_files, total_duration = get_corpus_duration(speaker, def_cfg)
+    return total_duration/n_files
 
 
 def get_ltas(speaker=None, all_filepaths=None, def_cfg=None, n_fft=512,
