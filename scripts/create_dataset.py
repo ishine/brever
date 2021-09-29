@@ -8,7 +8,7 @@ import random
 from glob import glob
 import sys
 import copy
-from functools import partial
+# from functools import partial
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ import soundfile as sf
 
 from brever.config import defaults
 import brever.classes as bpipes
-from brever.utils import wola
+# from brever.utils import wola
 import brever.modelmanagement as bmm
 
 
@@ -99,6 +99,7 @@ def main(dataset_dir, force):
         ),
         filelims_dir_noise=config.PRE.MIX.FILELIMITS.NOISE,
         filelims_target=config.PRE.MIX.FILELIMITS.TARGET,
+        filelims_room=config.PRE.MIX.FILELIMITS.ROOM,
         decay_on=config.PRE.MIX.DECAY.ON,
         decay_color=config.PRE.MIX.DECAY.COLOR,
         decay_rt60s=np.arange(

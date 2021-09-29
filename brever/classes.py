@@ -326,9 +326,9 @@ class RandomMixtureMaker:
                  diffuse_noise_on, diffuse_noise_color, diffuse_noise_ltas_eq,
                  mixture_pad, mixture_rb, mixture_rms_jitter_on,
                  mixture_rms_jitters, filelims_target, filelims_dir_noise,
-                 decay_on, decay_color, decay_rt60s, decay_drr_dist_name,
-                 decay_drr_dist_args, decay_delays, seed_on, seed_value,
-                 uniform_tmr):
+                 filelims_room, decay_on, decay_color, decay_rt60s,
+                 decay_drr_dist_name, decay_drr_dist_args, decay_delays,
+                 seed_on, seed_value, uniform_tmr):
 
         if not seed_on:
             seed_value = None
@@ -371,6 +371,7 @@ class RandomMixtureMaker:
                                               seeder.get())
         self.filelims_target = filelims_target
         self.filelims_dir_noise = filelims_dir_noise
+        self.filelims_room = filelims_room
         self.decay_on = decay_on
         self.decay_color = decay_color
         self.decay_rt60s = RandomPool(decay_rt60s, seeder.get())
@@ -452,8 +453,13 @@ class RandomMixtureMaker:
         return decayer, metadata
 
     def add_random_target(self, mixture, metadata, room, decayer):
-        angles = [a for a in get_available_angles(room, self.def_cfg)
-                  if self.target_angle_min <= a <= self.target_angle_max]
+        angles = get_available_angles(
+            room,
+            def_cfg=self.def_cfg,
+            angle_min=self.target_angle_min,
+            angle_max=self.target_angle_max,
+            parity=self.filelims_room,
+        )
         self.target_angles.set_pool(angles)
         angle = self.target_angles.get()
         brir = self._load_brirs(room, angle)
@@ -524,9 +530,13 @@ class RandomMixtureMaker:
 
             types = [t for t in types if t != 'bbl']
             number = len(types)
-            angles = [a for a in get_available_angles(room, self.def_cfg)
-                      if self.dir_noise_angle_min <= a <=
-                      self.dir_noise_angle_max]
+            angles = get_available_angles(
+                room,
+                def_cfg=self.def_cfg,
+                angle_min=self.dir_noise_angle_min,
+                angle_max=self.dir_noise_angle_max,
+                parity=self.filelims_room,
+            )
             if len(angles) > 1:
                 angles = [a for a in angles if a !=
                           metadata['target']['angle']]

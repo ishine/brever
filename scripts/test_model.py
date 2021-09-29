@@ -14,7 +14,8 @@ from pesq import pesq
 from pystoi import stoi
 
 from brever.config import defaults
-from brever.utils import wola, segmental_scores
+# from brever.utils import wola, segmental_scores
+from brever.utils import wola
 import brever.pytorchtools as bptt
 import brever.modelmanagement as bmm
 

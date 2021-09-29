@@ -1,6 +1,6 @@
 import os
 import shutil
-import itertools
+# import itertools
 import copy
 
 from brever.config import defaults
@@ -123,8 +123,8 @@ def main(args):
         {
             'dim': 'speakers',
             'train': [
-                {'timit_(f[0-4]|m[0-4])'}, 
-                {'timit_(f[5-9]|m[5-9])'}, 
+                {'timit_(f[0-4]|m[0-4])'},
+                {'timit_(f[5-9]|m[5-9])'},
                 {'timit_(f1[5-9]|m1[5-9])'},
                 {'timit_(f1[0-4]|m1[0-4])'},
                 {'timit_(f2[0-4]|m2[0-4])'},
@@ -580,7 +580,7 @@ def main(args):
         model_id = bmm.get_unique_id(config)
         model_dir = os.path.join(models_dir, model_id)
         if not(os.path.exists(model_dir)):
-            copy_ = copy.deepcopy(config)   
+            copy_ = copy.deepcopy(config)
             copy_id = bmm.get_unique_id(config)
             new_tests = copy_['POST']['PATH'].pop('TEST')
             try:
@@ -609,7 +609,8 @@ def main(args):
                 print("Overwriting. It is recommended to run "
                       "'python scripts/check_sanity.py' afterwards to rename "
                       "all the models")
-                for model, tests, old_model, old_tests in exist_but_with_different_test_path:
+                for items in exist_but_with_different_test_path:
+                    model, tests, old_model, old_tests = items
                     cfg_path = os.path.join(old_model, 'config.yaml')
                     cfg = bmm.read_yaml(cfg_path)
                     bmm.set_config_field(cfg, 'test_path', tests)
@@ -620,7 +621,8 @@ def main(args):
                 print("Merging. It is recommended to run "
                       "'python scripts/check_sanity.py' afterwards to rename "
                       "all the models")
-                for model, tests, old_model, old_tests in exist_but_with_different_test_path:
+                for items in exist_but_with_different_test_path:
+                    model, tests, old_model, old_tests = items
                     cfg_path = os.path.join(old_model, 'config.yaml')
                     cfg = bmm.read_yaml(cfg_path)
                     bmm.set_config_field(cfg, 'test_path', tests | old_tests)
@@ -632,7 +634,8 @@ def main(args):
             else:
                 print('Could not interpret answer')
 
-    print(f'{len(configs)-skipped+dupes} config(s) attempted to be initialized.')
+    print(f'{len(configs)-skipped+dupes} config(s) attempted to be '
+          'initialized.')
     print(f'{exists} already exist.')
     print(f'{dupes} are duplicates.')
 

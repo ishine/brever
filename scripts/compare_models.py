@@ -681,7 +681,7 @@ def main(models, args, filter_):
                 if key not in ['summary', 'page', 'train_curve']:
                     plt.close(fig)
 
-        # save after showing so legend placement is correct 
+        # save after showing so legend placement is correct
         if args.output_dir is not None:
             if not os.path.exists(args.output_dir):
                 os.makedirs(args.output_dir)

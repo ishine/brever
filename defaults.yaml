@@ -92,6 +92,9 @@ PRE:
       TARGET:
       - 0.0
       - 1.0
+      ROOM: all
+      # ROOM: even
+      # ROOM: odd
     TOTALDURATION: 36000
     PADDING: 0.0
     RANDOM:

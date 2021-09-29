@@ -361,7 +361,7 @@ def find_model(models=None, configs=None, return_configs=False, **kwargs):
     return_configs: bool, optional
         If `True`, the list of model configuration dictionaries matching the
         filtering arguments is also returned. Default is `False`, which means
-        only the list of matching paths is returned. 
+        only the list of matching paths is returned.
     **kwargs :
         Parameters to filter the list of available models. The available
         parameters are the keys of
@@ -439,7 +439,7 @@ def find_dataset(kind=None, dsets=None, configs=None, return_configs=False,
     return_configs: bool, optional
         If `True`, the list of dataset configuration dictionaries matching the
         filtering arguments is also returned. Default is `False`, which means
-        only the list of matching paths is returned. 
+        only the list of matching paths is returned.
     **kwargs :
         Parameters to filter the list of available datasets. The available
         parameters are the keys of
@@ -903,6 +903,7 @@ class DatasetInitArgParser(ExtendableArgParser):
         'n_sources_max': ['PRE', 'MIX', 'RANDOM', 'SOURCES', 'NUMBER', 'MAX'],
         'filelims_noise': ['PRE', 'MIX', 'FILELIMITS', 'NOISE'],
         'filelims_target': ['PRE', 'MIX', 'FILELIMITS', 'TARGET'],
+        'filelims_room': ['PRE', 'MIX', 'FILELIMITS', 'ROOM'],
         'features': ['PRE', 'FEATURES'],
         'seed': ['PRE', 'SEED', 'ON'],
         'seed_value': ['PRE', 'SEED', 'VALUE'],
@@ -915,7 +916,6 @@ class DatasetInitArgParser(ExtendableArgParser):
         'target_angle_max': ['PRE', 'MIX', 'RANDOM', 'TARGET', 'ANGLE', 'MAX'],
         'speakers': ['PRE', 'MIX', 'RANDOM', 'TARGET', 'SPEAKERS'],
         'noise_angle_min': ['PRE', 'MIX', 'RANDOM', 'SOURCES', 'ANGLE', 'MIN'],
-        'noise_angle_max': ['PRE', 'MIX', 'RANDOM', 'SOURCES', 'ANGLE', 'MAX'],
         'noise_angle_max': ['PRE', 'MIX', 'RANDOM', 'SOURCES', 'ANGLE', 'MAX'],
     }
 
@@ -1010,6 +1010,11 @@ class DatasetInitArgParser(ExtendableArgParser):
             '--filelims-target',
             type=arg_filelims_type,
             help='speech recordings file limits',
+        )
+        self.add_base_argument(
+            '--filelims-room',
+            type=str,
+            help='room selection strategy',
         )
         self.add_base_argument(
             '--features',

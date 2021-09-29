@@ -467,7 +467,8 @@ def load_random_noise(noise_alias, n_samples, lims=None, fs=16e3,
     return x, filepath, (i_start, i_end)
 
 
-def get_available_angles(room_alias, def_cfg=None):
+def get_available_angles(room_alias, def_cfg=None, angle_min=None,
+                         angle_max=None, parity=None):
     if room_alias.startswith('surrey_'):
         dirpath = get_path('SURREY', def_cfg)
         m = re.match('^surrey_(.*)$', room_alias)
@@ -559,6 +560,24 @@ def get_available_angles(room_alias, def_cfg=None):
             angles = [90 - 2.5*i for i in range(73)]
     else:
         raise ValueError(f'wrong room alias: {room_alias}')
+    if angle_min is not None:
+        angles = [a for a in angles if a >= angle_min]
+    if angle_max is not None:
+        angles = [a for a in angles if a <= angle_max]
+    if parity is None or parity == 'all':
+        pass
+    elif parity == 'even' or parity == 'odd':
+        even_angles = angles[::2]
+        odd_angles = angles[1::2]
+        if 0 not in even_angles:
+            even_angles, odd_angles = odd_angles, even_angles
+        if parity == 'even':
+            angles = even_angles
+        else:
+            angles = odd_angles
+    else:
+        raise ValueError("parity must be None, 'all', 'odd' or 'even', got "
+                         f"{parity}")
     angles = sorted(angles)
     return angles
 
@@ -742,7 +761,7 @@ def get_all_filepaths(speaker, def_cfg=None):
         for root, dirs, files in os.walk(dirpath):
             for file in files:
                 if file.lower().endswith('.wav'):
-                    all_filepaths.append(os.path.join(root, file)) 
+                    all_filepaths.append(os.path.join(root, file))
     elif dset_alias == 'libri':
         pattern = speaker.split('_')[1].lower()
         if not pattern.startswith('^'):
@@ -764,7 +783,7 @@ def get_all_filepaths(speaker, def_cfg=None):
         for root, dirs, files in os.walk(dirpath):
             for file in files:
                 if file.lower().endswith('.wav'):
-                    all_filepaths.append(os.path.join(root, file)) 
+                    all_filepaths.append(os.path.join(root, file))
     if not all_filepaths:
         raise ValueError(f'No audio file found for speaker {speaker}')
     return all_filepaths

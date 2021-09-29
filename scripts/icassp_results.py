@@ -198,18 +198,18 @@ def timit_fair():
     gaps = get_mean_gap(
         'speakers',
         [
-            {'timit_(f[0-4]|m[0-4])'},  # males and females 0 to 4
-            {'timit_(f[5-9]|m[5-9])'},  # males and females 5 to 9
-            {'timit_(f1[0-4]|m1[0-4])'},  # males and females 10 to 14
-            {'timit_(f1[5-9]|m1[5-9])'},  # males and females 15 to 19
-            {'timit_(f2[0-4]|m2[0-4])'},  # males and females 20 to 24
+            {'timit_(f[0-4]|m[0-4])'},
+            {'timit_(f[5-9]|m[5-9])'},
+            {'timit_(f1[0-4]|m1[0-4])'},
+            {'timit_(f1[5-9]|m1[5-9])'},
+            {'timit_(f2[0-4]|m2[0-4])'},
         ],
         [
-            {'timit_(?!(f[0-4]|m[0-4])$).*'},  # males and females 0 to 4
-            {'timit_(?!(f[5-9]|m[5-9])$).*'},  # males and females 5 to 9
-            {'timit_(?!(f1[0-4]|m1[0-4])$).*'},  # males and females 10 to 14
-            {'timit_(?!(f1[5-9]|m1[5-9])$).*'},  # males and females 15 to 19
-            {'timit_(?!(f2[0-4]|m2[0-4])$).*'},  # males and females 20 to 24
+            {'timit_(?!(f[0-4]|m[0-4])$).*'},
+            {'timit_(?!(f[5-9]|m[5-9])$).*'},
+            {'timit_(?!(f1[0-4]|m1[0-4])$).*'},
+            {'timit_(?!(f1[5-9]|m1[5-9])$).*'},
+            {'timit_(?!(f2[0-4]|m2[0-4])$).*'},
         ],
     )
     print(
@@ -224,18 +224,18 @@ def timit_wise():
     gaps = get_mean_gap(
         'speakers',
         [
-            {'timit_(f[0-4]?[0-9]|m[0-4]?[0-9])'},  # males and females 0 to 49
-            {'timit_(f[4-9][0-9]|m[4-9][0-9])'},  # males and females 49 to 99
-            {'timit_(f1[0-4][0-9]|m1[0-4][0-9])'},  # males and females 100 to 149
-            {'timit_(f[0-9]?[02468]|m[0-9]?[02468])'},  # even males and females 0 to 99
-            {'timit_(f[0-9]?[13579]|m[0-9]?[13579])'},  # odd males and females 0 to 99
+            {'timit_(f[0-4]?[0-9]|m[0-4]?[0-9])'},
+            {'timit_(f[4-9][0-9]|m[4-9][0-9])'},
+            {'timit_(f1[0-4][0-9]|m1[0-4][0-9])'},
+            {'timit_(f[0-9]?[02468]|m[0-9]?[02468])'},
+            {'timit_(f[0-9]?[13579]|m[0-9]?[13579])'},
         ],
         [
-            {'timit_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},  # males and females 0 to 49
-            {'timit_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},  # males and females 49 to 99
-            {'timit_(?!(f1[0-4][0-9]|m1[0-4][0-9])$).*'},  # males and females 100 to 149
-            {'timit_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},  # even males and females 0 to 99
-            {'timit_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},  # odd males and females 0 to 99
+            {'timit_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},
+            {'timit_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},
+            {'timit_(?!(f1[0-4][0-9]|m1[0-4][0-9])$).*'},
+            {'timit_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},
+            {'timit_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},
         ],
     )
     print(
@@ -304,16 +304,16 @@ def libri_wise():
     gaps = get_mean_gap(
         'speakers',
         [
-            {'libri_(f[0-4]?[0-9]|m[0-4]?[0-9])'},  # males and females 0 to 49
-            {'libri_(f[4-9][0-9]|m[4-9][0-9])'},  # males and females 49 to 99
-            {'libri_(f[0-9]?[02468]|m[0-9]?[02468])'},  # even males and females 0 to 99
-            {'libri_(f[0-9]?[13579]|m[0-9]?[13579])'},  # odd males and females 0 to 99
+            {'libri_(f[0-4]?[0-9]|m[0-4]?[0-9])'},
+            {'libri_(f[4-9][0-9]|m[4-9][0-9])'},
+            {'libri_(f[0-9]?[02468]|m[0-9]?[02468])'},
+            {'libri_(f[0-9]?[13579]|m[0-9]?[13579])'},
         ],
         [
-            {'libri_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},  # males and females 0 to 49
-            {'libri_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},  # males and females 49 to 99
-            {'libri_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},  # even males and females 0 to 99
-            {'libri_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},  # odd males and females 0 to 99
+            {'libri_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},
+            {'libri_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},
+            {'libri_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},
+            {'libri_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},
         ],
     )
     print(
@@ -538,14 +538,14 @@ def ash_fair():
             {'ash_r1[0-9]'},  # 10 to 19
             {'ash_r2[0-9]'},  # 20 to 29
             {'ash_r3[0-9]'},  # 30 to 39
-            {'ash_r(00|04|08|12|16|20|24|18|32|36)'},  # every 4th room from 0 to 39
+            {'ash_r(00|04|08|12|16|20|24|18|32|36)'},
         ],
         [
             {'ash_(?!r0[0-9]a?b?$).*'},  # 0 to 9
             {'ash_(?!r1[0-9]$).*'},  # 10 to 19
             {'ash_(?!r2[0-9]$).*'},  # 20 to 29
             {'ash_(?!r3[0-9]$).*'},  # 30 to 39
-            {'ash_(?!r(00|04|08|12|16|20|24|18|32|36)$).*'},  # every 4th room from 0 to 39
+            {'ash_(?!r(00|04|08|12|16|20|24|18|32|36)$).*'},
         ],
     )
     print(

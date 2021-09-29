@@ -1,5 +1,4 @@
 import os
-import itertools
 
 import brever.modelmanagement as bmm
 from brever.config import defaults
@@ -11,68 +10,52 @@ def main(args, params):
     processed_dir = def_cfg.PATH.PROCESSED
     test_dir = os.path.join(processed_dir, 'test')
 
-    new_configs = []
-    new_paths = []
-    old_configs = []
-    old_paths = []
-
-    default = {
-        'room': {'surrey_.*'},
-        'snr': [-5, 10],
-        'noise': {'dcase_.*'},
-        'speaker': {'timit_.*'},
-        'rms': False,
-        'angle': [0.0, 0.0],
-    }
-
-    for room, snr, noise, angle, rms, speaker in itertools.product(
-                args.test_rooms,
-                args.test_snrs,
-                args.test_noises,
-                args.test_angles,
-                args.test_rms,
-                args.test_speakers,
+    # the default config is defined by the default arguments
+    def add_config(
+                configs,
+                noise_types={'dcase_.*'},
+                rooms={'surrey_.*'},
+                angle_lims=[-90.0, 90.0],
+                snr_lims=[-5, 10],
+                rms_jitter=False,
+                speakers={'timit_.*'},
+                filelims_rooms='odd',
             ):
-
-        if sum([
-            room == default['room'],
-            snr == default['snr'],
-            noise == default['noise'],
-            angle == default['angle'],
-            rms == default['rms'],
-            speaker == default['speaker'],
-        ]) < 5:
-            continue
 
         config = {
             'PRE': {
+                'SEED': {
+                    'ON': True,
+                    'VALUE': 2,
+                },
                 'MIX': {
                     'TOTALDURATION': args.test_duration,
                     'FILELIMITS': {
                         # 'NOISE': [0.85, 1.0],
                         # 'TARGET': [0.85, 1.0]
                         'NOISE': [0.7, 1.0],
-                        'TARGET': [0.7, 1.0]
+                        'TARGET': [0.7, 1.0],
+                        'ROOM': filelims_rooms,
                     },
                     'SAVE': True,
                     'RANDOM': {
-                        'ROOMS': room,
+                        'ROOMS': rooms,
                         'TARGET': {
                             'ANGLE': {
-                                'MIN': angle[0],
-                                'MAX': angle[1]
+                                'MIN': angle_lims[0],
+                                'MAX': angle_lims[1]
                             },
                             'SNR': {
-                                'DISTARGS': [snr[0], snr[1]],
+                                'DISTARGS': [snr_lims[0], snr_lims[1]],
                                 'DISTNAME': 'uniform'
                             },
-                            'SPEAKERS': speaker
+                            'SPEAKERS': speakers
                         },
                         'SOURCES': {
-                                'TYPES': noise
+                                'TYPES': noise_types
                         },
                         'RMSDB': {
-                            'ON': rms
+                            'ON': rms_jitter
                         }
                     }
                 }
@@ -89,16 +72,33 @@ def main(args, params):
         dset_id = bmm.get_unique_id(config)
         dset_path = os.path.join(test_dir, dset_id)
 
-        if not os.path.exists(dset_path):
-            new_configs.append(config)
-            new_paths.append(dset_path)
-        else:
-            old_configs.append(config)
-            old_paths.append(dset_path)
+        if (config, dset_path) not in configs:
+            configs.append((config, dset_path))
 
-    print(f'{len(new_paths) + len(old_paths)} datasets attempted to be '
-          'initialized.')
-    print(f'{len(old_paths)} already exist.')
+    configs = []
+
+    # note that some configs below will be duplicate but the test at the end of
+    # the function will correctly prevent from adding them
+    for noise_types in args.test_noises:
+        add_config(configs, noise_types=noise_types)
+    for rooms in args.test_rooms:
+        add_config(configs, rooms=rooms)
+    for angle_lims in args.test_angles:
+        add_config(configs, angle_lims=angle_lims, filelims_rooms='all')
+    for snr_lims in args.test_snrs:
+        add_config(configs, snr_lims=snr_lims)
+    for rms_jitter in args.test_rms:
+        add_config(configs, rms_jitter=rms_jitter)
+    for speakers in args.test_speakers:
+        add_config(configs, speakers=speakers)
+
+    new_configs = []
+    for config_dict, dset_path in configs:
+        if not os.path.exists(dset_path):
+            new_configs.append((config_dict, dset_path))
+
+    print(f'{len(configs)} datasets attempted to be initialized.')
+    print(f'{len(configs) - len(new_configs)} already exist.')
 
     # build the list of dsets already in the filesystem
     filesystem_dsets = []
@@ -108,7 +108,7 @@ def main(args, params):
     # created again; they might be deprecated
     deprecated_dsets = []
     for dset in filesystem_dsets:
-        if dset not in old_paths:
+        if dset not in [config[1] for config in configs]:
             deprecated_dsets.append(dset)
     if deprecated_dsets:
         print('The following datasets are in the filesystem but were not '
@@ -116,12 +116,12 @@ def main(args, params):
         for dset in deprecated_dsets:
             print(dset)
 
-    if not new_paths:
-        print(f'{len(new_paths)} will be initialized.')
+    if not new_configs:
+        print(f'{len(new_configs)} will be initialized.')
     else:
-        resp = input(f'{len(new_paths)} will be initialized. Continue? y/n')
+        resp = input(f'{len(new_configs)} will be initialized. Continue? y/n')
         if resp == 'y':
-            for config, dirpath in zip(new_configs, new_paths):
+            for config, dirpath in new_configs:
                 if not os.path.exists(dirpath):
                     os.makedirs(dirpath)
                 config_filepath = os.path.join(dirpath, 'config.yaml')

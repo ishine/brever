@@ -174,15 +174,16 @@ def main(args, params):
         {'ieee', 'libri_.*', 'timit_.*', 'arctic'},
     ]
 
-    # the default config is a very specialized one
+    # the default config is defined by the default arguments
     def add_config(
                 configs,
                 noise_types={'dcase_.*'},
                 rooms={'surrey_.*'},
-                angle_lims=[0.0, 0.0],
+                angle_lims=[-90.0, 90.0],
                 snr_lims=[-5, 10],
                 rms_jitter=False,
                 speakers={'timit_.*'},
+                filelims_rooms='even',
             ):
 
         for basename, filelims, duration, seed in zip(
@@ -204,6 +205,7 @@ def main(args, params):
                         'FILELIMITS': {
                             'NOISE': filelims.copy(),
                             'TARGET': filelims.copy(),
+                            'ROOM': filelims_rooms,
                         },
                         'RANDOM': {
                             'ROOMS': rooms,
@@ -255,7 +257,7 @@ def main(args, params):
     for rooms in roomss:
         add_config(configs, rooms=rooms)
     for angle_lims in angle_limss:
-        add_config(configs, angle_lims=angle_lims)
+        add_config(configs, angle_lims=angle_lims, filelims_rooms='all')
     for snr_lims in snr_limss:
         add_config(configs, snr_lims=snr_lims)
     for rms_jitter in rms_jitters:
