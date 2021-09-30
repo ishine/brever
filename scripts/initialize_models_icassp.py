@@ -72,6 +72,7 @@ def find_dset(
             target_angle_lims=[-90, 90.0],
             noise_types={'dcase_.*'},
             random_rms=False,
+            filelims_room=None,
         ):
     target_angle_min, target_angle_max = target_angle_lims
     return bmm.find_dataset(
@@ -85,6 +86,7 @@ def find_dset(
         target_angle_max=target_angle_max,
         noise_types=noise_types,
         random_rms=random_rms,
+        filelims_room=filelims_room,
     )
 
 
@@ -465,12 +467,19 @@ def main(args):
 
     configs = []
     for exp in experiments:
+        if exp['dim'] == 'target_angle_lims':
+            train_brirs = 'all'
+            test_brirs = 'all'
+        else:
+            train_brirs = 'even'
+            test_brirs = 'odd'
         test_paths = set()
         for x in exp['test']:
             dset, = find_dset(
                 dsets=test_dsets,
                 configs=test_configs,
                 **{exp['dim']: x},
+                filelims_room=test_brirs,
             )
             test_paths.add(dset)
         for x in exp['train']:
@@ -478,6 +487,7 @@ def main(args):
                 dsets=train_dsets,
                 configs=train_configs,
                 **{exp['dim']: x},
+                filelims_room=train_brirs,
             )
             train_path = dset
             val_path = dset.replace('train', 'val')
