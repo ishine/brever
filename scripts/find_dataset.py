@@ -30,8 +30,14 @@ def main(args, **kwargs):
                     if bmm.get_dict_field(config, keys) != value:
                         valid = False
                         break
-            if valid:
-                dsets.append(root)
+            if not valid:
+                continue
+
+            if args.created:
+                if not os.path.exists(os.path.join(root, 'mixture_info.json')):
+                    continue
+
+            dsets.append(root)
 
     for dset in dsets:
         print(dset)
@@ -57,5 +63,7 @@ if __name__ == '__main__':
                         help='only scan val subdir')
     parser.add_argument('--test', action='store_true',
                         help='only scan test subdir')
+    parser.add_argument('--created', action='store_true',
+                        help='only show created datasets')
     filter_args, extra_args = parser.parse_args()
     main(extra_args, **vars(filter_args))
