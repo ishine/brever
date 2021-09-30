@@ -336,7 +336,8 @@ class RandomMixtureMaker:
 
         self.def_cfg = defaults()
         self.fs = fs
-        self.rooms = RandomPool(get_rooms(rooms), seeder.get())
+        self.room_regexps = RandomPool(rooms, seeder.get())
+        self.rooms = RandomPool([], seeder.get())
 
         # For the speakers random generator, the probability distribution must
         # be weighted according to the average duration of the sentences,
@@ -428,6 +429,8 @@ class RandomMixtureMaker:
         return mixture, metadata
 
     def get_random_room(self, metadata):
+        room_regexp = self.room_regexps.get()
+        self.rooms.set_pool(get_rooms(room_regexp))
         room = self.rooms.get()
         metadata['room'] = room
         return room, metadata

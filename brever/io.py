@@ -747,6 +747,8 @@ def get_rooms(regexps):
         # 'bras_rs3',  # rs3 should not be used because not centered
         'bras_rs5',
     ]
+    if isinstance(regexps, str):
+        regexps = [regexps]
     output = set()
     for regexp in regexps:
         if not regexp.startswith('^'):
