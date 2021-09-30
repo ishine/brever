@@ -69,7 +69,7 @@ def find_dset(
             speakers={'timit_.*'},
             rooms={'surrey_.*'},
             snr_dist_args=[-5, 10],
-            target_angle_lims=[0.0, 0.0],
+            target_angle_lims=[-90, 90.0],
             noise_types={'dcase_.*'},
             random_rms=False,
         ):
