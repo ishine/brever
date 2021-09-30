@@ -268,6 +268,32 @@ def load_brirs(room_alias, angles=None, fs=16e3, def_cfg=None):
         ir_r = HRTF.Data.IR.get_values({'M': measurement, 'R': 1, 'E': 1})
         brir = np.vstack((ir_l, ir_r)).T
         fs_ = HRTF.Data.SamplingRate.get_values(indices={'M': measurement})
+    elif room_alias.startswith('bras_'):
+        dirpath = get_path('BRAS', def_cfg)
+        m = re.match('^bras_(.*)$', room_alias)
+        scene_name = m.group(1).upper()
+        filename = f'{scene_name}_BRIRs.sofa'
+        filepaths = []
+        for root, folder, files in os.walk(dirpath):
+            if filename in files:
+                filepath = os.path.join(root, filename)
+                filepaths.append(filepath)
+        if not filepaths:
+            raise ValueError(f'could not {room_alias} BRIRs in filesystem')
+        elif len(filepaths) > 1:
+            raise ValueError(f'found more than 1 match for alias {room_alias}')
+        HRTF = sofa.Database.open(filepath)
+        filepath, = filepaths
+        angles = [-44 + 2*i for i in range(45)]
+        measurement = angles.index(angle)
+        if scene_name in ['CR2', 'CR3', 'CR4']:
+            E = 4
+        else:
+            E = 0
+        ir_l = HRTF.Data.IR.get_values({'M': measurement, 'R': 0, 'E': E})
+        ir_r = HRTF.Data.IR.get_values({'M': measurement, 'R': 1, 'E': E})
+        brir = np.vstack((ir_l, ir_r)).T
+        fs_ = HRTF.Data.SamplingRate.get_values(indices={'M': measurement})
     else:
         raise ValueError(f'wrong room alias: {room_alias}')
     if fs_ != fs:
@@ -558,6 +584,8 @@ def get_available_angles(room_alias, def_cfg=None, angle_min=None,
                      [(180 - 2.5*i) for i in range(37)]
         else:
             angles = [90 - 2.5*i for i in range(73)]
+    elif room_alias.startswith('bras_'):
+        angles = [-44 + 2*i for i in range(45)]
     else:
         raise ValueError(f'wrong room alias: {room_alias}')
     if angle_min is not None:
@@ -583,6 +611,8 @@ def get_available_angles(room_alias, def_cfg=None, angle_min=None,
 
 
 def get_rooms(regexps):
+    # TODO: implement distance option to reduce huddersfield and air rooms
+    # TODO: check huddersfield support
     avail_rooms = [
         'surrey_anechoic',
         'surrey_room_a',
@@ -706,7 +736,16 @@ def get_rooms(regexps):
         'elospheres_anechoic',
         'elospheres_restaurant',
         'elospheres_kitchen',
-        # 'elospheres_car',
+        # 'elospheres_car',  # car should not be used because not centered
+        # 'bras_cr1',  # cr1 should not be used because not centered
+        'bras_cr2',
+        'bras_cr3',
+        'bras_cr4',
+        # 'bras_rs1_absorbing',
+        # 'bras_rs1_diffuse',
+        # 'bras_rs1_rigid',
+        # 'bras_rs3',  # rs3 should not be used because not centered
+        'bras_rs5',
     ]
     output = set()
     for regexp in regexps:
