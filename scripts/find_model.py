@@ -30,7 +30,7 @@ def main(args, **kwargs):
         if args.tested and not os.path.exists(score_file):
             continue
 
-        models.append(models)
+        models.append(model)
 
     for model in models:
         print(model)
