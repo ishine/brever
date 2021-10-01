@@ -5,38 +5,37 @@ from brever.config import defaults
 import brever.modelmanagement as bmm
 
 
-def main(delete=False, set_field=None, **kwargs):
-    if delete and set_field:
-        raise ValueError('Can\'t use both --delete and --set-field')
+def main(args, **kwargs):
+    if args.trained and args.untrained:
+        raise ValueError("can't use both --trained and --untrained")
+    if args.tested and args.untested:
+        raise ValueError("can't use both --tested and --untested")
 
-    models = bmm.find_model(**kwargs)
+    # first filtering of models
+    pre_models = bmm.find_model(**kwargs)
 
-    tested = []
-    trained = []
-    untrained = []
+    # second filtering of models based on extra argumgents
+    models = []
+
+    for model in pre_models:
+        loss_file = os.path.join(model, 'losses.npz')
+        score_file = os.path.join(model, 'scores.json')
+
+        if args.untrained and os.path.exists(loss_file):
+            continue
+        if args.trained and not os.path.exists(loss_file):
+            continue
+        if args.untested and os.path.exists(score_file):
+            continue
+        if args.tested and not os.path.exists(score_file):
+            continue
+
+        models.append(models)
 
     for model in models:
-        score_file = os.path.join(model, 'scores.json')
-        loss_file = os.path.join(model, 'losses.npz')
-        if os.path.exists(score_file):
-            tested.append(model)
-        elif os.path.exists(loss_file):
-            trained.append(model)
-        else:
-            untrained.append(model)
-
-    print(f'{len(models)} total models found')
-    print(f'{len(tested)} trained and tested models:')
-    for model in tested:
-        print(model)
-    print(f'{len(trained)} trained and untested models:')
-    for model in trained:
-        print(model)
-    print(f'{len(untrained)} untrained models:')
-    for model in untrained:
         print(model)
 
-    if models and delete:
+    if models and args.delete:
         print(f'{len(models)} models will be deleted.')
         resp = input('Do you want to continue? y/n')
         if resp == 'y':
@@ -46,39 +45,18 @@ def main(delete=False, set_field=None, **kwargs):
         else:
             print('No model was deleted')
 
-    if models and set_field:
-        tag, value = set_field
-        tag = tag.replace('_', '-')
-        parser = bmm.ModelFilterArgParser()
-        args, _ = parser.parse_args([f'--{tag}', value])
-        tag = tag.replace('-', '_')
-        value, = getattr(args, tag)
-        print(f'{len(models)} models will have their {tag} field set to '
-              f'{value}.')
-        resp = input('Do you want to continue? y/n')
-        if resp == 'y':
-            def_cfg = defaults()
-            for model in models:
-                if model in trained or model in tested:
-                    filenames = ['config.yaml', 'config_full.yaml']
-                else:
-                    filenames = ['config.yaml']
-                for filename in filenames:
-                    config_path = os.path.join(model, filename)
-                    config = bmm.read_yaml(config_path)
-                    bmm.set_config_field(config, tag, value)
-                    def_cfg.update(config)  # throw error if config not valid
-                    bmm.dump_yaml(config, config_path)
-        else:
-            print('No model was updated')
-
 
 if __name__ == '__main__':
     parser = bmm.ModelFilterArgParser(description='find models')
     parser.add_argument('-d', '--delete', action='store_true',
                         help='delete found models')
-    parser.add_argument('--set-field', nargs=2,
-                        help='set a field in config files (use carefully)')
+    parser.add_argument('--trained', action='store_true',
+                        help='only show trained models')
+    parser.add_argument('--untrained', action='store_true',
+                        help='only show untrained models')
+    parser.add_argument('--tested', action='store_true',
+                        help='only show tested models')
+    parser.add_argument('--untested', action='store_true',
+                        help='only show untested models')
     filter_args, extra_args = parser.parse_args()
-    main(delete=extra_args.delete, set_field=extra_args.set_field,
-         **vars(filter_args))
+    main(extra_args, **vars(filter_args))
