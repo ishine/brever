@@ -1,6 +1,5 @@
 import os
 import shutil
-
 import brever.modelmanagement as bmm
 
 
@@ -31,8 +30,11 @@ def main(args, **kwargs):
 
         models.append(model)
 
-    for model in models:
-        print(model)
+    if args.one_line:
+        print(' '.join(models))
+    else:
+        for model in models:
+            print(model)
 
     if models and args.delete:
         print(f'{len(models)} models will be deleted.')
@@ -57,5 +59,7 @@ if __name__ == '__main__':
                         help='only show tested models')
     parser.add_argument('--untested', action='store_true',
                         help='only show untested models')
+    parser.add_argument('--pipe', action='store_true',
+                        help='output as one line to pipe to another command')
     filter_args, extra_args = parser.parse_args()
     main(extra_args, **vars(filter_args))
