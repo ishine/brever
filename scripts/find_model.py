@@ -30,7 +30,7 @@ def main(args, **kwargs):
 
         models.append(model)
 
-    if args.one_line:
+    if args.pipe:
         print(' '.join(models))
     else:
         for model in models:
