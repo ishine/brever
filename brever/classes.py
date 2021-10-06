@@ -624,7 +624,8 @@ class RandomMixtureMaker:
     def set_random_rms(self, mixture, metadata):
         rms_dB = self.mixture_rms_jitters.get()
         if self.mixture_rms_jitter_on:
-            mixture.adjust_rms(rms_dB)
+            rms_start = mixture.rms()
+            mixture.adjust_rms(rms_start + rms_dB)
             metadata['rms_dB'] = rms_dB
         return mixture, metadata
 

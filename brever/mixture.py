@@ -371,6 +371,10 @@ class Mixture:
         if self.diffuse_noise is not None:
             self.diffuse_noise *= gain
 
+    def rms(self):
+        rms_dB = 20*np.log10(rms(self.mixture).max())
+        return rms_dB
+
     def adjust_rms(self, rms_dB):
         _, gain = adjust_rms(self.mixture, rms_dB)
         self.early_target *= gain
