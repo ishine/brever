@@ -6,7 +6,6 @@ import brever.modelmanagement as bmm
 
 def main():
     models_dir = defaults().PATH.MODELS
-    sane = True
     yes_to_all = False
 
     for model_id in os.listdir(models_dir):
@@ -22,30 +21,24 @@ def main():
             if not os.path.dirname(train_path).endswith('train'):
                 print(f'Model {model_id} train path does not point to the '
                       f'train dir! Got {train_path}')
-                sane = False
             if not os.path.dirname(val_path).endswith('val'):
                 print(f'Model {model_id} val path does not point to the '
                       f'val dir! Got {val_path}')
-                sane = False
             if os.path.basename(train_path) != os.path.basename(val_path):
                 print(f'Model {model_id} train and val paths are not '
                       f'consistent! Got {train_path} and {val_path}')
-                sane = False
             if not os.path.exists(train_path):
                 print(f'Model {model_id} train path does not exist!')
             if not os.path.exists(val_path):
                 print(f'Model {model_id} val path does not exist!')
         elif train_path is not None:
             print(f'Model {model_id} has a train path but no val path!')
-            sane = False
         elif val_path is not None:
             print(f'Model {model_id} has a val path but no train path!')
-            sane = False
 
         new_id = bmm.get_unique_id(config)
         if new_id != model_id:
             print(f'Model {model_id} has wrong ID!')
-            sane = False
             while True:
                 if yes_to_all:
                     r = 'y'
@@ -63,9 +56,6 @@ def main():
                     break
                 else:
                     print('Could not interpret answer')
-
-    if sane:
-        print('Model directory is sane')
 
 
 if __name__ == '__main__':
