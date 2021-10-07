@@ -36,7 +36,10 @@ def main(args, params):
                 key_list = bmm.DatasetInitArgParser.arg_to_keys_map[param]
                 bmm.set_dict_field(config, key_list, value)
 
-        dirpath = os.path.join(processed_dir, basename, args.alias)
+        if args.name is None:
+            args.name = bmm.get_unique_id(config)
+
+        dirpath = os.path.join(processed_dir, basename, args.name)
         if not os.path.exists(dirpath):
             os.makedirs(dirpath)
         config_filepath = os.path.join(dirpath, 'config.yaml')
@@ -49,8 +52,8 @@ def main(args, params):
 
 if __name__ == '__main__':
     parser = bmm.DatasetInitArgParser(description='initialize train datasets')
-    parser.add_argument('alias',
-                        help='dataset alias')
+    parser.add_argument('--name', type=str,
+                        help='dataset name')
     parser.add_argument('-f', '--force', action='store_true',
                         help='overwrite config file if already exists')
     parser.add_argument('--train-duration', type=int, default=36000,
