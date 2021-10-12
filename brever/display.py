@@ -19,7 +19,7 @@ class TickFormatter:
 
     def __call__(self, event):
         if self.ax.figure._cachedRenderer is None:
-            return
+            pass
         if event.name == 'draw_event' and self.showed:
             return
         self.showed = True

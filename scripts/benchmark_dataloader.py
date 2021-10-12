@@ -24,15 +24,16 @@ def main(args):
         drop_last=True,
     )
 
+    elapsed_time = 0
     start_time = time.time()
     for i in range(args.epochs):
-        start_time_i = time.time()
         for data, target in dataloader:
             pass
-        elapsed_time_i = time.time() - start_time_i
-        print(f'Elapsed time on epoch {i}: {elapsed_time_i:.2f}')
-    elapsed_time = time.time() - start_time
-    print(f'Total elapsed time: {elapsed_time:.2f}')
+        dt = time.time() - start_time - elapsed_time
+        elapsed_time = time.time() - start_time
+        print(f'Time on epoch {i}: {dt:.2f}')
+    print(f'Total time: {elapsed_time:.2f}')
+    print(f'Averate time per epoch: {elapsed_time/args.epochs:.2f}')
 
 
 if __name__ == '__main__':

@@ -89,25 +89,6 @@ def main(args):
         ax.set_title(f'long term {item}')
         ax.legend(args.inputs)
 
-    for items, kind in [(args.features, 'feature'), (args.labels, 'label')]:
-        if items:
-            for dataset_dirs, input_ in zip(globed_inputs, args.inputs):
-                fig, ax = plt.subplots()
-                for item in items:
-                    data = get_data(dataset_dirs, item, kind)
-                    hist(ax, data)
-                ax.set_title(input_)
-                ax.legend(items)
-
-    if args.labels:
-        for dataset_dirs, input_ in zip(globed_inputs, args.inputs):
-            fig, ax = plt.subplots()
-            for item in args.labels:
-                data = get_data(dataset_dirs, item, 'label', long_term=True)
-                hist(ax, data, bins=np.linspace(0, 1, 21))
-            ax.set_title(input_)
-            ax.legend([f'long term {label}' for label in args.labels])
-
     plt.show()
 
 
@@ -126,7 +107,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if not args.features and not args.labels:
-        print('No items to plot were selected. Use the --features or --labels '
+        print('No items to plot were selected. Use --features or --labels '
               'to select items to plot.')
 
     main(args)

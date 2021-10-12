@@ -1,24 +1,20 @@
-# TODO: this is broken and needs to be fixed
-
 import random
 
 import matplotlib.pyplot as plt
 import numpy as np
 import json
 
-from brever.classes import (DefaultRandomMixtureMaker, DefaultFilterbank,
-                            DefaultFramer)
-from brever.display import (plot_waveform, plot_spectrogram, share_ylim,
-                            share_clim)
+import brever.classes as bpipes
+import brever.display as bplot
 
 
 # seed for reproducibility
 random.seed(12)
 
 # initialize classes
-rmm = DefaultRandomMixtureMaker()
-filterbank = DefaultFilterbank()
-framer = DefaultFramer()
+rmm = bpipes.DefaultRandomMixtureMaker()
+filterbank = bpipes.DefaultFilterbank()
+framer = bpipes.DefaultFramer()
 
 # make a random mixture and print metadata
 mixObj, metadata = rmm.make()
@@ -34,7 +30,7 @@ for i, attribute in enumerate(attributes):
     x_mono = x.mean(axis=1)
 
     # plot waveform
-    plot_waveform(
+    bplot.plot_waveform(
         x_mono,
         ax=axes[i, 0],
         fs=rmm.fs,
@@ -51,10 +47,10 @@ for i, attribute in enumerate(attributes):
     X = (x_framed**2).mean(axis=1)
 
     # convert to dB
-    X_dB = 20*np.log10(X + np.nextafter(0, 1))
+    X_dB = 10*np.log10(X + np.nextafter(0, 1))
 
     # plot spectrogram
-    plot_spectrogram(
+    bplot.plot_spectrogram(
         X_dB,
         ax=axes[i, 1],
         fs=rmm.fs,
@@ -64,8 +60,8 @@ for i, attribute in enumerate(attributes):
     )
 
 # match limits
-share_ylim(axes[:, 0], center_zero=True)
-share_clim(axes[:, 1])
+bplot.share_ylim(axes[:, 0], center_zero=True)
+bplot.share_clim(axes[:, 1])
 
 plt.tight_layout()
 plt.show()

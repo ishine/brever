@@ -699,10 +699,11 @@ class DefaultRandomMixtureMaker(RandomMixtureMaker):
         super().__init__(
             fs=config.PRE.FS,
             rooms=config.PRE.MIX.RANDOM.ROOMS,
-            target_snrs=range(
-                config.PRE.MIX.RANDOM.TARGET.SNR.MIN,
-                config.PRE.MIX.RANDOM.TARGET.SNR.MAX + 1,
-            ),
+            speakers=config.PRE.MIX.RANDOM.TARGET.SPEAKERS,
+            target_snr_dist_name=config.PRE.MIX.RANDOM.TARGET.SNR.DISTNAME,
+            target_snr_dist_args=config.PRE.MIX.RANDOM.TARGET.SNR.DISTARGS,
+            target_angle_min=config.PRE.MIX.RANDOM.TARGET.ANGLE.MIN,
+            target_angle_max=config.PRE.MIX.RANDOM.TARGET.ANGLE.MAX,
             dir_noise_nums=range(
                 config.PRE.MIX.RANDOM.SOURCES.NUMBER.MIN,
                 config.PRE.MIX.RANDOM.SOURCES.NUMBER.MAX + 1,
@@ -712,6 +713,8 @@ class DefaultRandomMixtureMaker(RandomMixtureMaker):
                 config.PRE.MIX.RANDOM.SOURCES.SNR.MIN,
                 config.PRE.MIX.RANDOM.SOURCES.SNR.MAX + 1,
             ),
+            dir_noise_angle_min=config.PRE.MIX.RANDOM.SOURCES.ANGLE.MIN,
+            dir_noise_angle_max=config.PRE.MIX.RANDOM.SOURCES.ANGLE.MAX,
             diffuse_noise_on=config.PRE.MIX.DIFFUSE.ON,
             diffuse_noise_color=config.PRE.MIX.DIFFUSE.COLOR,
             diffuse_noise_ltas_eq=config.PRE.MIX.DIFFUSE.LTASEQ,
@@ -724,26 +727,28 @@ class DefaultRandomMixtureMaker(RandomMixtureMaker):
             ),
             filelims_dir_noise=config.PRE.MIX.FILELIMITS.NOISE,
             filelims_target=config.PRE.MIX.FILELIMITS.TARGET,
+            filelims_room=config.PRE.MIX.FILELIMITS.ROOM,
             decay_on=config.PRE.MIX.DECAY.ON,
             decay_color=config.PRE.MIX.DECAY.COLOR,
             decay_rt60s=np.arange(
                 config.PRE.MIX.RANDOM.DECAY.RT60.MIN,
-                config.PRE.MIX.RANDOM.DECAY.RT60.MAX,
+                config.PRE.MIX.RANDOM.DECAY.RT60.MAX
+                + config.PRE.MIX.RANDOM.DECAY.RT60.STEP,
                 config.PRE.MIX.RANDOM.DECAY.RT60.STEP,
                 dtype=float,
             ),
-            decay_drrs=np.arange(
-                config.PRE.MIX.RANDOM.DECAY.DRR.MIN,
-                config.PRE.MIX.RANDOM.DECAY.DRR.MAX,
-                config.PRE.MIX.RANDOM.DECAY.DRR.STEP,
-                dtype=float,
-            ),
+            decay_drr_dist_name=config.PRE.MIX.RANDOM.DECAY.DRR.DISTNAME,
+            decay_drr_dist_args=config.PRE.MIX.RANDOM.DECAY.DRR.DISTARGS,
             decay_delays=np.arange(
                 config.PRE.MIX.RANDOM.DECAY.DELAY.MIN,
-                config.PRE.MIX.RANDOM.DECAY.DELAY.MAX,
+                config.PRE.MIX.RANDOM.DECAY.DELAY.MAX
+                + config.PRE.MIX.RANDOM.DECAY.DELAY.STEP,
                 config.PRE.MIX.RANDOM.DECAY.DELAY.STEP,
                 dtype=float,
             ),
+            seed_on=config.PRE.SEED.ON,
+            seed_value=config.PRE.SEED.VALUE,
+            uniform_tmr=config.PRE.MIX.RANDOM.UNIFORMTMR,
         )
 
 
