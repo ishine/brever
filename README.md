@@ -1,13 +1,9 @@
-# THIS IS NOT UP TO DATE
-
 # brever
 Binaural speech segregation in noisy and reverberant environments using deep neural networks.
 
+`brever` is a speech enhancement package based on PyTorch. It allows to generate datasets of noisy and reverberant mixtures from databases of clean speech, noise recordings and binaural room impulse responses (BRIRs). Models can then be trained to enhance speech and evaluated using different metrics.
+
 "brever" reads "reverb" backwards.
-
-# Description
-
-`brever` is a deep learning Python project implemented in PyTorch and that can be used for enhancement of speech corrupted by interfering noise and room reverberation. The package allows to generate datasets of noisy and reverberant mixtures from databases of clean speech, noise recordings and binaural room impulse responses (BRIRs). Great amounts of datasets and models can be created and trained thanks to an organization based on YAML configuration files and hash IDs to identify the models.
 
 # Installation
 
@@ -22,233 +18,141 @@ cd brever
 python -m venv venv
 source venv/bin/activate
 ```
-If on Windows run `venv/Scripts/activate.bat` to activate the environment instead.
 
 3. Install requirements:
 ```
 pip install -r requirements.txt
 ```
-If on Windows, first install PyTorch manually as described in the [PyTorch](https://pytorch.org/) home webpage before installing the rest of the requirements.
 
-4. Install the package in develop mode:
+4. Install the package in development mode:
 ```
 python setup.py develop
 ```
 
-# External datasets
+# External databases
 
-External databases of clean speech, noise recordings and binaural room impulse responses (BRIRs) are needed to generate the noisy speech mixture on which the models are trained. Currently, only the following databases are supported:
+External databases of clean speech, noise recordings and binaural room impulse responses (BRIRs) are required to generate the noisy speech mixtures on which the models are trained. Currently, the following databases are supported:
 
-- Clean speech database:
+- Speech databases:
   - [TIMIT](https://catalog.ldc.upenn.edu/LDC93S1)
-  - [Libri](http://www.openslr.org/12)
-- BRIR database:
-  - [SURREY binaural room impulse responses (BRIR) database](https://ieeexplore.ieee.org/document/5473135)
-- Noise database
+  - [LibrisSpeech](http://www.openslr.org/12)
+  - HINT
+  - IEEE
+  - ARCTIC
+- BRIR databases:
+  - [Surrey](https://ieeexplore.ieee.org/document/5473135)
+  - ASH
+  - BRAS
+  - CATT
+  - AVIL
+- Noise databases:
   - [TAU Urban Acoustic Scenes 2019 development dataset](https://zenodo.org/record/2589280)
+  - NOISEX
+  - ICRA
+  - DEMAND
+  - ARTE
 
-Place them e.g. under `data/external/TIMIT/`, `data/external/Libri/`, `data/external/SURREY/` and `data/external/DCASE/` respectively. Your directory tree should look like this:
+By default, these should be placed under `data/external/` as shown below. Alternatively you can change the paths in `defaults.yaml`, or create a `defaults_user.yaml` file in the root directory and overwrite the paths.
 
 ```
-brever
-├── brever
-│   └── ...
-├── data
-│   ├── external
-│   │   ├── DCASE
-│   │   │    └── ...
-│   │   ├── TIMIT
-│   │   │    └── ...
-│   │   ├── SURREY
-│   │   │    └── ...
-│   │   └── TIMIT
-│   │        └── ...
-│   └── processed
-│       └── ...
-├── models
-│   └── ...
-├── scripts
-│   └── ...
+brever/
+├── brever/
+├── data/
+│   ├── external/
+│   │   ├── TIMIT/
+│   │   ├── LibriSpeech/
+│   │   ├── HINT/
+│   │   ├── IEEE/
+│   │   ├── ARCTIC/
+│   │   ├── Surrey/
+│   │   ├── ASH/
+│   │   ├── BRAS/
+│   │   ├── CATT/
+│   │   ├── AVIL/
+│   │   ├── DCASE/
+│   │   ├── NOISEX/
+│   │   ├── ICRA/
+│   │   ├── DEMAND/
+│   │   └── ARTE/
+│   └── processed/
+├── models/
+├── scripts/
 ├── defaults.yaml
+├── README.md
 ├── requirements.txt
-├── setup.py
-└── ...
+└── setup.py
 ```
 
 # How to use
 
+## Configuration files
+
+Datasets and models are initialized by creating a `config.yaml` file with the parameters to overwrite. The default parameters are defined in `defaults.yaml` in the root directory. User default parameters can also be defined by creating a `defaults_user.yaml` file in the root directory. When creating a dataset or training/testing a model, the corresponding scripts first read `defaults.yaml`, then `defaults_user.yaml` if it exists, and finally the `config.yaml` of the input dataset or model.
+
+Datasets should be placed under `data/processed/train/`, `data/processed/val/` or `data/processed/test/`. Models should be placed under `models/`.
+
 ## Creating a dataset
 
-To create a dataset, first create a new directory under `data/processed/`. Place inside that directory a `config.yaml` file with the preprocessing parameters you wish to overwrite. The complete list of preprocessing parameters can be found in `defaults.yaml`.
+You can initialize a dataset programmatically using `scripts/initialize_dataset.py`. This creates a new directory under `data/processed/train/`, `data/processed/val/` or `data/processed/test/` depending on which option was used between `--train`, `--val` and`--test`. The new directory contains the `config.yaml` file.
 
-Then run `create_dataset.py` with the dataset directory as argument:
+If no `--name` argument is provided, the directory is named after a unique hash ID calculated from the `config.yaml` file. This can be handy to prevent initializing and creating duplicate datasets.
+
+You can then create the dataset with `scripts/create_dataset.py`:
 
 ```
+python scripts/initialize_dataset.py --train --name my_dataset
 python scripts/create_dataset.py data/processed/my_dataset/
 ```
 
-The following items are then created next to the YAML file:
+The following are then created in the dataset directory:
 
-- `dataset.hdf5`: the main dataset containing features and labels
-- `mixture_info.json`: metadata about each simulated noisy mixture
-- `pipes.pkl`: serialized objects used to preprocess the mixtures
+- `dataset.hdf5`: the main dataset file containing features and labels
+- `mixture_info.json`: metadata about each mixture
+- `pipes.pkl`: serialized objects used to create the mixtures
 - `log.txt`: a log file
-- `peek.png`: a plot of a small amount of samples in the dataset
-- `peek_standardized.png`: same but with features standardized
+- `peek.png`: a plot of a small amount of observations in the dataset
+- `peek_standardized.png`: same but with standardized features
 - `examples/`: a folder with example mixtures for verification
-
-**Example**: If you wish to simulate 10 noisy mixtures, write the following `config.yaml` file:
-
-```yaml
-PRE:
-  MIXTURES:
-    NUMBER: 10
-```
-
-Save it under `data/processed/my_dataset/` such that your working tree looks like this:
-
-```
-brever
-├── data
-│   └── processed
-│      └── my_dataset
-│          └── config.yaml
-└── ...
-```
-
-Then simply run:
-
-```
-python scripts/create_dataset.py data/processed/my_dataset/
-```
-
-Your working tree will then look like this:
-
-```
-brever
-├── data
-│   └── processed
-│      └── my_dataset
-│          ├── config.yaml
-│          ├── dataset.hdf5
-│          ├── mixture_info.json
-│          ├── pipes.pkl
-│          ├── log.txt
-│          ├── peek.png
-│          └── peek_standardized.png
-│          └── examples
-│              └── ...
-└── ...
-```
 
 ## Training a model
 
-Similarly, to train a model, first create a `config.yaml` file with the post-processing and model parameters you wish to overwrite and place it inside a new folder under the `models/` directory. Then run:
+You can initialize a model programmatically using `scripts/initialize_models.py`. This creates a new directory under `models/` containing the `config.yaml` file. The directory is named after a unique hash ID calculated from the `config.yaml` file. No custom name can be provided.
+
+Multiple models can be initialized simultaneously. The options in `scripts/initialize_models.py` can take multiple values and the entire grid of models is proposed to be intialized.
+
+You can then train the model with `scripts/train_model.py`:
 
 ```
+python scripts/initialize_models.py \
+    --train-path data/processed/my_train_dataset/ \
+    --val-path data/processed/my_val_dataset/ \
+    --test-path data/processed/my_test_dataset/
 python scripts/train_model.py models/my_model/
 ```
 
-**Example**: If you wish to train a model with the training dataset `data/processed/my_train_dataset/` and the validation dataset `data/processed/my_val_dataset/`, then create the following `config.yaml` file:
+The following are then created in the model directory:
 
-```yaml
-POST:
-  PATH:
-    TRAIN: data/processed/my_train_dataset/
-    VAL: data/processed/my_val_dataset/
-```
-
-Save it under `models/my_model/` such that your working tree looks like this:
-
-```
-brever
-├── models
-│   └── my_model
-│       └── config.yaml
-└── ...
-```
-Then simply run:
-
-```
-python scripts/train_model.py models/my_model/
-```
-
-## Creating multiple models
-
-Models can be created programmatically using the `scripts\initialize_models.py` script. For example, if you want to initialize models that use MFCC or IC features, and with 1 or 2 hidden layers, then you can call:
-
-```
-python scripts/initialize_models.py --features mfcc pdf --layers 1 2
-```
-
-This will initialize 4 models (since we have a 2x2 grid of parameters) under the `models/` directory. For each model, a new directory called after a unique hash ID is created under the `models/` directory, and the corresponding `config.yaml` is saved inside that directory.
-
-This allows to quickly initialize great amounts of models while having control over the parameters we wish to investigate. The complete list of initializable parameters can be displayed using `python scripts/initialize_models.py -h`.
-
-Most of the `brever` scripts accept glob patterns. This means that in order to train all the available models, one can simply run:
-
-```
-python scripts/train_model.py models/*
-```
-
-## Creating testing datasets
-
-Unlike the training and validation datasets, the testing datasets must follow a naming convention according to varying signal-to-noise ratio (SNR) and room. To initialize the testing datasets, one must run:
-
-```
-python scripts/initialize_testing_datasets.py alias
-```
-
-Where `alias` is a short tag of choice that will be used to name of the testing datasets. This will create the following folders in the `data/processed/` directory:
-
-```
-brever
-├── data
-│   └── processed
-│      └── testing_alias_snr0_roomA
-│      └── testing_alias_snr0_roomB
-│      └── testing_alias_snr0_roomC
-│      └── testing_alias_snr0_roomD
-│      └── testing_alias_snr3_roomA
-│      └── testing_alias_snr3_roomB
-│      └── testing_alias_snr3_roomC
-│      └── testing_alias_snr3_roomD
-│      └── ...
-│      └── testing_alias_snr15_roomA
-│      └── testing_alias_snr15_roomB
-│      └── testing_alias_snr15_roomC
-│      └── testing_alias_snr15_roomD
-└── ...
-```
-
-The datasets should be then created using the `scripts/create_dataset.py` script:
-
-```
-python scripts/create_dataset.py data/processed/testing_alias_snr*
-```
+- `checkpoint.pt`: model state dictionary
+- `config_full.yaml`: a complete configuration file including the parameters in `defaults.yaml` and `defaults_user.yaml` at the time of training
+- `log.txt`: a log file
+- `losses.npz`: training and validation curves in NumPy format
+- `model_args.yaml`: the arguments used to initialize the model
+- `training.png`: a plot of the training and validation curves
+- `statistics.npy`: normalization statistics of the training dataset
 
 ## Testing a model
 
-To test a freshly trained model, the `POST.PATH.TEST` field in the `config.yaml` file of the model should point to the start of the naming convention of the testing datasets. For example, to test a model on the testing datasets listed above, the `config.yaml` file of the model should contain this:
-
-```yaml
-POST:
-  PATH:
-    TEST: data/processed/testing_alias
-```
-
-The testing script will then look for the testing datasets by appending `_snrX_roomY/` to that path.
-
-Once this is set, the model is tested my simply calling:
+You can evaluate a trained model with `scripts/test_model.py`:
 
 ```
 python scripts/test_model.py model/my_model/
 ```
 
-This will create a series of new files in the model directory:
-- The MSE scores are stored in `mse_scores.npy`
-- The PESQ scores are stored in `pesq_scores.mat`
-- The segmental scores (segSSNR, segBR, segNR and segRR) are stored in `seg_scores.npy`
+This creates a `scores.json` file with the MSE, PESQ and STOI scores for the model as well as the PESQ and STOI scores for the unprocessed mixtures.
 
-In each file, the scores are arranged by SNR and room for further analysis.
+## Utility scripts
 
+Initializing multiple datasets and models can quickly become overwhelming due to the assigned hash IDs, which is when the following scripts can be useful:
+- `scripts/find_model.py` can scan for models in the `models/` directory
+- `scripts/find_dataset.py` can scan for datasets in the `data/processed/` directory
+- `scripts/check_sanity.py` checks that the models under `models/` are named after the correct hash ID, among other things.
