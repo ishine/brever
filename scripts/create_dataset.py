@@ -8,7 +8,7 @@ import random
 from glob import glob
 import sys
 import copy
-# from functools import partial
+from functools import partial
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ import soundfile as sf
 
 from brever.config import defaults
 import brever.classes as bpipes
-# from brever.utils import wola
+from brever.utils import wola
 import brever.modelmanagement as bmm
 
 
@@ -181,9 +181,9 @@ def main(dataset_dir, force):
         component_names = [
             'mixture',
             'foreground',
-            # 'background',
-            # 'noise',
-            # 'late_target',
+            'background',
+            'noise',
+            'late_target',
         ]
         for name in component_names:
             vlen_dsets[name] = h5f.create_dataset(
@@ -198,13 +198,13 @@ def main(dataset_dir, force):
                 dtype=h5py.vlen_dtype('f4'),
                 maxshape=(None,),
             )
-            # for label in labelExtractor.labels:
-            #     vlen_dsets[f'{name}_oracle_{label}'] = h5f.create_dataset(
-            #         f'{name}_oracle_{label}',
-            #         (0,),
-            #         dtype=h5py.vlen_dtype('f4'),
-            #         maxshape=(None,),
-            #     )
+            for label in labelExtractor.labels:
+                vlen_dsets[f'{name}_oracle_{label}'] = h5f.create_dataset(
+                    f'{name}_oracle_{label}',
+                    (0,),
+                    dtype=h5py.vlen_dtype('f4'),
+                    maxshape=(None,),
+                )
 
     # main loop intialization
     metadatas = []
@@ -266,9 +266,9 @@ def main(dataset_dir, force):
                 )
             del mixRef
 
-        # # keep a copy of the mixture object for later
-        # if config.PRE.MIX.SAVE:
-        #     mixCopy = copy.deepcopy(mixObject)
+        # keep a copy of the mixture object for later
+        if config.PRE.MIX.SAVE:
+            mixCopy = copy.deepcopy(mixObject)
 
         # frame
         mixObject.transform(framer.frame)
@@ -279,23 +279,23 @@ def main(dataset_dir, force):
         # extract labels
         labels = labelExtractor.run(mixObject)
 
-        # # apply label and reverse filter to obtain oracle signals
-        # if config.PRE.MIX.SAVE:
-        #     for (j_start, j_end), label in zip(labelExtractor.indices,
-        #                                        labelExtractor.labels):
-        #         mixOracle = copy.deepcopy(mixCopy)
-        #         mask = labels[:, j_start:j_end]
-        #         mask = wola(mask, trim=len(mixOracle))
-        #         mask = mask[:, :, np.newaxis]
-        #         mixOracle.transform(partial(np.multiply, mask))
-        #         mixOracle.transform(filterbank.rfilt)
-        #         for name in component_names:
-        #             add_to_vlen_dset(
-        #                 vlen_dsets[f'{name}_oracle_{label}'],
-        #                 getattr(mixOracle, name).flatten(),
-        #             )
-        #     del mixOracle
-        #     del mixCopy
+        # apply label and reverse filter to obtain oracle signals
+        if config.PRE.MIX.SAVE:
+            for (j_start, j_end), label in zip(labelExtractor.indices,
+                                               labelExtractor.labels):
+                mixOracle = copy.deepcopy(mixCopy)
+                mask = labels[:, j_start:j_end]
+                mask = wola(mask, trim=len(mixOracle))
+                mask = mask[:, :, np.newaxis]
+                mixOracle.transform(partial(np.multiply, mask))
+                mixOracle.transform(filterbank.rfilt)
+                for name in component_names:
+                    add_to_vlen_dset(
+                        vlen_dsets[f'{name}_oracle_{label}'],
+                        getattr(mixOracle, name).flatten(),
+                    )
+            del mixOracle
+            del mixCopy
 
         # create indexes array
         indexes = np.full(len(features), i, dtype=int)
