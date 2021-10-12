@@ -346,8 +346,11 @@ class RandomMixtureMaker:
         # sentences are 12 seconds long on average, so making a dataset using
         # 50 TIMIT sentences and 50 LIBRI sentences will result in much more
         # LIBRI samples.
-        weights = {speaker: 1/get_average_duration(speaker, self.def_cfg)
-                   for speaker in speakers}
+        if len(speakers) > 1:
+            weights = {speaker: 1/get_average_duration(speaker, self.def_cfg)
+                       for speaker in speakers}
+        else:
+            weights = {speaker: 1 for speaker in speakers}
         self.speakers = RandomPool(speakers, seeder.get(), weights)
 
         self.target_snrs = ContinuousRandomGenerator(target_snr_dist_name,
