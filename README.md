@@ -1,9 +1,9 @@
-# brever
+# Brever
 Binaural speech segregation in noisy and reverberant environments using deep neural networks.
 
-`brever` is a speech enhancement package based on PyTorch. It allows to generate datasets of noisy and reverberant mixtures from databases of clean speech, noise recordings and binaural room impulse responses (BRIRs). Models can then be trained to enhance speech and evaluated using different metrics.
+Brever is a speech enhancement package based on PyTorch. It allows to generate datasets of noisy and reverberant mixtures from databases of clean speech, noise recordings and binaural room impulse responses (BRIRs). Models can then be trained to enhance speech and evaluated using different metrics.
 
-"brever" reads "reverb" backwards.
+"Brever" reads "reverb" backwards.
 
 # Installation
 
