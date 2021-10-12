@@ -16,8 +16,9 @@ def main():
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='calculate ltas')
-    parser.add_argument('speaker',
-                        help='speaker resular expression, e.g. timit_.*')
+    parser = argparse.ArgumentParser(description='calculate long-term average '
+                                                 'spectrum')
+    parser.add_argument('speaker', help='speaker regular expression, e.g. '
+                                        'timit_.*')
     args = parser.parse_args()
     main()

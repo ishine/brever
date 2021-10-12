@@ -38,7 +38,7 @@ def main(args):
 
 if __name__ == '__main__':
     config = defaults()
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='benchmark the dataloader')
     parser.add_argument('input')
     parser.add_argument('--load', dest='load', action='store_true')
     parser.add_argument('--no-load', dest='load', action='store_false')

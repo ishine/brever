@@ -1,4 +1,5 @@
 import os
+import argparse
 
 from brever.config import defaults
 import brever.modelmanagement as bmm
@@ -59,4 +60,7 @@ def main():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='check sanity of model '
+                                                 'directory')
+    args = parser.parse_args()
     main()
