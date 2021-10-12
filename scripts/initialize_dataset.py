@@ -40,7 +40,7 @@ def main(args, params):
 
 
 if __name__ == '__main__':
-    parser = bmm.DatasetInitArgParser(description='initialize train datasets')
+    parser = bmm.DatasetInitArgParser(description='initialize dataset')
     parser.add_argument('--name', type=str,
                         help='dataset name')
     parser.add_argument('-f', '--force', action='store_true',
