@@ -424,6 +424,58 @@ def dcase_fair():
     )
 
 
+def noisex_naive():
+    gaps = get_mean_gap(
+        'noise_types',
+        [
+            {'noisex_babble'},
+            {'noisex_buccaneer1'},
+            {'noisex_destroyerengine'},
+            {'noisex_f16'},
+            {'noisex_factory1'},
+        ],
+        [
+            {'noisex_(?!babble$).*'},
+            {'noisex_(?!buccaneer1$).*'},
+            {'noisex_(?!destroyerengine$).*'},
+            {'noisex_(?!f16$).*'},
+            {'noisex_(?!factory1$).*'},
+        ],
+    )
+    print(
+        'NOISEX & 1 noise type & 14 noise types & '
+        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
+    )
+
+
+def noisex_fair():
+    gaps = get_mean_gap(
+        'noise_types',
+        [
+            {'noisex_(?!babble$).*'},
+            {'noisex_(?!buccaneer1$).*'},
+            {'noisex_(?!destroyerengine$).*'},
+            {'noisex_(?!f16$).*'},
+            {'noisex_(?!factory1$).*'},
+        ],
+        [
+            {'noisex_babble'},
+            {'noisex_buccaneer1'},
+            {'noisex_destroyerengine'},
+            {'noisex_f16'},
+            {'noisex_factory1'},
+        ],
+    )
+    print(
+        'NOISEX & 14 noise types & 1 noise type & '
+        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
+        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
+        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
+    )
+
+
 def noise_cross_corpus_naive():
     gaps = get_mean_gap_cross_corpus_naive(
         'noise_types',
@@ -734,6 +786,9 @@ print(r'\hline')
 print(r'\multicolumn{9}{l}{\cellcolor{gray!30}Noise} \\ \hline')
 dcase_naive()
 dcase_fair()
+print(r'\hline')
+noisex_naive()
+noisex_fair()
 print(r'\hline')
 noise_cross_corpus_naive()
 noise_cross_corpus_fair()
