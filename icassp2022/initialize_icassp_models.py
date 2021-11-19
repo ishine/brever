@@ -90,435 +90,309 @@ def find_dset(
     )
 
 
+def add_config(configs, seed, train_path, val_path, test_paths):
+    config = {}
+    bmm.set_config_field(config, 'layers', 2)
+    bmm.set_config_field(config, 'hidden_sizes', [1024, 1024])
+    bmm.set_config_field(config, 'stacks', 5)
+    bmm.set_config_field(config, 'dropout', True)
+    bmm.set_config_field(config, 'seed', seed)
+    bmm.set_config_field(config, 'train_path', train_path)
+    bmm.set_config_field(config, 'val_path', val_path)
+    bmm.set_config_field(config, 'test_path', test_paths)
+    configs.append(config)
+
+
 def main(args):
 
     train_dsets, train_configs = bmm.find_dataset('train', return_configs=True)
     test_dsets, test_configs = bmm.find_dataset('test', return_configs=True)
 
-    experiments = [
-        {
-            'dim': 'speakers',
-            'train': [
-                {'timit_m0'},
-                {'timit_f0'},
-                {'timit_m1'},
-                {'timit_f1'},
-                {'timit_m2'},
-                {'timit_f2'},
-                {'timit_(?!m0$).*'},
-                {'timit_(?!f0$).*'},
-                {'timit_(?!m1$).*'},
-                {'timit_(?!f1$).*'},
-                {'timit_(?!m2$).*'},
-                {'timit_(?!f2$).*'},
-            ],
-            'test': [
-                {'timit_(?!m0$).*'},
-                {'timit_(?!f0$).*'},
-                {'timit_(?!m1$).*'},
-                {'timit_(?!f1$).*'},
-                {'timit_(?!m2$).*'},
-                {'timit_(?!f2$).*'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'speakers',
-            'train': [
-                {'timit_(f[0-4]|m[0-4])'},
-                {'timit_(f[5-9]|m[5-9])'},
-                {'timit_(f1[5-9]|m1[5-9])'},
-                {'timit_(f1[0-4]|m1[0-4])'},
-                {'timit_(f2[0-4]|m2[0-4])'},
-                {'timit_(?!(f[0-4]|m[0-4])$).*'},
-                {'timit_(?!(f[5-9]|m[5-9])$).*'},
-                {'timit_(?!(f1[0-4]|m1[0-4])$).*'},
-                {'timit_(?!(f1[5-9]|m1[5-9])$).*'},
-                {'timit_(?!(f2[0-4]|m2[0-4])$).*'},
-            ],
-            'test': [
-                {'timit_(?!(f[0-4]|m[0-4])$).*'},
-                {'timit_(?!(f[5-9]|m[5-9])$).*'},
-                {'timit_(?!(f1[0-4]|m1[0-4])$).*'},
-                {'timit_(?!(f1[5-9]|m1[5-9])$).*'},
-                {'timit_(?!(f2[0-4]|m2[0-4])$).*'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'speakers',
-            'train': [
-                {'timit_(f[0-4]?[0-9]|m[0-4]?[0-9])'},
-                {'timit_(f[4-9][0-9]|m[4-9][0-9])'},
-                {'timit_(f1[0-4][0-9]|m1[0-4][0-9])'},
-                {'timit_(f[0-9]?[02468]|m[0-9]?[02468])'},
-                {'timit_(f[0-9]?[13579]|m[0-9]?[13579])'},
-                {'timit_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},
-                {'timit_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},
-                {'timit_(?!(f1[0-4][0-9]|m1[0-4][0-9])$).*'},
-                {'timit_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},
-                {'timit_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},
-                ],
-            'test': [
-                {'timit_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},
-                {'timit_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},
-                {'timit_(?!(f1[0-4][0-9]|m1[0-4][0-9])$).*'},
-                {'timit_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},
-                {'timit_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'speakers',
-            'train': [
-                {'libri_m0'},
-                {'libri_f0'},
-                {'libri_m1'},
-                {'libri_f1'},
-                {'libri_m2'},
-                {'libri_f2'},
-                {'libri_(?!m0$).*'},
-                {'libri_(?!f0$).*'},
-                {'libri_(?!m1$).*'},
-                {'libri_(?!f1$).*'},
-                {'libri_(?!m2$).*'},
-                {'libri_(?!f2$).*'},
-            ],
-            'test': [
-                {'libri_(?!m0$).*'},
-                {'libri_(?!f0$).*'},
-                {'libri_(?!m1$).*'},
-                {'libri_(?!f1$).*'},
-                {'libri_(?!m2$).*'},
-                {'libri_(?!f2$).*'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'speakers',
-            'train': [
-                {'libri_(f[0-4]|m[0-4])'},
-                {'libri_(f[5-9]|m[5-9])'},
-                {'libri_(f1[0-4]|m1[0-4])'},
-                {'libri_(f1[5-9]|m1[5-9])'},
-                {'libri_(f2[0-4]|m2[0-4])'},
-                {'libri_(?!(f[0-4]|m[0-4])$).*'},
-                {'libri_(?!(f[5-9]|m[5-9])$).*'},
-                {'libri_(?!(f1[0-4]|m1[0-4])$).*'},
-                {'libri_(?!(f1[5-9]|m1[5-9])$).*'},
-                {'libri_(?!(f2[0-4]|m2[0-4])$).*'},
-            ],
-            'test': [
-                {'libri_(?!(f[0-4]|m[0-4])$).*'},
-                {'libri_(?!(f[5-9]|m[5-9])$).*'},
-                {'libri_(?!(f1[0-4]|m1[0-4])$).*'},
-                {'libri_(?!(f1[5-9]|m1[5-9])$).*'},
-                {'libri_(?!(f2[0-4]|m2[0-4])$).*'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'speakers',
-            'train': [
-                {'libri_(f[0-4]?[0-9]|m[0-4]?[0-9])'},
-                {'libri_(f[4-9][0-9]|m[4-9][0-9])'},
-                {'libri_(f[0-9]?[02468]|m[0-9]?[02468])'},
-                {'libri_(f[0-9]?[13579]|m[0-9]?[13579])'},
-                {'libri_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},
-                {'libri_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},
-                {'libri_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},
-                {'libri_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},
-            ],
-            'test': [
-                {'libri_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},
-                {'libri_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},
-                {'libri_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},
-                {'libri_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'speakers',
-            'train': [
-                {'ieee'},
-                {'timit_.*'},
-                {'libri_.*'},
-                {'arctic'},
-                {'hint'},
-                {'libri_.*', 'timit_.*', 'arctic', 'hint'},
-                {'ieee', 'timit_.*', 'arctic', 'hint'},
-                {'ieee', 'libri_.*', 'arctic', 'hint'},
-                {'ieee', 'libri_.*', 'timit_.*', 'hint'},
-                {'ieee', 'libri_.*', 'timit_.*', 'arctic'},
-            ],
-            'test': [
-                {'ieee'},
-                {'timit_.*'},
-                {'libri_.*'},
-                {'arctic'},
-                {'hint'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'rooms',
-            'train': [
-                {'surrey_anechoic'},
-                {'surrey_room_a'},
-                {'surrey_room_b'},
-                {'surrey_room_c'},
-                {'surrey_room_d'},
-                {'surrey_(?!anechoic$).*'},
-                {'surrey_(?!room_a$).*'},
-                {'surrey_(?!room_b$).*'},
-                {'surrey_(?!room_c$).*'},
-                {'surrey_(?!room_d$).*'},
-            ],
-            'test': [
-                {'surrey_anechoic'},
-                {'surrey_room_a'},
-                {'surrey_room_b'},
-                {'surrey_room_c'},
-                {'surrey_room_d'},
-                {'surrey_(?!anechoic$).*'},
-                {'surrey_(?!room_a$).*'},
-                {'surrey_(?!room_b$).*'},
-                {'surrey_(?!room_c$).*'},
-                {'surrey_(?!room_d$).*'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'rooms',
-            'train': [
-                {'ash_r01'},
-                {'ash_r02'},
-                {'ash_r03'},
-                {'ash_r04'},
-                {'ash_r05a?b?'},
-                {'ash_(?!r01$).*'},
-                {'ash_(?!r02$).*'},
-                {'ash_(?!r03$).*'},
-                {'ash_(?!r04$).*'},
-                {'ash_(?!r05a?b?$).*'},
-            ],
-            'test': [
-                {'ash_(?!r01$).*'},
-                {'ash_(?!r02$).*'},
-                {'ash_(?!r03$).*'},
-                {'ash_(?!r04$).*'},
-                {'ash_(?!r05a?b?$).*'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'rooms',
-            'train': [
-                {'ash_r0[0-9]a?b?'},
-                {'ash_r1[0-9]'},
-                {'ash_r2[0-9]'},
-                {'ash_r3[0-9]'},
-                {'ash_r(00|04|08|12|16|20|24|18|32|36)'},
-                {'ash_(?!r0[0-9]a?b?$).*'},
-                {'ash_(?!r1[0-9]$).*'},
-                {'ash_(?!r2[0-9]$).*'},
-                {'ash_(?!r3[0-9]$).*'},
-                {'ash_(?!r(00|04|08|12|16|20|24|18|32|36)$).*'},
-            ],
-            'test': [
-                {'ash_(?!r0[0-9]a?b?$).*'},
-                {'ash_(?!r1[0-9]$).*'},
-                {'ash_(?!r2[0-9]$).*'},
-                {'ash_(?!r3[0-9]$).*'},
-                {'ash_(?!r(00|04|08|12|16|20|24|18|32|36)$).*'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'rooms',
-            'train': [
-                {'surrey_.*'},
-                {'ash_.*'},
-                {'bras_.*'},
-                {'catt_.*'},
-                {'avil_.*'},
-                {'ash_.*', 'bras_.*', 'catt_.*', 'avil_.*'},
-                {'surrey_.*', 'bras_.*', 'catt_.*', 'avil_.*'},
-                {'surrey_.*', 'ash_.*', 'catt_.*', 'avil_.*'},
-                {'surrey_.*', 'ash_.*', 'bras_.*', 'avil_.*'},
-                {'surrey_.*', 'ash_.*', 'bras_.*', 'catt_.*'},
-            ],
-            'test': [
-                {'surrey_.*'},
-                {'ash_.*'},
-                {'bras_.*'},
-                {'catt_.*'},
-                {'avil_.*'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'noise_types',
-            'train': [
-                {'dcase_airport'},
-                {'dcase_bus'},
-                {'dcase_metro'},
-                {'dcase_metro_station'},
-                {'dcase_park'},
-                {'dcase_(?!airport$).*'},
-                {'dcase_(?!bus$).*'},
-                {'dcase_(?!metro$).*'},
-                {'dcase_(?!metro_station$).*'},
-                {'dcase_(?!park$).*'},
-            ],
-            'test': [
-                {'dcase_airport'},
-                {'dcase_bus'},
-                {'dcase_metro'},
-                {'dcase_metro_station'},
-                {'dcase_park'},
-                {'dcase_(?!airport$).*'},
-                {'dcase_(?!bus$).*'},
-                {'dcase_(?!metro$).*'},
-                {'dcase_(?!metro_station$).*'},
-                {'dcase_(?!park$).*'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'noise_types',
-            'train': [
-                {'noisex_babble'},
-                {'noisex_buccaneer1'},
-                {'noisex_destroyerengine'},
-                {'noisex_f16'},
-                {'noisex_factory1'},
-                {'noisex_(?!babble$).*'},
-                {'noisex_(?!buccaneer1$).*'},
-                {'noisex_(?!destroyerengine$).*'},
-                {'noisex_(?!f16$).*'},
-                {'noisex_(?!factory1$).*'},
-            ],
-            'test': [
-                {'noisex_babble'},
-                {'noisex_buccaneer1'},
-                {'noisex_destroyerengine'},
-                {'noisex_f16'},
-                {'noisex_factory1'},
-                {'noisex_(?!babble$).*'},
-                {'noisex_(?!buccaneer1$).*'},
-                {'noisex_(?!destroyerengine$).*'},
-                {'noisex_(?!f16$).*'},
-                {'noisex_(?!factory1$).*'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'noise_types',
-            'train': [
-                {'dcase_.*'},
-                {'icra_.*'},
-                {'noisex_.*'},
-                {'demand'},
-                {'arte'},
-                {'icra_.*', 'demand', 'noisex_.*', 'arte'},
-                {'dcase_.*', 'demand', 'noisex_.*', 'arte'},
-                {'dcase_.*', 'icra_.*', 'noisex_.*', 'arte'},
-                {'dcase_.*', 'icra_.*', 'demand', 'arte'},
-                {'dcase_.*', 'icra_.*', 'demand', 'noisex_.*'},
-            ],
-            'test': [
-                {'dcase_.*'},
-                {'icra_.*'},
-                {'noisex_.*'},
-                {'demand'},
-                {'arte'},
-            ],
-            'seeds': [0],
-        },
-        {
-            'dim': 'snr_dist_args',
-            'train': [
-                [-5, -5],
-                [0, 0],
-                [5, 5],
-                [10, 10],
-                [-5, 10],
-            ],
-            'test': [
-                [-5, -5],
-                [0, 0],
-                [5, 5],
-                [10, 10],
-                [-5, 10],
-            ],
-            'seeds': [0, 1, 2, 3, 4],
-        },
-        {
-            'dim': 'target_angle_lims',
-            'train': [
-                [0.0, 0.0],
-                [-90.0, 90.0],
-            ],
-            'test': [
-                [0.0, 0.0],
-                [-90.0, 90.0],
-            ],
-            'seeds': [0, 1, 2, 3, 4],
-        },
-        {
-            'dim': 'random_rms',
-            'train': [
-                False,
-                True,
-            ],
-            'test': [
-                False,
-                True,
-            ],
-            'seeds': [0, 1, 2, 3, 4],
-        },
-    ]
-
     configs = []
-    for exp in experiments:
-        if exp['dim'] == 'target_angle_lims':
-            train_brirs = 'all'
-            test_brirs = 'all'
-        else:
-            train_brirs = 'even'
-            test_brirs = 'odd'
+
+    # inner corpus
+    dict_ = {
+        'speakers': [
+            {
+                'dbase': 'timit',
+                'types': [
+                    'm0',
+                    'f0',
+                    'm1',
+                    'f1',
+                    'm2',
+                    'f2',
+                ],
+            },
+            {
+                'dbase': 'timit',
+                'types': [
+                    '(f[0-4]|m[0-4])',
+                    '(f[5-9]|m[5-9])',
+                    '(f1[5-9]|m1[5-9])',
+                    '(f1[0-4]|m1[0-4])',
+                    '(f2[0-4]|m2[0-4])',
+                ],
+            },
+            {
+                'dbase': 'timit',
+                'types': [
+                    '(f[0-4]?[0-9]|m[0-4]?[0-9])',
+                    '(f[4-9][0-9]|m[4-9][0-9])',
+                    '(f1[0-4][0-9]|m1[0-4][0-9])',
+                    '(f[0-9]?[02468]|m[0-9]?[02468])',
+                    '(f[0-9]?[13579]|m[0-9]?[13579])',
+                ],
+            },
+            {
+                'dbase': 'libri',
+                'types': [
+                    'm0',
+                    'f0',
+                    'm1',
+                    'f1',
+                    'm2',
+                    'f2',
+                ],
+            },
+            {
+                'dbase': 'libri',
+                'types': [
+                    '(f[0-4]|m[0-4])',
+                    '(f[5-9]|m[5-9])',
+                    '(f1[0-4]|m1[0-4])',
+                    '(f1[5-9]|m1[5-9])',
+                    '(f2[0-4]|m2[0-4])',
+                ],
+            },
+            {
+                'dbase': 'libri',
+                'types': [
+                    '(f[0-4]?[0-9]|m[0-4]?[0-9])',
+                    '(f[4-9][0-9]|m[4-9][0-9])',
+                    '(f[0-9]?[02468]|m[0-9]?[02468])',
+                    '(f[0-9]?[13579]|m[0-9]?[13579])',
+                ],
+            },
+        ],
+        'rooms': [
+            {
+                'dbase': 'surrey',
+                'types': [
+                    'anechoic',
+                    'room_a',
+                    'room_b',
+                    'room_c',
+                    'room_d',
+                ],
+            },
+            {
+                'dbase': 'ash',
+                'types': [
+                    'r01',
+                    'r02',
+                    'r03',
+                    'r04',
+                    'r05a?b?',
+                ],
+            },
+            {
+                'dbase': 'ash',
+                'types': [
+                    'r0[0-9]a?b?',
+                    'r1[0-9]',
+                    'r2[0-9]',
+                    'r3[0-9]',
+                    'r(00|04|08|12|16|20|24|18|32|36)',
+                ],
+            },
+        ],
+        'noise_types': [
+            {
+                'dbase': 'dcase',
+                'types': [
+                    'airport',
+                    'bus',
+                    'metro',
+                    'metro_station',
+                    'park',
+                ],
+            },
+            {
+                'dbase': 'noisex',
+                'types': [
+                    'babble',
+                    'buccaneer1',
+                    'destroyerengine',
+                    'f16',
+                    'factory1',
+                ],
+            },
+        ],
+    }
+
+    for dim, experiments in dict_.items():
+        for exp in experiments:
+            dbase, types = exp['dbase'], exp['types']
+            test_paths = set()
+            for type_ in types:
+                kwargs_list = [
+                    {dim: set([f'{dbase}_(?!{type_}$).*'])},
+                ]
+                if dbase in ['dcase', 'noisex', 'surrey']:
+                    kwargs_list.append(
+                        {dim: set([f'{dbase}_{type_}'])},
+                    )
+                for kwargs in kwargs_list:
+                    test_path, = find_dset(
+                        dsets=test_dsets,
+                        configs=test_configs,
+                        filelims_room='odd',
+                        **kwargs,
+                    )
+                    test_paths.add(test_path)
+            for type_ in types:
+                kwargs_list = [
+                    {dim: set([f'{dbase}_{type_}'])},
+                    {dim: set([f'{dbase}_(?!{type_}$).*'])},
+                ]
+                for kwargs in kwargs_list:
+                    train_path, = find_dset(
+                        dsets=train_dsets,
+                        configs=train_configs,
+                        filelims_room='even',
+                        **kwargs,
+                    )
+                    val_path = train_path.replace('train', 'val')
+                    add_config(configs, 0, train_path, val_path, test_paths)
+
+    # cross corpus
+    dict_ = {
+        'speakers': [
+            'timit_.*',
+            'libri_.*',
+            'ieee',
+            'arctic',
+            'hint',
+        ],
+        'noise_types': [
+            'dcase_.*',
+            'noisex_.*',
+            'icra_.*',
+            'demand',
+            'arte',
+        ],
+        'rooms': [
+            'surrey_.*',
+            'ash_.*',
+            'bras_.*',
+            'catt_.*',
+            'avil_.*',
+        ],
+    }
+    # single, double and triple mismatch
+    from itertools import combinations
+    dims_ = [x for n in range(4) for x in combinations(dict_.keys(), n)]
+    for dims in dims_:
         test_paths = set()
-        for x in exp['test']:
-            dset, = find_dset(
+        for dbases in zip(*[dict_[dim] for dim in dims]):
+            kwargs = {dim: set([dbase]) for dim, dbase in zip(dims, dbases)}
+            test_path, = find_dset(
                 dsets=test_dsets,
                 configs=test_configs,
-                **{exp['dim']: x},
-                filelims_room=test_brirs,
+                filelims_room='odd',
+                **kwargs,
             )
-            test_paths.add(dset)
-        for x in exp['train']:
-            dset, = find_dset(
+            test_paths.add(test_path)
+        for dbases in zip(*[dict_[dim] for dim in dims]):
+            kwargs_list = [
+                {dim: set([dbase]) for dim, dbase in zip(dims, dbases)},
+                {dim: set([db for db in dict_[dim] if db != dbase])
+                 for dim, dbase in zip(dims, dbases)},
+            ]
+            for kwargs in kwargs_list:
+                train_path, = find_dset(
+                    dsets=train_dsets,
+                    configs=train_configs,
+                    filelims_room='even',
+                    **kwargs,
+                )
+                val_path = train_path.replace('train', 'val')
+                add_config(configs, 0, train_path, val_path, test_paths)
+
+    # for dim, dbases in dict_.items():
+    #     test_paths = set()
+    #     for dbase in dbases:
+    #         kwargs = {dim: set([dbase])}
+    #         test_path, = find_dset(
+    #             dsets=test_dsets,
+    #             configs=test_configs,
+    #             filelims_room='odd',
+    #             **kwargs,
+    #         )
+    #         test_paths.add(test_path)
+    #     for dbase in dbases:
+    #         kwargs_list = [
+    #             {dim: set([dbase])},
+    #             {dim: set([db for db in dbases if db != dbase])},
+    #         ]
+    #         for kwargs in kwargs_list:
+    #             train_path, = find_dset(
+    #                 dsets=train_dsets,
+    #                 configs=train_configs,
+    #                 filelims_room='even',
+    #                 **kwargs,
+    #             )
+    #             val_path = train_path.replace('train', 'val')
+    #             add_config(configs, 0, train_path, val_path, test_paths)
+
+    dict_ = {
+        'target_angle_lims': [
+            [0.0, 0.0],
+            [-90.0, 90.0],
+        ],
+        'snr_dist_args': [
+            [-5, -5],
+            [0, 0],
+            [5, 5],
+            [10, 10],
+            [-5, 10],
+        ],
+        'random_rms': [
+            False,
+            True,
+        ],
+    }
+    for dim, values in dict_.items():
+        if dim == 'target_angle_lims':
+            train_rooms = 'all'
+            test_rooms = 'all'
+        else:
+            train_rooms = 'even'
+            test_rooms = 'odd'
+        test_paths = set()
+        for val in values:
+            kwargs = {dim: val}
+            test_path, = find_dset(
+                dsets=test_dsets,
+                configs=test_configs,
+                filelims_room=test_rooms,
+                **kwargs,
+            )
+            test_paths.add(test_path)
+        for val in values:
+            kwargs = {dim: val}
+            train_path, = find_dset(
                 dsets=train_dsets,
                 configs=train_configs,
-                **{exp['dim']: x},
-                filelims_room=train_brirs,
+                filelims_room=train_rooms,
+                **kwargs,
             )
-            train_path = dset
-            val_path = dset.replace('train', 'val')
-            for seed in exp['seeds']:
-                config = {}
-                bmm.set_config_field(config, 'layers', 2)
-                bmm.set_config_field(config, 'hidden_sizes', [1024, 1024])
-                bmm.set_config_field(config, 'stacks', 5)
-                bmm.set_config_field(config, 'dropout', True)
-                bmm.set_config_field(config, 'seed', seed)
-                bmm.set_config_field(config, 'train_path', train_path)
-                bmm.set_config_field(config, 'val_path', val_path)
-                bmm.set_config_field(config, 'test_path', test_paths)
-                configs.append(config)
+            val_path = train_path.replace('train', 'val')
+            for seed in range(5):
+                add_config(configs, seed, train_path, val_path, test_paths)
 
-    # deal with the default model which appeared in both lists before merging
+    # merge test paths of models with the same train path
     for i, config_1 in enumerate(configs):
         for j, config_2 in enumerate(configs):
             if j > i:
