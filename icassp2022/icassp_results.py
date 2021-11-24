@@ -1,3 +1,4 @@
+import itertools
 import os
 
 import numpy as np
@@ -6,22 +7,23 @@ import brever.modelmanagement as bmm
 
 
 def find_dset(
-            dsets=None,
-            configs=None,
-            kind=None,
+            kind,
             speakers={'timit_.*'},
             rooms={'surrey_.*'},
             snr_dist_args=[-5, 10],
             target_angle_lims=[-90.0, 90.0],
             noise_types={'dcase_.*'},
             random_rms=False,
-            filelims_room=None,
+            brirs=None,
         ):
     target_angle_min, target_angle_max = target_angle_lims
+    dsets, configs = {
+        'train': (train_dsets, train_configs),
+        'test': (test_dsets, test_configs),
+    }[kind]
     return bmm.find_dataset(
         dsets=dsets,
         configs=configs,
-        kind=kind,
         speakers=speakers,
         rooms=rooms,
         snr_dist_args=snr_dist_args,
@@ -29,787 +31,475 @@ def find_dset(
         target_angle_max=target_angle_max,
         noise_types=noise_types,
         random_rms=random_rms,
-        filelims_room=filelims_room,
+        filelims_room=brirs,
     )
 
 
-def get_score(model, test_path, score='MSE'):
+def find_model(**kwargs):
+    return bmm.find_model(models=all_models, configs=all_configs, **kwargs)
+
+
+def get_score(model, test_path, metric='MSE'):
     score_file = os.path.join(model, 'scores.json')
     data = bmm.read_json(score_file)
-    if score == 'MSE':
+    if metric == 'MSE':
         return np.mean(data[test_path]['model']['MSE'])
-    if score == 'dPESQ':
+    if metric == 'dPESQ':
         return np.mean([
             data[test_path]['model']['PESQ'][i] -
             data[test_path]['ref']['PESQ'][i]
             for i in range(len(data[test_path]['model']['PESQ']))
         ])
-    if score == 'dSTOI':
+    if metric == 'dSTOI':
         return np.mean([
             data[test_path]['model']['STOI'][i] -
             data[test_path]['ref']['STOI'][i]
             for i in range(len(data[test_path]['model']['STOI']))
         ])
     else:
-        raise ValueError(f'unrecognized score, got {score}')
+        raise ValueError(f'unrecognized metric, got {metric}')
 
 
-def get_generalization_gap(
-            dim,
-            model_dim_val,
-            cond_dim_val,
-            ref_dim_val=None,
-            seed=[0],
-            filelims_room=None,
-        ):
-    if filelims_room is None:
-        train_brirs = 'even'
-        test_brirs = 'odd'
+def get_generalization_gap(dim, train_cond, test_cond, ref_cond=None,
+                           seeds=[0], brirs=None):
+    train_brirs = brirs or 'even'
+    test_brirs = brirs or 'odd'
+    ref_cond = ref_cond or test_cond
+    train_dset, = find_dset('train', **{dim: train_cond}, brirs=train_brirs)
+    models = find_model(train_path=[train_dset], seed=seeds)
+    assert len(models) == len(seeds)
+    ref_dset, = find_dset('train', **{dim: ref_cond}, brirs=train_brirs)
+    ref_models = find_model(train_path=[ref_dset], seed=seeds)
+    assert len(ref_models) == len(seeds)
+    test_dset, = find_dset('test', **{dim: test_cond}, brirs=test_brirs)
+    output = {}
+    for metric in ['MSE', 'dPESQ', 'dSTOI']:
+        scores = [get_score(m, test_dset, metric) for m in models]
+        ref_scores = [get_score(m, test_dset, metric) for m in ref_models]
+        output[metric] = {}
+        output[metric]['model'] = np.mean(scores)
+        output[metric]['ref'] = np.mean(ref_scores)
+        output[metric]['gap'] = np.mean(scores)/np.mean(ref_scores) - 1
+    return output
+
+
+def dict_mean(*args):
+    if isinstance(args[0], float):
+        return np.mean(args)
+    output = {}
+    for key in args[0].keys():
+        output[key] = dict_mean(*[x[key] for x in args])
+    return output
+
+
+def get_mean_gap(dim, train_conds, test_conds, ref_conds=None, seeds=[0],
+                 brirs=None):
+    if ref_conds is None:
+        ref_conds = [None]*len(train_conds)
+    gaps = []
+    for train, test, ref in zip(train_conds, test_conds, ref_conds):
+        gaps.append(get_generalization_gap(dim, train, test, ref))
+    return dict_mean(*gaps)
+
+
+def get_inner_corpus_gap(dim, dbase, types, invert=False):
+    train_conds = [set([f'{dbase}_{t}']) for t in types]
+    test_conds = [set([f'{dbase}_(?!{t}$).*']) for t in types]
+    if invert:
+        train_conds, test_conds = test_conds, train_conds
+    return get_mean_gap(dim, train_conds, test_conds)
+
+
+def get_cross_corpus_gap(dim, dbases, diversity):
+    if diversity == 'low':
+        train_conds, ref_conds, test_conds = [], [], []
+        for db in dbases:
+            train_cond = set([db])
+            ref_cond = set([db_ for db_ in dbases if db_ != db])
+            for db_ in dbases:
+                if db_ != db:
+                    train_conds.append(train_cond)
+                    ref_conds.append(ref_cond)
+                    test_conds.append(set([db_]))
+    elif diversity == 'high':
+        train_conds = [set([d for d in dbases if d != db]) for db in dbases]
+        test_conds = [set([db]) for db in dbases]
+        ref_conds = None
     else:
-        train_brirs = filelims_room
-        test_brirs = filelims_room
-    if ref_dim_val is None:
-        ref_dim_val = cond_dim_val
-    train_dset, = find_dset(
-        dsets=train_dsets,
-        configs=train_configs,
-        **{dim: model_dim_val},
-        filelims_room=train_brirs,
-    )
-    models_ = bmm.find_model(
-        models=models,
-        configs=configs,
-        train_path=[train_dset],
-        seed=seed,
-    )
-    assert len(models_) == len(seed)
-    train_dset_ref, = find_dset(
-        dsets=train_dsets,
-        configs=train_configs,
-        **{dim: ref_dim_val},
-        filelims_room=train_brirs,
-    )
-    models_ref = bmm.find_model(
-        models=models,
-        configs=configs,
-        train_path=[train_dset_ref],
-        seed=seed,
-    )
-    assert len(models_ref) == len(seed)
-    test_dset, = find_dset(
-        dsets=test_dsets,
-        configs=test_configs,
-        **{dim: cond_dim_val},
-        filelims_room=test_brirs,
-    )
-    gap = []
-    scores_names = ['MSE', 'dPESQ', 'dSTOI']
-    scalings = [100, 10, 100]
-    for score_name, scaling in zip(scores_names, scalings):
-        scores = []
-        scores_ref = []
-        for model, model_ref in zip(models_, models_ref):
-            score = get_score(model, test_dset, score_name)
-            score_ref = get_score(model_ref, test_dset, score_name)
-            scores.append(score)
-            scores_ref.append(score_ref)
-        score = np.mean(scores)
-        score_ref = np.mean(scores_ref)
-        gap.append(score*scaling)
-        gap.append((score - score_ref)/score_ref*100)
-    return gap
+        return ValueError(f'diversity must be low or high, got {diversity}')
+    return get_mean_gap(dim, train_conds, test_conds, ref_conds)
 
 
-def get_mean_gap(
-            dim,
-            model_dim_vals,
-            cond_dim_vals,
-        ):
-    gaps = []
-    for model_dim_val, cond_dim_val in zip(
-                model_dim_vals, cond_dim_vals
-            ):
-        gaps.append(get_generalization_gap(
-            dim,
-            model_dim_val,
-            cond_dim_val,
-        ))
-    return np.mean(gaps, axis=0)
+def score_fmt(scores):
+
+    def _format(x):
+        x = f'{x:.2f}'
+        return x.replace('.', '&.')
+
+    out = []
+    scalings = {'MSE': 100, 'dPESQ': 10, 'dSTOI': 100}
+    for metric, scores in scores.items():
+        score = scores['model']
+        gap = scores['gap']
+        scaling = scalings[metric]
+        out.append(fr'{_format(score*scaling)} ({round(gap*100):+.0f}\%)')
+    out = ' & '.join(out)
+    return out + r' \\'
 
 
-def get_mean_gap_cross_corpus_naive(
-            dim,
-            corpora,
-        ):
-    gaps = []
-    for model_dim_val in corpora:
-        ref_dim_val = set(
-            x.copy().pop() for x in corpora if x != model_dim_val
-        )
-        for cond_dim_val in ref_dim_val:
-            gaps.append(get_generalization_gap(
-                dim,
-                model_dim_val,
-                set([cond_dim_val]),
-                ref_dim_val,
-            ))
-    return np.mean(gaps, axis=0)
+def print_inner_corpus_results(dim, dbase, diversity):
+    dict_ = {
+        'speakers': {
+            'timit': {
+                'header': 'TIMIT',
+                'exps': {
+                    'low': {
+                        'training': '1 speaker',
+                        'testing': '629 speakers',
+                        'types': [
+                            'm0',
+                            'f0',
+                            'm1',
+                            'f1',
+                            'm2',
+                            'f2',
+                        ],
+                    },
+                    'mid': {
+                        'training': '10 speakers',
+                        'testing': '620 speakers',
+                        'types': [
+                            '(f[0-4]|m[0-4])',
+                            '(f[5-9]|m[5-9])',
+                            '(f1[0-4]|m1[0-4])',
+                            '(f1[5-9]|m1[5-9])',
+                            '(f2[0-4]|m2[0-4])',
+                        ],
+                    },
+                    'high': {
+                        'training': '100 speakers',
+                        'testing': '530 speakers',
+                        'types': [
+                            '(f[0-4]?[0-9]|m[0-4]?[0-9])',
+                            '(f[4-9][0-9]|m[4-9][0-9])',
+                            '(f1[0-4][0-9]|m1[0-4][0-9])',
+                            '(f[0-9]?[02468]|m[0-9]?[02468])',
+                            '(f[0-9]?[13579]|m[0-9]?[13579])',
+                        ],
+                    },
+                },
+            },
+            'libri': {
+                'header': 'LibriSpeech',
+                'exps': {
+                    'low': {
+                        'training': '1 speaker',
+                        'testing': '250 speakers',
+                        'types': [
+                            'm0',
+                            'f0',
+                            'm1',
+                            'f1',
+                            'm2',
+                            'f2',
+                        ],
+                    },
+                    'mid': {
+                        'training': '10 speakers',
+                        'testing': '241 speakers',
+                        'types': [
+                            '(f[0-4]|m[0-4])',
+                            '(f[5-9]|m[5-9])',
+                            '(f1[0-4]|m1[0-4])',
+                            '(f1[5-9]|m1[5-9])',
+                            '(f2[0-4]|m2[0-4])',
+                        ],
+                    },
+                    'high': {
+                        'training': '100 speakers',
+                        'testing': '151 speakers',
+                        'types': [
+                            '(f[0-4]?[0-9]|m[0-4]?[0-9])',
+                            '(f[4-9][0-9]|m[4-9][0-9])',
+                            '(f[0-9]?[02468]|m[0-9]?[02468])',
+                            '(f[0-9]?[13579]|m[0-9]?[13579])',
+                        ],
+                    },
+                },
+            },
+        },
+        'noise_types': {
+            'dcase': {
+                'header': 'TAU',
+                'exps': {
+                    'low': {
+                        'training': '1 noise type',
+                        'testing': '9 noise types',
+                        'types': [
+                            'airport',
+                            'bus',
+                            'metro',
+                            'metro_station',
+                            'park',
+                        ],
+                    },
+                },
+            },
+            'noisex': {
+                'header': 'NOISEX',
+                'exps': {
+                    'low': {
+                        'training': '1 noise type',
+                        'testing': '14 noise types',
+                        'types': [
+                            'babble',
+                            'buccaneer1',
+                            'destroyerengine',
+                            'f16',
+                            'factory1',
+                        ],
+                    },
+                },
+            },
+        },
+        'rooms': {
+            'surrey': {
+                'header': 'Surrey',
+                'exps': {
+                    'low': {
+                        'training': '1 room',
+                        'testing': '4 rooms',
+                        'types': [
+                            'anechoic',
+                            'room_a',
+                            'room_b',
+                            'room_c',
+                            'room_d',
+                        ],
+                    },
+                }
+            },
+            'ash': {
+                'header': 'ASH',
+                'exps': {
+                    'low': {
+                        'training': '1 room',
+                        'testing': '38 rooms',
+                        'types': [
+                            'r01',
+                            'r02',
+                            'r03',
+                            'r04',
+                            'r05a?b?',
+                        ],
+                    },
+                    'high': {
+                        'training': '10 rooms',
+                        'testing': '29 rooms',
+                        'types': [
+                            'r0[0-9]a?b?',
+                            'r1[0-9]',
+                            'r2[0-9]',
+                            'r3[0-9]',
+                            'r(00|04|08|12|16|20|24|18|32|36)',
+                        ],
+                    },
+                },
+            },
+        },
+    }
+    header = dict_[dim][dbase]['header']
+    if dbase in ['dcase', 'noisex', 'surrey'] and diversity == 'high':
+        exp = dict_[dim][dbase]['exps']['low']
+        training, testing = exp['testing'], exp['training']
+        invert = True
+    else:
+        exp = dict_[dim][dbase]['exps'][diversity]
+        training, testing = exp['training'], exp['testing']
+        invert = False
+    scores = get_inner_corpus_gap(dim, dbase, exp['types'], invert=invert)
+    print(f'& {header} & {training} & {testing} & {score_fmt(scores)}')
 
 
-def get_mean_gap_cross_corpus_fair(
-            dim,
-            corpora,
-        ):
-    model_dim_vals = [set(
-            x.copy().pop() for x in corpora if x != y
-        ) for y in corpora]
-    return get_mean_gap(dim, model_dim_vals, corpora)
-
-
-def score_fmt(x):
-    x = f'{x:.2f}'
-    return x.replace('.', '&.')
-
-
-def timit_naive():
-    gaps = get_mean_gap(
-        'speakers',
-        [
-            {'timit_m0'},  # male 0
-            {'timit_f0'},  # female 0
-            {'timit_m1'},  # male 1
-            {'timit_f1'},  # female 1
-            {'timit_m2'},  # male 2
-            {'timit_f2'},  # female 2
+def print_cross_corpus_results(*args, diversity='low'):
+    dict_ = {
+        'speakers': [
+            'timit_.*',
+            'libri_.*',
+            'ieee',
+            'arctic',
+            'hint',
         ],
-        [
-            {'timit_(?!m0$).*'},  # male 0
-            {'timit_(?!f0$).*'},  # female 0
-            {'timit_(?!m1$).*'},  # male 1
-            {'timit_(?!f1$).*'},  # female 1
-            {'timit_(?!m2$).*'},  # male 2
-            {'timit_(?!f2$).*'},  # female 2
+        'noise_types': [
+            'dcase_.*',
+            'noisex_.*',
+            'icra_.*',
+            'demand',
+            'arte',
         ],
-    )
-    print(
-        'TIMIT & 1 speaker & 629 speakers & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def timit_fair():
-    gaps = get_mean_gap(
-        'speakers',
-        [
-            {'timit_(f[0-4]|m[0-4])'},
-            {'timit_(f[5-9]|m[5-9])'},
-            {'timit_(f1[0-4]|m1[0-4])'},
-            {'timit_(f1[5-9]|m1[5-9])'},
-            {'timit_(f2[0-4]|m2[0-4])'},
+        'rooms': [
+            'surrey_.*',
+            'ash_.*',
+            'bras_.*',
+            'catt_.*',
+            'avil_.*',
         ],
-        [
-            {'timit_(?!(f[0-4]|m[0-4])$).*'},
-            {'timit_(?!(f[5-9]|m[5-9])$).*'},
-            {'timit_(?!(f1[0-4]|m1[0-4])$).*'},
-            {'timit_(?!(f1[5-9]|m1[5-9])$).*'},
-            {'timit_(?!(f2[0-4]|m2[0-4])$).*'},
-        ],
-    )
-    print(
-        'TIMIT & 10 speaker & 620 speakers & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
+    }
+    score_dicts = []
+    for db_tuple in zip(*[dict_[d] for d in args]):
+        kwargs = {dim: set([dbase]) for dim, dbase in zip(args, db_tuple)}
+        train_dset, = find_dset('train', **kwargs, brirs='even')
+        models = find_model(train_path=[train_dset], seed=[0])
+        assert len(models) == 1
+        kwargs = {dim: set([db for db in dict_[dim] if db != dbase])
+                  for dim, dbase in zip(args, db_tuple)}
+        ref_dset, = find_dset('train', **kwargs, brirs='even')
+        ref_models = find_model(train_path=[ref_dset], seed=[0])
+        assert len(ref_models) == 1
+        if diversity == 'low':
+            for db_tuple_ in zip(*[dict_[d] for d in args]):
+                if db_tuple_ != db_tuple:
+                    kwargs = {dim: set([dbase])
+                              for dim, dbase in zip(args, db_tuple_)}
+                    test_dset, = find_dset('test', **kwargs, brirs='odd')
+                    score = {}
+                    for s in ['MSE', 'dPESQ', 'dSTOI']:
+                        scores = [get_score(m, test_dset, s) for m in models]
+                        refs = [get_score(m, test_dset, s) for m in ref_models]
+                        score[s] = {}
+                        score[s]['model'] = np.mean(scores)
+                        score[s]['ref'] = np.mean(refs)
+                        score[s]['gap'] = np.mean(scores)/np.mean(refs) - 1
+                        score_dicts.append(score)
+        elif diversity == 'high':
+            models, ref_models = ref_models, models
+            kwargs = {dim: set([dbase]) for dim, dbase in zip(args, db_tuple)}
+            test_dset, = find_dset('test', **kwargs, brirs='odd')
+            score = {}
+            for s in ['MSE', 'dPESQ', 'dSTOI']:
+                scores = [get_score(m, test_dset, s) for m in models]
+                refs = [get_score(m, test_dset, s) for m in ref_models]
+                score[s] = {}
+                score[s]['model'] = np.mean(scores)
+                score[s]['ref'] = np.mean(refs)
+                score[s]['gap'] = np.mean(scores)/np.mean(refs) - 1
+                score_dicts.append(score)
+    scores = dict_mean(*score_dicts)
+    if diversity == 'low':
+        training, testing = '1 corpus', '4 corpora'
+    elif diversity == 'high':
+        training, testing = '4 corpora', '1 corpus'
+    else:
+        raise ValueError(f'diversity must be low or high, got {diversity})')
+    header = {
+        'speakers': 'Speech',
+        'noise_types': 'Noise',
+        'rooms': 'Room'
+    }
+    header = '-'.join(header[arg] for arg in args)
+    if len(args) == 1:
+        header = 'Cross-corpus'
+    elif len(args) == 2:
+        header = f'{header} mismatch'
+    elif len(args) == 3:
+        header = 'Triple mismatch'
+    print(f'& {header} & {training} & {testing} & {score_fmt(scores)}')
 
 
-def timit_wise():
-    gaps = get_mean_gap(
-        'speakers',
-        [
-            {'timit_(f[0-4]?[0-9]|m[0-4]?[0-9])'},
-            {'timit_(f[4-9][0-9]|m[4-9][0-9])'},
-            {'timit_(f1[0-4][0-9]|m1[0-4][0-9])'},
-            {'timit_(f[0-9]?[02468]|m[0-9]?[02468])'},
-            {'timit_(f[0-9]?[13579]|m[0-9]?[13579])'},
-        ],
-        [
-            {'timit_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},
-            {'timit_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},
-            {'timit_(?!(f1[0-4][0-9]|m1[0-4][0-9])$).*'},
-            {'timit_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},
-            {'timit_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},
-        ],
-    )
-    print(
-        'TIMIT & 100 speaker & 530 speakers & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
+def print_other_experiment_results(dim):
 
+    def _format(score):
+        score, gap = score['MSE']['model']*100, score['MSE']['gap']*100
+        return f'{score:.2f}'.replace('.', '&.') + fr' ({round(gap):+.0f}\%)'
 
-def libri_naive():
-    gaps = get_mean_gap(
-        'speakers',
-        [
-            {'libri_m0'},  # male 0
-            {'libri_f0'},  # female 0
-            {'libri_m1'},  # male 1
-            {'libri_f1'},  # female 1
-            {'libri_m2'},  # male 2
-            {'libri_f2'},  # female 2
-        ],
-        [
-            {'libri_(?!m0$).*'},  # male 0
-            {'libri_(?!f0$).*'},  # female 0
-            {'libri_(?!m1$).*'},  # male 1
-            {'libri_(?!f1$).*'},  # female 1
-            {'libri_(?!m2$).*'},  # male 2
-            {'libri_(?!f2$).*'},  # female 2
-        ],
-    )
-    print(
-        'LibriSpeech & 1 speaker & 250 speakers & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def libri_fair():
-    gaps = get_mean_gap(
-        'speakers',
-        [
-            {'libri_(f[0-4]|m[0-4])'},  # males and females 0 to 4
-            {'libri_(f[5-9]|m[5-9])'},  # males and females 5 to 9
-            {'libri_(f1[0-4]|m1[0-4])'},  # males and females 10 to 14
-            {'libri_(f1[5-9]|m1[5-9])'},  # males and females 15 to 19
-            {'libri_(f2[0-4]|m2[0-4])'},  # males and females 20 to 24
-        ],
-        [
-            {'libri_(?!(f[0-4]|m[0-4])$).*'},  # males and females 0 to 4
-            {'libri_(?!(f[5-9]|m[5-9])$).*'},  # males and females 5 to 9
-            {'libri_(?!(f1[0-4]|m1[0-4])$).*'},  # males and females 10 to 14
-            {'libri_(?!(f1[5-9]|m1[5-9])$).*'},  # males and females 15 to 19
-            {'libri_(?!(f2[0-4]|m2[0-4])$).*'},  # males and females 20 to 24
-        ],
-    )
-    print(
-        'LibriSpeech & 10 speaker & 241 speakers & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def libri_wise():
-    gaps = get_mean_gap(
-        'speakers',
-        [
-            {'libri_(f[0-4]?[0-9]|m[0-4]?[0-9])'},
-            {'libri_(f[4-9][0-9]|m[4-9][0-9])'},
-            {'libri_(f[0-9]?[02468]|m[0-9]?[02468])'},
-            {'libri_(f[0-9]?[13579]|m[0-9]?[13579])'},
-        ],
-        [
-            {'libri_(?!(f[0-4]?[0-9]|m[0-4]?[0-9])$).*'},
-            {'libri_(?!(f[4-9][0-9]|m[4-9][0-9])$).*'},
-            {'libri_(?!(f[0-9]?[02468]|m[0-9]?[02468])$).*'},
-            {'libri_(?!(f[0-9]?[13579]|m[0-9]?[13579])$).*'},
-        ],
-    )
-    print(
-        'LibriSpeech & 100 speaker & 151 speakers & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def speaker_cross_corpus_naive():
-    gaps = get_mean_gap_cross_corpus_naive(
-        'speakers',
-        [
-            {'ieee'},
-            {'timit_.*'},
-            {'libri_.*'},
-            {'arctic'},
-            {'hint'},
-        ]
-    )
-    print(
-        'Cross-corpus & 1 corpus & 4 corpora & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def speaker_cross_corpus_fair():
-    gaps = get_mean_gap_cross_corpus_fair(
-        'speakers',
-        [
-            {'ieee'},
-            {'timit_.*'},
-            {'libri_.*'},
-            {'arctic'},
-            {'hint'},
-        ]
-    )
-    print(
-        'Cross-corpus & 4 corpora & 1 corpus & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def dcase_naive():
-    gaps = get_mean_gap(
-        'noise_types',
-        [
-            {'dcase_airport'},
-            {'dcase_bus'},
-            {'dcase_metro'},
-            {'dcase_metro_station'},
-            {'dcase_park'},
-        ],
-        [
-            {'dcase_(?!airport$).*'},
-            {'dcase_(?!bus$).*'},
-            {'dcase_(?!metro$).*'},
-            {'dcase_(?!metro_station$).*'},
-            {'dcase_(?!park$).*'},
-        ],
-    )
-    print(
-        'TAU & 1 noise type & 9 noise types & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def dcase_fair():
-    gaps = get_mean_gap(
-        'noise_types',
-        [
-            {'dcase_(?!airport$).*'},
-            {'dcase_(?!bus$).*'},
-            {'dcase_(?!metro$).*'},
-            {'dcase_(?!metro_station$).*'},
-            {'dcase_(?!park$).*'},
-        ],
-        [
-            {'dcase_airport'},
-            {'dcase_bus'},
-            {'dcase_metro'},
-            {'dcase_metro_station'},
-            {'dcase_park'},
-        ],
-    )
-    print(
-        'TAU & 9 noise types & 1 noise type & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def noisex_naive():
-    gaps = get_mean_gap(
-        'noise_types',
-        [
-            {'noisex_babble'},
-            {'noisex_buccaneer1'},
-            {'noisex_destroyerengine'},
-            {'noisex_f16'},
-            {'noisex_factory1'},
-        ],
-        [
-            {'noisex_(?!babble$).*'},
-            {'noisex_(?!buccaneer1$).*'},
-            {'noisex_(?!destroyerengine$).*'},
-            {'noisex_(?!f16$).*'},
-            {'noisex_(?!factory1$).*'},
-        ],
-    )
-    print(
-        'NOISEX & 1 noise type & 14 noise types & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def noisex_fair():
-    gaps = get_mean_gap(
-        'noise_types',
-        [
-            {'noisex_(?!babble$).*'},
-            {'noisex_(?!buccaneer1$).*'},
-            {'noisex_(?!destroyerengine$).*'},
-            {'noisex_(?!f16$).*'},
-            {'noisex_(?!factory1$).*'},
-        ],
-        [
-            {'noisex_babble'},
-            {'noisex_buccaneer1'},
-            {'noisex_destroyerengine'},
-            {'noisex_f16'},
-            {'noisex_factory1'},
-        ],
-    )
-    print(
-        'NOISEX & 14 noise types & 1 noise type & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def noise_cross_corpus_naive():
-    gaps = get_mean_gap_cross_corpus_naive(
-        'noise_types',
-        [
-            {'dcase_.*'},
-            {'icra_.*'},
-            {'demand'},
-            {'noisex_.*'},
-            {'arte'},
-        ]
-    )
-    print(
-        'Cross-corpus & 1 corpus & 4 corpora & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def noise_cross_corpus_fair():
-    gaps = get_mean_gap_cross_corpus_fair(
-        'noise_types',
-        [
-            {'dcase_.*'},
-            {'icra_.*'},
-            {'demand'},
-            {'noisex_.*'},
-            {'arte'},
-        ]
-    )
-    print(
-        'Cross-corpus & 4 corpora & 1 corpus & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def surrey_naive():
-    gaps = get_mean_gap(
-        'rooms',
-        [
-            {'surrey_anechoic'},
-            {'surrey_room_a'},
-            {'surrey_room_b'},
-            {'surrey_room_c'},
-            {'surrey_room_d'},
-        ],
-        [
-            {'surrey_(?!anechoic$).*'},
-            {'surrey_(?!room_a$).*'},
-            {'surrey_(?!room_b$).*'},
-            {'surrey_(?!room_c$).*'},
-            {'surrey_(?!room_d$).*'},
-        ],
-    )
-    print(
-        'Surrey & 1 room & 4 rooms & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def surrey_fair():
-    gaps = get_mean_gap(
-        'rooms',
-        [
-            {'surrey_(?!anechoic$).*'},
-            {'surrey_(?!room_a$).*'},
-            {'surrey_(?!room_b$).*'},
-            {'surrey_(?!room_c$).*'},
-            {'surrey_(?!room_d$).*'},
-        ],
-        [
-            {'surrey_anechoic'},
-            {'surrey_room_a'},
-            {'surrey_room_b'},
-            {'surrey_room_c'},
-            {'surrey_room_d'},
-        ],
-    )
-    print(
-        'Surrey & 4 rooms & 1 room & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def ash_naive():
-    gaps = get_mean_gap(
-        'rooms',
-        [
-            {'ash_r01'},
-            {'ash_r02'},
-            {'ash_r03'},
-            {'ash_r04'},
-            {'ash_r05a?b?'},
-        ],
-        [
-            {'ash_(?!r01$).*'},
-            {'ash_(?!r02$).*'},
-            {'ash_(?!r03$).*'},
-            {'ash_(?!r04$).*'},
-            {'ash_(?!r05a?b?$).*'},
-        ],
-    )
-    print(
-        'ASH & 1 room & 38 rooms & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def ash_fair():
-    gaps = get_mean_gap(
-        'rooms',
-        [
-            {'ash_r0[0-9]a?b?'},  # 0 to 9
-            {'ash_r1[0-9]'},  # 10 to 19
-            {'ash_r2[0-9]'},  # 20 to 29
-            {'ash_r3[0-9]'},  # 30 to 39
-            {'ash_r(00|04|08|12|16|20|24|18|32|36)'},
-        ],
-        [
-            {'ash_(?!r0[0-9]a?b?$).*'},  # 0 to 9
-            {'ash_(?!r1[0-9]$).*'},  # 10 to 19
-            {'ash_(?!r2[0-9]$).*'},  # 20 to 29
-            {'ash_(?!r3[0-9]$).*'},  # 30 to 39
-            {'ash_(?!r(00|04|08|12|16|20|24|18|32|36)$).*'},
-        ],
-    )
-    print(
-        'ASH & 10 room & 29 rooms & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def room_cross_corpus_naive():
-    gaps = get_mean_gap_cross_corpus_naive(
-        'rooms',
-        [
-            {'surrey_.*'},
-            {'ash_.*'},
-            {'bras_.*'},
-            {'catt_.*'},
-            {'avil_.*'},
-        ]
-    )
-    print(
-        'Cross-corpus & 1 corpus & 4 corpora & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def room_cross_corpus_fair():
-    gaps = get_mean_gap_cross_corpus_fair(
-        'rooms',
-        [
-            {'surrey_.*'},
-            {'ash_.*'},
-            {'bras_.*'},
-            {'catt_.*'},
-            {'avil_.*'},
-        ]
-    )
-    print(
-        'Cross-corpus & 4 corpora & 1 corpus & '
-        fr'{score_fmt(gaps[0])} ({round(gaps[1]):+.0f}\%) & '
-        fr'{score_fmt(gaps[2])} ({round(gaps[3]):+.0f}\%) & '
-        fr'{score_fmt(gaps[4])} ({round(gaps[5]):+.0f}\%) \\'
-    )
-
-
-def rooms():
-    print('Rooms')
-    rooms = [
-        {'surrey_.*'},
-        {'ash_.*'},
-        {'bras_.*'},
-        {'catt_.*'},
-        {'avil_.*'},
-        {'ash_.*', 'bras_.*', 'catt_.*', 'avil_.*'},
-        {'surrey_.*', 'bras_.*', 'catt_.*', 'avil_.*'},
-        {'surrey_.*', 'ash_.*', 'catt_.*', 'avil_.*'},
-        {'surrey_.*', 'ash_.*', 'bras_.*', 'avil_.*'},
-        {'surrey_.*', 'ash_.*', 'bras_.*', 'catt_.*'},
-    ]
-    gaps = np.zeros((6, len(rooms), len(rooms)))
-    for i, cond_dim_val in enumerate(rooms):
-        for j, model_dim_val in enumerate(rooms):
-            if len(cond_dim_val) == 1:
-                gaps[:, i, j] = get_generalization_gap(
-                    'rooms',
-                    model_dim_val,
-                    cond_dim_val,
-                )
-            else:
-                gaps[:, i, j] = np.mean([get_generalization_gap(
-                    'rooms',
-                    model_dim_val,
-                    set([x]),
-                    cond_dim_val,
-                ) for x in cond_dim_val], axis=0)
-    print(gaps)
-
-
-def snr():
-    snr_dist_args = [
-        [-5, -5],
-        [0, 0],
-        [5, 5],
-        [10, 10],
-        [-5, 10],
-    ]
-    gaps = np.zeros((6, 5, 5))
-    for i, cond_dim_val in enumerate(snr_dist_args):
-        for j, model_dim_val in enumerate(snr_dist_args):
-            gaps[:, i, j] = get_generalization_gap(
-                'snr_dist_args',
-                model_dim_val,
-                cond_dim_val,
-                seed=[0, 1, 2, 3, 4],
-            )
-    raw = gaps[0, :, :]
-    per = gaps[1, :, :]
-    headers = ['-5 dB', '0 dB', '5 dB', '10 dB', '-5--10 dB']
+    dict_ = {
+        'snr_dist_args': {
+            'headers': ['-5 dB', '0 dB', '5 dB', '10 dB', '-5--10 dB'],
+            'vals': [
+                [-5, -5],
+                [0, 0],
+                [5, 5],
+                [10, 10],
+                [-5, 10],
+            ],
+            'brirs': None,
+        },
+        'target_angle_lims': {
+            'headers': ['Fixed (0°)', 'Random (-90°--90°)'],
+            'vals': [
+                [0.0, 0.0],
+                [-90.0, 90.0],
+            ],
+            'brirs': 'all',
+        },
+        'random_rms': {
+            'headers': ['Fixed speaker level', r'\gls{rms} jitter'],
+            'vals': [
+                False,
+                True,
+            ],
+            'brirs': None,
+        },
+    }
+    headers, vals = dict_[dim]['headers'], dict_[dim]['vals']
     for i in range(len(headers)):
         items = [headers[i]]
         for j in range(len(headers)):
-            items.append(
-                fr'{score_fmt(raw[i, j])} ({round(per[i, j]):+.0f}\%)'
-            )
-        print(' & '.join(items) + r'\\')
-
-
-def direction():
-    target_angle_lims = [
-        [0.0, 0.0],
-        [-90.0, 90.0],
-    ]
-    gaps = np.zeros((6, 2, 2))
-    for i, cond_dim_val in enumerate(target_angle_lims):
-        for j, model_dim_val in enumerate(target_angle_lims):
-            gaps[:, i, j] = get_generalization_gap(
-                'target_angle_lims',
-                model_dim_val,
-                cond_dim_val,
-                seed=[0, 1, 2, 3, 4],
-                filelims_room='all',
-            )
-    raw = gaps[0, :, :]
-    per = gaps[1, :, :]
-    headers = ['Fixed (0°)', 'Random (-90°--90°)']
-    for i in range(len(headers)):
-        items = [headers[i]]
-        for j in range(len(headers)):
-            items.append(
-                fr'{score_fmt(raw[i, j])} ({round(per[i, j]):+.0f}\%)'
-            )
-        print(' & '.join(items) + r'\\')
-
-
-def level():
-    rms_jitters = [
-        False,
-        True,
-    ]
-    gaps = np.zeros((6, 2, 2))
-    for i, cond_dim_val in enumerate(rms_jitters):
-        for j, model_dim_val in enumerate(rms_jitters):
-            gaps[:, i, j] = get_generalization_gap(
-                'random_rms',
-                model_dim_val,
-                cond_dim_val,
-                seed=[0, 1, 2, 3, 4],
-            )
-    raw = gaps[0, :, :]
-    per = gaps[1, :, :]
-    headers = ['Fixed speaker level', r'\gls{rms} jitter']
-    for i in range(len(headers)):
-        items = [headers[i]]
-        for j in range(len(headers)):
-            items.append(
-                fr'{score_fmt(raw[i, j])} ({round(per[i, j]):+.0f}\%)'
-            )
+            score = get_generalization_gap(dim, vals[j], vals[i],
+                                           seeds=[0, 1, 2, 3, 4],
+                                           brirs=dict_[dim]['brirs'])
+            items.append(_format(score))
         print(' & '.join(items) + r'\\')
 
 
 def main():
-    print(r'\multicolumn{9}{l}{\cellcolor{gray!30}Speaker} \\ \hline')
-    timit_naive()
-    timit_fair()
-    timit_wise()
-    print(r'\hline')
-    libri_naive()
-    libri_fair()
-    libri_wise()
-    print(r'\hline')
-    speaker_cross_corpus_naive()
-    speaker_cross_corpus_fair()
-    print(r'\hline')
-    print(r'\multicolumn{9}{l}{\cellcolor{gray!30}Noise} \\ \hline')
-    dcase_naive()
-    dcase_fair()
-    print(r'\hline')
-    noisex_naive()
-    noisex_fair()
-    print(r'\hline')
-    noise_cross_corpus_naive()
-    noise_cross_corpus_fair()
-    print(r'\hline')
-    print(r'\multicolumn{9}{l}{\cellcolor{gray!30}Room} \\ \hline')
-    surrey_naive()
-    surrey_fair()
-    print(r'\hline')
-    ash_naive()
-    ash_fair()
-    print(r'\hline')
-    room_cross_corpus_naive()
-    room_cross_corpus_fair()
+    print(r'\multirow{8}{*}{\rotatebox[origin=c]{90}{Speech}}')
+    for dbase in ['timit', 'libri']:
+        for diversity in ['low', 'mid', 'high']:
+            print_inner_corpus_results('speakers', dbase, diversity)
+        print(r'\cline{2-10}')
+    print_cross_corpus_results('speakers', diversity='low')
+    print_cross_corpus_results('speakers', diversity='high')
+    print(r'\hline \hline')
+
+    print(r'\multirow{6}{*}{\rotatebox[origin=c]{90}{Noise}}')
+    for dbase in ['dcase', 'noisex']:
+        for diversity in ['low', 'high']:
+            print_inner_corpus_results('noise_types', dbase, diversity)
+        print(r'\cline{2-10}')
+    print_cross_corpus_results('noise_types', diversity='low')
+    print_cross_corpus_results('noise_types', diversity='high')
+    print(r'\hline \hline')
+
+    print(r'\multirow{6}{*}{\rotatebox[origin=c]{90}{Room}}')
+    for dbase in ['surrey', 'ash']:
+        for diversity in ['low', 'high']:
+            print_inner_corpus_results('rooms', dbase, diversity)
+        print(r'\cline{2-10}')
+    print_cross_corpus_results('rooms', diversity='low')
+    print_cross_corpus_results('rooms', diversity='high')
+    print(r'\hline \hline')
+
+    print(r'\multirow{8}{*}{\rotatebox[origin=c]{90}{Combined}}')
+    dims = ['speakers', 'noise_types', 'rooms']
+    for args in itertools.combinations(dims, 2):
+        for diversity in ['low', 'high']:
+            print_cross_corpus_results(*args, diversity=diversity)
+        print(r'\cline{2-10}')
+    for diversity in ['low', 'high']:
+        print_cross_corpus_results(*dims, diversity=diversity)
     print('')
 
-    # rooms()
-    snr()
+    print_other_experiment_results('snr_dist_args')
     print('')
-    direction()
+    print_other_experiment_results('target_angle_lims')
     print('')
-    level()
+    print_other_experiment_results('random_rms')
+    print('')
 
 
 if __name__ == '__main__':
-    models, configs = bmm.find_model(return_configs=True)
+    all_models, all_configs = bmm.find_model(return_configs=True)
     train_dsets, train_configs = bmm.find_dataset('train', return_configs=True)
     test_dsets, test_configs = bmm.find_dataset('test', return_configs=True)
     main()
