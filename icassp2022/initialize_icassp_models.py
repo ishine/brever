@@ -91,7 +91,7 @@ def find_dset(
 
 
 def add_config(configs, seed, train_path, val_path, test_paths, layers=2,
-               hidden_sizes=[1024, 1024], stacks=5, dropout=True):
+               hidden_sizes=[1024, 1024], stacks=5, dropout=True, args=None):
     config = {}
     bmm.set_config_field(config, 'layers', layers)
     bmm.set_config_field(config, 'hidden_sizes', hidden_sizes)
@@ -101,9 +101,13 @@ def add_config(configs, seed, train_path, val_path, test_paths, layers=2,
     bmm.set_config_field(config, 'train_path', train_path)
     bmm.set_config_field(config, 'val_path', val_path)
     bmm.set_config_field(config, 'test_path', test_paths)
-    for key, vals in args.__dict__.items():
-        if vals is not None:
-            for val in vals:
+    if args is not None:
+        for key, vals in args.__dict__.items():
+            if vals is not None:
+                if len(vals) > 1:
+                    raise ValueError('only one value per hyperparameter is '
+                                     'allowed')
+                val, = vals
                 bmm.set_config_field(config, key, val)
     configs.append(config)
 
@@ -324,6 +328,11 @@ def main(args):
                 )
                 val_path = train_path.replace('train', 'val')
                 add_config(configs, 0, train_path, val_path, test_paths)
+                # for the triple mismatch, add extra models specified in the
+                # command line arguments
+                if len(dims) == 3:
+                    add_config(configs, 0, train_path, val_path, test_paths,
+                               args=args)
 
     # snr, direction and level experiments
     dict_ = {
