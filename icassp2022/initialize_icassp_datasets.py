@@ -20,6 +20,7 @@ def main():
                 rms_jitter=False,
                 speakers={'timit_.*'},
                 filelims_rooms=None,
+                features=None,
             ):
 
         def make_config(kind_):
@@ -79,6 +80,9 @@ def main():
                     }
                 }
             }
+
+            if features is not None:
+                bmm.set_config_field(config, 'features', features)
 
             return config
 
@@ -212,17 +216,25 @@ def main():
     }
     # single, double and triple mismatch
     from itertools import combinations
+
+    def routine(dims, dbases, features=None):
+        kwargs = {dim: set([dbase]) for dim, dbase in zip(dims, dbases)}
+        add_config(configs, 'train', **kwargs, features=features)
+        add_config(configs, 'val', **kwargs, features=features)
+        add_config(configs, 'test', **kwargs, features=features)
+        kwargs = {dim: set([db for db in dict_[dim] if db != dbase])
+                  for dim, dbase in zip(dims, dbases)}
+        add_config(configs, 'train', **kwargs, features=features)
+        add_config(configs, 'val', **kwargs, features=features)
+
     dims_ = [x for n in range(4) for x in combinations(dict_.keys(), n)]
     for dims in dims_:
         for dbases in zip(*[dict_[dim] for dim in dims]):
-            kwargs = {dim: set([dbase]) for dim, dbase in zip(dims, dbases)}
-            add_config(configs, 'train', **kwargs)
-            add_config(configs, 'val', **kwargs)
-            add_config(configs, 'test', **kwargs)
-            kwargs = {dim: set([db for db in dict_[dim] if db != dbase])
-                      for dim, dbase in zip(dims, dbases)}
-            add_config(configs, 'train', **kwargs)
-            add_config(configs, 'val', **kwargs)
+            routine(dims, dbases)
+            # for the triple mismatch, add pdf and logpdf datasets
+            if len(dims) == 3:
+                routine(dims, dbases, features={'pdf'})
+                routine(dims, dbases, features={'logpdf'})
 
     # SNR, direction and level dimensions
     dict_ = {
