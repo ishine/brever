@@ -73,6 +73,7 @@ def find_dset(
             noise_types={'dcase_.*'},
             random_rms=False,
             filelims_room=None,
+            features={'logfbe'}
         ):
     target_angle_min, target_angle_max = target_angle_lims
     return bmm.find_dataset(
@@ -87,6 +88,7 @@ def find_dset(
         noise_types=noise_types,
         random_rms=random_rms,
         filelims_room=filelims_room,
+        features={'logfbe'}
     )
 
 
