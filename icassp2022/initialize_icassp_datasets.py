@@ -82,7 +82,7 @@ def main():
             }
 
             if features is not None:
-                bmm.set_config_field(config, 'features', features)
+                bmm.set_dict_field(config, ['PRE', 'FEATURES'], features)
 
             return config
 
