@@ -36,6 +36,9 @@ def main(args, **kwargs):
             if args.created:
                 if not os.path.exists(os.path.join(root, 'mixture_info.json')):
                     continue
+            if args.uncreated:
+                if os.path.exists(os.path.join(root, 'mixture_info.json')):
+                    continue
 
             dsets.append(root)
 
@@ -64,6 +67,8 @@ if __name__ == '__main__':
     parser.add_argument('--test', action='store_true',
                         help='only scan test subdir')
     parser.add_argument('--created', action='store_true',
+                        help='only show created datasets')
+    parser.add_argument('--uncreated', action='store_true',
                         help='only show created datasets')
     filter_args, extra_args = parser.parse_args()
     main(extra_args, **vars(filter_args))
