@@ -35,17 +35,15 @@ def main(args, **kwargs):
             if not valid:
                 continue
 
-            files_to_check = ['mixture_info.json', 'dataset.hdf5']
+            to_check = ['mixture_info.json', 'dataset.hdf5']
+            paths = [os.path.join(root, file) for file in to_check]
+            all_exist = all(os.path.exists(path) for path in paths)
             if args.created:
-                for file in files_to_check:
-                    if any(not os.path.exists(os.path.join(root, file))
-                           for file in files_to_check):
-                        continue
+                if not all_exist:
+                    continue
             if args.uncreated:
-                for file in files_to_check:
-                    if all(os.path.exists(os.path.join(root, file))
-                           for file in files_to_check):
-                        continue
+                if all_exist:
+                    continue
 
             dsets.append(root)
 
