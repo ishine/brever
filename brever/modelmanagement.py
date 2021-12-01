@@ -467,7 +467,9 @@ def find_dataset(kind=None, dsets=None, configs=None, return_configs=False,
     if configs is None:
         configs = []
         for dset in dsets:
-            config_file = os.path.join(dset, 'config.yaml')
+            config_file = os.path.join(dset, 'config_full.yaml')
+            if not os.path.exists(config_file):
+                config_file = os.path.join(dset, 'config.yaml')
             config = read_yaml(config_file)
             configs.append(config)
 
