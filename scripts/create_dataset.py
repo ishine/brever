@@ -326,6 +326,10 @@ def main(dataset_dir, force):
     # save mixtures metadata
     bmm.dump_json(metadatas, metadatas_output_path)
 
+    # write full config file
+    full_config_file = os.path.join(dataset_dir, 'config_full.yaml')
+    bmm.dump_yaml(config.to_dict(), full_config_file)
+
     # save pipes
     pipes_output_path = os.path.join(dataset_dir, 'pipes.pkl')
     with open(pipes_output_path, 'wb') as f:
