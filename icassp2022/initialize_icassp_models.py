@@ -332,20 +332,21 @@ def main(args):
                 add_config(configs, 0, train_path, val_path, test_paths)
                 # for the triple mismatch, add extra models specified in the
                 # command line arguments
-                if len(dims) == 3:
+                if len(dims) == 3 and args is not None:
                     add_config(configs, 0, train_path, val_path, test_paths,
                                args=args)
-                # also add pdf and logpdf datasets
-                for features in ['pdf', 'logpdf']:
-                    train_path, = find_dset(
-                        dsets=train_dsets,
-                        configs=train_configs,
-                        filelims_room='even',
-                        **kwargs,
-                        features=features,
-                    )
-                    val_path = train_path.replace('train', 'val')
-                    add_config(configs, 0, train_path, val_path, test_paths)
+                    # also add pdf and logpdf datasets
+                    for features in ['pdf', 'logpdf']:
+                        train_path, = find_dset(
+                            dsets=train_dsets,
+                            configs=train_configs,
+                            filelims_room='even',
+                            **kwargs,
+                            features=features,
+                        )
+                        val_path = train_path.replace('train', 'val')
+                        add_config(configs, 0, train_path, val_path,
+                                   test_paths)
 
     # snr, direction and level experiments
     dict_ = {
