@@ -32,7 +32,7 @@ def main():
                 filelims_rooms_ = filelims_rooms or 'even'
             elif kind_ == 'val':
                 filelims = [0.7, 0.85]
-                duration = 36000
+                duration = 100
                 seed = 1
                 save = False
                 filelims_rooms_ = filelims_rooms or 'even'
