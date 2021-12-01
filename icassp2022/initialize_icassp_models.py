@@ -93,7 +93,8 @@ def find_dset(
 
 
 def add_config(configs, seed, train_path, val_path, test_paths, layers=2,
-               hidden_sizes=[1024, 1024], stacks=5, dropout=True, args=None):
+               hidden_sizes=[1024, 1024], stacks=5, dropout=True,
+               extra_kwargs=None):
     config = {}
     bmm.set_config_field(config, 'layers', layers)
     bmm.set_config_field(config, 'hidden_sizes', hidden_sizes)
@@ -103,18 +104,13 @@ def add_config(configs, seed, train_path, val_path, test_paths, layers=2,
     bmm.set_config_field(config, 'train_path', train_path)
     bmm.set_config_field(config, 'val_path', val_path)
     bmm.set_config_field(config, 'test_path', test_paths)
-    if args is not None:
-        for key, vals in args.__dict__.items():
-            if vals is not None:
-                if len(vals) > 1:
-                    raise ValueError('only one value per hyperparameter is '
-                                     'allowed')
-                val, = vals
-                bmm.set_config_field(config, key, val)
+    if extra_kwargs is not None:
+        for key, val in extra_kwargs.items():
+            bmm.set_config_field(config, key, val)
     configs.append(config)
 
 
-def main(args):
+def main():
 
     train_dsets, train_configs = bmm.find_dataset('train', return_configs=True)
     test_dsets, test_configs = bmm.find_dataset('test', return_configs=True)
@@ -330,11 +326,26 @@ def main(args):
                 )
                 val_path = train_path.replace('train', 'val')
                 add_config(configs, 0, train_path, val_path, test_paths)
-                # for the triple mismatch, add extra models specified in the
-                # command line arguments
-                if len(dims) == 3 and args is not None:
-                    add_config(configs, 0, train_path, val_path, test_paths,
-                               args=args)
+                # for the triple mismatch, add extra models
+                if len(dims) == 3:
+                    for extra_kwargs in [
+                        {
+                            'batchnorm': True,
+                        },
+                        {
+                            'dropout_rate': 0.5,
+                        },
+                        {
+                            'batchnorm': True,
+                            'dropout_rate': 0.5,
+                        },
+                        {
+                            'hidden_sizes': [1024],
+                            'layers': 1,
+                        },
+                    ]:
+                        add_config(configs, 0, train_path, val_path,
+                                   test_paths, extra_kwargs=extra_kwargs)
                     # also add pdf and logpdf datasets
                     for features in ['pdf', 'logpdf']:
                         train_path, = find_dset(
@@ -442,6 +453,8 @@ def main(args):
     del temp
 
     new_configs = []
+    new_model_dirs = []
+    attempted_model_dirs = []
     skipped = 0
     exists = 0
 
@@ -450,6 +463,7 @@ def main(args):
 
         model_id = bmm.get_unique_id(config)
         model_dir = os.path.join(models_dir, model_id)
+        attempted_model_dirs.append(model_dir)
 
         if os.path.exists(model_dir):
             exists += 1
@@ -465,6 +479,7 @@ def main(args):
             continue
 
         new_configs.append(config)
+        new_model_dirs.append(model_dir)
 
     # find existing models only differing by their test paths
     totally_new_configs = []
@@ -541,25 +556,38 @@ def main(args):
     print(f'{exists} already exist.')
     print(f'{dupes} are duplicates.')
 
+    # build the list of models already in the filesystem
+    existing_models = []
+    for model_id in os.listdir(models_dir):
+        existing_models.append(os.path.join(models_dir, model_id))
+    # highlight the dsets in the filesystem that were not attempted to be
+    # created again; they might be deprecated
+    deprecated_models = []
+    for model in existing_models:
+        if model not in attempted_model_dirs:
+            deprecated_models.append(model)
+    if deprecated_models:
+        print('The following models are in the filesystem but were not '
+              'attempted to be initialized again. They might be deprecated?')
+        for model in deprecated_models:
+            print(model)
+
     if not new_configs:
         print(f'{len(new_configs)} will be initialized.')
     else:
         msg = f'{len(new_configs)} will be initialized. Continue? y/n'
         proceed = ask_user_yes_no(msg)
         if proceed:
-            for config in new_configs:
-                unique_id = bmm.get_unique_id(config)
-                dirpath = os.path.join(models_dir, unique_id)
+            for config, dirpath in zip(new_configs, new_model_dirs):
                 if os.path.exists(dirpath):
                     shutil.rmtree(dirpath)
                 os.makedirs(dirpath)
-                bmm.dump_yaml(config, os.path.join(dirpath, 'config.yaml'))
-                print(f'Initialized {unique_id}')
+                config_path = os.path.join(dirpath, 'config.yaml')
+                bmm.dump_yaml(config, config_path)
+                print(f'Initialized {config_path}')
         else:
             print('No model was initialized')
 
 
 if __name__ == '__main__':
-    parser = bmm.ModelFilterArgParser(description='initialize models')
-    args, _ = parser.parse_args()
-    main(args)
+    main()
