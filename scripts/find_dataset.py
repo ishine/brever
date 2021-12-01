@@ -21,7 +21,9 @@ def main(args, **kwargs):
     dsets = []
     for root, folder, files in os.walk(processed_dir):
         if 'config.yaml' in files:
-            config_file = os.path.join(root, 'config.yaml')
+            config_file = os.path.join(root, 'config_full.yaml')
+            if not os.path.exists(config_file):
+                config_file = os.path.join(root, 'config.yaml')
             config = bmm.read_yaml(config_file)
             valid = True
             for key, value in kwargs.items():
