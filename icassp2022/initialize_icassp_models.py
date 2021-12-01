@@ -73,6 +73,7 @@ def find_dset(
             noise_types={'dcase_.*'},
             random_rms=False,
             filelims_room=None,
+            features=None,
         ):
     target_angle_min, target_angle_max = target_angle_lims
     return bmm.find_dataset(
@@ -87,6 +88,7 @@ def find_dset(
         noise_types=noise_types,
         random_rms=random_rms,
         filelims_room=filelims_room,
+        features=features,
     )
 
 
@@ -333,6 +335,17 @@ def main(args):
                 if len(dims) == 3:
                     add_config(configs, 0, train_path, val_path, test_paths,
                                args=args)
+                # also add pdf and logpdf datasets
+                for features in ['pdf', 'logpdf']:
+                    train_path, = find_dset(
+                        dsets=train_dsets,
+                        configs=train_configs,
+                        filelims_room='even',
+                        **kwargs,
+                        features=features,
+                    )
+                    val_path = train_path.replace('train', 'val')
+                    add_config(configs, 0, train_path, val_path, test_paths)
 
     # snr, direction and level experiments
     dict_ = {

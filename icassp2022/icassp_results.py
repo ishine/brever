@@ -35,8 +35,10 @@ def find_dset(
     )
 
 
-def find_model(**kwargs):
-    return bmm.find_model(models=all_models, configs=all_configs, **kwargs)
+def find_model(batchnorm=[False], dropout_rate=[0.2], **kwargs):
+    return bmm.find_model(models=all_models, configs=all_configs,
+                          batchnorm=batchnorm, dropout_rate=dropout_rate,
+                          **kwargs)
 
 
 def get_score(model, test_path, metric='MSE'):
@@ -321,7 +323,7 @@ def print_inner_corpus_results(dim, dbase, diversity):
     print(f'& {header} & {training} & {testing} & {score_fmt(scores)}')
 
 
-def print_cross_corpus_results(*args, diversity='low'):
+def print_cross_corpus_results(*args, diversity='low', model_kwargs={}):
     dict_ = {
         'speakers': [
             'timit_.*',
@@ -349,13 +351,21 @@ def print_cross_corpus_results(*args, diversity='low'):
     for db_tuple in zip(*[dict_[d] for d in args]):
         kwargs = {dim: set([dbase]) for dim, dbase in zip(args, db_tuple)}
         train_dset, = find_dset('train', **kwargs, brirs='even')
-        models = find_model(train_path=[train_dset], seed=[0])
-        assert len(models) == 1
+        models = find_model(train_path=[train_dset], seed=[0],
+                            **model_kwargs)
+        if len(models) == 0:
+            raise ValueError('no model found')
+        elif len(models) > 1:
+            raise ValueError('more than one model found')
         kwargs = {dim: set([db for db in dict_[dim] if db != dbase])
                   for dim, dbase in zip(args, db_tuple)}
         ref_dset, = find_dset('train', **kwargs, brirs='even')
-        ref_models = find_model(train_path=[ref_dset], seed=[0])
-        assert len(ref_models) == 1
+        ref_models = find_model(train_path=[ref_dset], seed=[0],
+                                **model_kwargs)
+        if len(models) == 0:
+            raise ValueError('no model found')
+        elif len(models) > 1:
+            raise ValueError('more than one model found')
         if diversity == 'low':
             for db_tuple_ in zip(*[dict_[d] for d in args]):
                 if db_tuple_ != db_tuple:
