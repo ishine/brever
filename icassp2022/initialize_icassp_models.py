@@ -88,7 +88,7 @@ def find_dset(
         noise_types=noise_types,
         random_rms=random_rms,
         filelims_room=filelims_room,
-        features={'logfbe'}
+        features=features,
     )
 
 
@@ -353,11 +353,12 @@ def main():
                             configs=train_configs,
                             filelims_room='even',
                             **kwargs,
-                            features=features,
+                            features={features},
                         )
                         val_path = train_path.replace('train', 'val')
+                        extra_kwargs = {'features': {features}}
                         add_config(configs, 0, train_path, val_path,
-                                   test_paths)
+                                   test_paths, extra_kwargs=extra_kwargs)
 
     # snr, direction and level experiments
     dict_ = {
