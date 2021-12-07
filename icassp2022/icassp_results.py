@@ -15,6 +15,7 @@ def find_dset(
             noise_types={'dcase_.*'},
             random_rms=False,
             brirs=None,
+            features={'logfbe'},
         ):
     target_angle_min, target_angle_max = target_angle_lims
     dsets, configs = {
@@ -32,13 +33,15 @@ def find_dset(
         noise_types=noise_types,
         random_rms=random_rms,
         filelims_room=brirs,
+        features=features,
     )
 
 
-def find_model(batchnorm=[False], dropout_rate=[0.2], **kwargs):
+def find_model(batchnorm=[False], dropout_rate=[0.2], layers=[2],
+               hidden_sizes=[[1024, 1024]], **kwargs):
     return bmm.find_model(models=all_models, configs=all_configs,
                           batchnorm=batchnorm, dropout_rate=dropout_rate,
-                          **kwargs)
+                          layers=layers, hidden_sizes=hidden_sizes, **kwargs)
 
 
 def get_score(model, test_path, metric='MSE'):
@@ -351,49 +354,41 @@ def print_cross_corpus_results(*args, diversity='low', model_kwargs={}):
     for db_tuple in zip(*[dict_[d] for d in args]):
         kwargs = {dim: set([dbase]) for dim, dbase in zip(args, db_tuple)}
         train_dset, = find_dset('train', **kwargs, brirs='even')
-        models = find_model(train_path=[train_dset], seed=[0],
+        model, = find_model(train_path=[train_dset], seed=[0],
                             **model_kwargs)
-        if len(models) == 0:
-            raise ValueError('no model found')
-        elif len(models) > 1:
-            raise ValueError('more than one model found')
         kwargs = {dim: set([db for db in dict_[dim] if db != dbase])
                   for dim, dbase in zip(args, db_tuple)}
         ref_dset, = find_dset('train', **kwargs, brirs='even')
-        ref_models = find_model(train_path=[ref_dset], seed=[0],
+        ref_model, = find_model(train_path=[ref_dset], seed=[0],
                                 **model_kwargs)
-        if len(models) == 0:
-            raise ValueError('no model found')
-        elif len(models) > 1:
-            raise ValueError('more than one model found')
         if diversity == 'low':
             for db_tuple_ in zip(*[dict_[d] for d in args]):
                 if db_tuple_ != db_tuple:
                     kwargs = {dim: set([dbase])
                               for dim, dbase in zip(args, db_tuple_)}
                     test_dset, = find_dset('test', **kwargs, brirs='odd')
-                    score = {}
-                    for s in ['MSE', 'dPESQ', 'dSTOI']:
-                        scores = [get_score(m, test_dset, s) for m in models]
-                        refs = [get_score(m, test_dset, s) for m in ref_models]
-                        score[s] = {}
-                        score[s]['model'] = np.mean(scores)
-                        score[s]['ref'] = np.mean(refs)
-                        score[s]['gap'] = np.mean(scores)/np.mean(refs) - 1
-                        score_dicts.append(score)
+                    score_dict = {}
+                    for metric in ['MSE', 'dPESQ', 'dSTOI']:
+                        score = get_score(model, test_dset, metric)
+                        ref_score = get_score(ref_model, test_dset, metric)
+                        score_dict[metric] = {}
+                        score_dict[metric]['model'] = score
+                        score_dict[metric]['ref'] = ref_score
+                        score_dict[metric]['gap'] = score/ref_score - 1
+                        score_dicts.append(score_dict)
         elif diversity == 'high':
-            models, ref_models = ref_models, models
+            model, ref_model = ref_model, model
             kwargs = {dim: set([dbase]) for dim, dbase in zip(args, db_tuple)}
             test_dset, = find_dset('test', **kwargs, brirs='odd')
-            score = {}
-            for s in ['MSE', 'dPESQ', 'dSTOI']:
-                scores = [get_score(m, test_dset, s) for m in models]
-                refs = [get_score(m, test_dset, s) for m in ref_models]
-                score[s] = {}
-                score[s]['model'] = np.mean(scores)
-                score[s]['ref'] = np.mean(refs)
-                score[s]['gap'] = np.mean(scores)/np.mean(refs) - 1
-                score_dicts.append(score)
+            score_dict = {}
+            for metric in ['MSE', 'dPESQ', 'dSTOI']:
+                score = get_score(model, test_dset, metric)
+                ref_score = get_score(ref_model, test_dset, metric)
+                score_dict[metric] = {}
+                score_dict[metric]['model'] = score
+                score_dict[metric]['ref'] = ref_score
+                score_dict[metric]['gap'] = score/ref_score - 1
+                score_dicts.append(score_dict)
     scores = dict_mean(*score_dicts)
     if diversity == 'low':
         training, testing = '1 corpus', '4 corpora'
@@ -506,6 +501,32 @@ def main():
     print('')
     print_other_experiment_results('random_rms')
     print('')
+
+    dims = ['speakers', 'noise_types', 'rooms']
+    for diversity in ['low', 'high']:
+        model_kwargs = {
+            'layers': [1],
+            'hidden_sizes': [[1024]],
+        }
+        print(model_kwargs)
+        print_cross_corpus_results(*dims, diversity=diversity,
+                                   model_kwargs=model_kwargs)
+        for dropout_rate in [0.2, 0.5]:
+            for batchnorm in [False, True]:
+                model_kwargs = {
+                    'dropout_rate': [dropout_rate],
+                    'batchnorm': [batchnorm],
+                }
+                print(model_kwargs)
+                print_cross_corpus_results(*dims, diversity=diversity,
+                                           model_kwargs=model_kwargs)
+        for features in ['logpdf', 'pdf']:
+            model_kwargs = {
+                'features': [{features}],
+            }
+            print(model_kwargs)
+            print_cross_corpus_results(*dims, diversity=diversity,
+                                       model_kwargs=model_kwargs)
 
 
 if __name__ == '__main__':
