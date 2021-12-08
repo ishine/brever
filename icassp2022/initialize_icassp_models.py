@@ -357,8 +357,21 @@ def main():
                         )
                         val_path = train_path.replace('train', 'val')
                         extra_kwargs = {'features': {features}}
+                        # re-build list of test paths
+                        test_paths_ = set()
+                        for dbases in zip(*[dict_[dim] for dim in dims]):
+                            kwargs_ = {dim: set([db_])
+                                       for dim, db_ in zip(dims, dbases)}
+                            test_path_, = find_dset(
+                                dsets=test_dsets,
+                                configs=test_configs,
+                                filelims_room='odd',
+                                **kwargs_,
+                                features={features},
+                            )
+                            test_paths_.add(test_path_)
                         add_config(configs, 0, train_path, val_path,
-                                   test_paths, extra_kwargs=extra_kwargs)
+                                   test_paths_, extra_kwargs=extra_kwargs)
 
     # snr, direction and level experiments
     dict_ = {
