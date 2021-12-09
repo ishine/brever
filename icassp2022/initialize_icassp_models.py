@@ -92,22 +92,22 @@ def find_dset(
     )
 
 
-def add_config(configs, seed, train_path, val_path, test_paths, layers=2,
-               hidden_sizes=[1024, 1024], stacks=5, dropout=True,
+def add_config(configs, seed, train_path, val_path, test_paths,
                extra_kwargs=None):
-    config = {}
-    bmm.set_config_field(config, 'layers', layers)
-    bmm.set_config_field(config, 'hidden_sizes', hidden_sizes)
-    bmm.set_config_field(config, 'stacks', stacks)
-    bmm.set_config_field(config, 'dropout', dropout)
-    bmm.set_config_field(config, 'seed', seed)
-    bmm.set_config_field(config, 'train_path', train_path)
-    bmm.set_config_field(config, 'val_path', val_path)
-    bmm.set_config_field(config, 'test_path', test_paths)
-    if extra_kwargs is not None:
-        for key, val in extra_kwargs.items():
-            bmm.set_config_field(config, key, val)
-    configs.append(config)
+    for layers, hidden_sizes in zip([1, 2], [[1024], [1024, 1024]]):
+        config = {}
+        bmm.set_config_field(config, 'layers', layers)
+        bmm.set_config_field(config, 'hidden_sizes', hidden_sizes)
+        bmm.set_config_field(config, 'stacks', 5)
+        bmm.set_config_field(config, 'dropout', True)
+        bmm.set_config_field(config, 'seed', seed)
+        bmm.set_config_field(config, 'train_path', train_path)
+        bmm.set_config_field(config, 'val_path', val_path)
+        bmm.set_config_field(config, 'test_path', test_paths)
+        if extra_kwargs is not None:
+            for key, val in extra_kwargs.items():
+                bmm.set_config_field(config, key, val)
+        configs.append(config)
 
 
 def main():
@@ -334,14 +334,6 @@ def main():
                         },
                         {
                             'dropout_rate': 0.5,
-                        },
-                        {
-                            'batchnorm': True,
-                            'dropout_rate': 0.5,
-                        },
-                        {
-                            'hidden_sizes': [1024],
-                            'layers': 1,
                         },
                     ]:
                         add_config(configs, 0, train_path, val_path,
