@@ -39,9 +39,15 @@ def find_dset(
 
 def find_model(batchnorm=[False], dropout_rate=[0.2], layers=[2],
                hidden_sizes=[[1024, 1024]], **kwargs):
-    return bm.find_model(models=all_models, configs=all_configs,
-                          batchnorm=batchnorm, dropout_rate=dropout_rate,
-                          layers=layers, hidden_sizes=hidden_sizes, **kwargs)
+    return bm.find_model(
+        models=all_models,
+        configs=all_configs,
+        batchnorm=batchnorm,
+        dropout_rate=dropout_rate,
+        layers=layers,
+        hidden_sizes=hidden_sizes,
+        **kwargs,
+    )
 
 
 def get_score(model, test_path, metric='MSE'):
