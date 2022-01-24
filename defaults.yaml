@@ -118,10 +118,11 @@ PRE:
         MIN: -20
         'ON': false
       ROOMS: !!set
-        surrey_room_a: null
-        surrey_room_b: null
-        surrey_room_c: null
-        surrey_room_d: null
+        surrey_.*: null
+        ash_.*: null
+        bras_.*: null
+        catt_.*: null
+        avil_.*: null
       SOURCES:
         ANGLE:
           MAX: 90.0
@@ -133,16 +134,11 @@ PRE:
           MAX: 30
           MIN: 0
         TYPES: !!set
-          dcase_airport: null
-          dcase_bus: null
-          dcase_metro: null
-          dcase_metro_station: null
-          dcase_park: null
-          dcase_public_square: null
-          dcase_shopping_mall: null
-          dcase_street_pedestrian: null
-          dcase_street_traffic: null
-          dcase_tram: null
+          dcase_.*: null
+          noisex_.*: null
+          icra_.*: null
+          demand: null
+          arte: null
       TARGET:
         ANGLE:
           MAX: 90.0
@@ -154,6 +150,10 @@ PRE:
           DISTARGS: [-5.0, 10.0]
         SPEAKERS: !!set
           timit_.*: null
+          libri_.*: null
+          ieee: null
+          arctic: null
+          hint: null
     REFLECTIONBOUNDARY: 0.05
     SAVE: false
     SCALERMS: false
