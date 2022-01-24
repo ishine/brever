@@ -5,6 +5,7 @@ import logging
 import os
 import pprint
 import random
+import shutil
 import sys
 import time
 
@@ -128,8 +129,9 @@ def main(dataset_dir, force):
 
     # output directory
     mixtures_dir = os.path.join(dataset_dir, 'mixtures')
-    if not os.path.exists(mixtures_dir):
-        os.mkdir(mixtures_dir)
+    if os.path.exists(mixtures_dir):
+        shutil.rmtree(mixtures_dir)
+    os.mkdir(mixtures_dir)
 
     # main loop intialization
     metadatas = []
