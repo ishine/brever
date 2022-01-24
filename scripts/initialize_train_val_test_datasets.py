@@ -34,8 +34,8 @@ def make_config(kind, params):
                 'SAVE': save,
                 'TOTALDURATION': duration,
                 'FILELIMITS': {
-                    'NOISE': filelims,
-                    'TARGET': filelims,
+                    'NOISE': filelims.copy(),
+                    'TARGET': filelims.copy(),
                     'ROOM': rooms,
                 },
             }
