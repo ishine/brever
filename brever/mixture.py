@@ -449,7 +449,7 @@ class RandomPool:
                     raise ValueError('weights must be dict when pool is set')
                 if set(weights.keys()) != pool:
                     raise ValueError('weights keys do not match pool')
-                self.weights = [weights[x] for x in pool]
+                self.weights = [weights[x] for x in self.pool]
         else:
             self.pool = pool
             if weights is not None:
@@ -575,7 +575,7 @@ class RandomMixtureMaker:
         # 50 TIMIT sentences and 50 LIBRI sentences will result in much more
         # LIBRI material.
         if len(speakers) > 1:
-            logging.info('Calculating each corpus average duration to weight '
+            logging.info('Calculating each corpus average duration to weigh '
                          'probabilities')
             weights = {speaker: 1/get_average_duration(speaker, self.def_cfg)
                        for speaker in speakers}
