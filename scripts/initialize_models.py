@@ -1,17 +1,17 @@
+import itertools
 import os
 import shutil
-import itertools
 
 from brever.config import defaults
-import brever.modelmanagement as bmm
+import brever.management as bm
 
 
 def check_if_path_exists(configs, path_type, def_cfg):
     if path_type not in ['train', 'val']:
         raise ValueError('path_type must be train or val')
-    default_path = bmm.get_config_field(def_cfg, f'{path_type}_path')
+    default_path = bm.get_config_field(def_cfg, f'{path_type}_path')
     for config in configs:
-        path = bmm.get_config_field(config, f'{path_type}_path')
+        path = bm.get_config_field(config, f'{path_type}_path')
         if path is None:
             path = default_path
             msg = f'No {path_type} path specified, and default path does not '\
@@ -25,16 +25,16 @@ def check_if_path_exists(configs, path_type, def_cfg):
 
 
 def check_if_test_datasets_exist(configs, def_cfg):
-    default_paths = bmm.get_config_field(def_cfg, 'test_path')
+    default_paths = bm.get_config_field(def_cfg, 'test_path')
     for config in configs:
-        paths = bmm.get_config_field(config, 'test_path')
+        paths = bm.get_config_field(config, 'test_path')
         if paths is None:
             paths = default_paths
             msg = 'No test paths specified, and not all the default test '\
                   'paths exist'
         else:
             msg = 'The specified test paths do not all exist'
-        paths = bmm.globbed(paths)
+        paths = bm.globbed(paths)
         if not paths or any(not os.path.exists(path) for path in paths):
             print(msg)
             return ask_user_yes_no('Do you wish to continue? y/n')
@@ -77,20 +77,20 @@ def main(args):
 
     # create dict of parameters to combine
     to_combine = {}
-    for key in bmm.ModelFilterArgParser.arg_to_keys_map.keys():
+    for key in bm.ModelFilterArgParser.arg_to_keys_map.keys():
         if key in ['train_path', 'val_path'] and not combine_paths:
             continue
         value = args.__getattribute__(key)
         if value is not None:
-            bmm.set_config_field(to_combine, key, value)
+            bm.set_config_field(to_combine, key, value)
     if not combine_paths:
-        bmm.set_dict_field(to_combine, ['path_index'], list(range(n_train)))
+        bm.set_dict_field(to_combine, ['path_index'], list(range(n_train)))
 
     # make combinations
     if to_combine:
-        to_combine = bmm.flatten(to_combine)
+        to_combine = bm.flatten(to_combine)
         keys, values = zip(*to_combine.items())
-        configs = bmm.unflatten(keys, itertools.product(*values))
+        configs = bm.unflatten(keys, itertools.product(*values))
     else:
         configs = [{}]
 
@@ -100,8 +100,8 @@ def main(args):
             path_index = config['path_index']
             train_path = args.train_path[path_index]
             val_path = args.val_path[path_index]
-            bmm.set_config_field(config, 'train_path', train_path)
-            bmm.set_config_field(config, 'val_path', val_path)
+            bm.set_config_field(config, 'train_path', train_path)
+            bm.set_config_field(config, 'val_path', val_path)
             config.pop('path_index')
 
     def_cfg = defaults()
@@ -121,7 +121,7 @@ def main(args):
     for config in configs:
         def_cfg.update(config)  # throws an error if config is not valid
 
-        model_id = bmm.get_unique_id(config)
+        model_id = bm.get_unique_id(config)
         model_dir = os.path.join(models_dir, model_id)
 
         if os.path.exists(model_dir):
@@ -130,8 +130,8 @@ def main(args):
 
         # exclude configs with uniform normalization features not included
         # in the list of features
-        uni_feats = bmm.get_config_field(config, 'uni_norm_features', None)
-        features = bmm.get_config_field(config, 'features', None)
+        uni_feats = bm.get_config_field(config, 'uni_norm_features', None)
+        features = bm.get_config_field(config, 'features', None)
         if (uni_feats is not None and features is not None
                 and not uni_feats.issubset(features)):
             skipped += 1
@@ -153,18 +153,18 @@ def main(args):
         proceed = ask_user_yes_no(msg)
         if proceed:
             for config in new_configs:
-                unique_id = bmm.get_unique_id(config)
+                unique_id = bm.get_unique_id(config)
                 dirpath = os.path.join(models_dir, unique_id)
                 if os.path.exists(dirpath):
                     shutil.rmtree(dirpath)
                 os.makedirs(dirpath)
-                bmm.dump_yaml(config, os.path.join(dirpath, 'config.yaml'))
+                bm.dump_yaml(config, os.path.join(dirpath, 'config.yaml'))
                 print(f'Initialized {unique_id}')
         else:
             print('No model was initialized')
 
 
 if __name__ == '__main__':
-    parser = bmm.ModelFilterArgParser(description='initialize models')
+    parser = bm.ModelFilterArgParser(description='initialize models')
     args, _ = parser.parse_args()
     main(args)

@@ -5,14 +5,14 @@ from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import numpy as np
 
-import brever.modelmanagement as bmm
+import brever.management as bm
 
 
 def main(models, args, **kwargs):
     plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True)
     plt.rc('grid', color='w', linestyle='solid')
 
-    models = bmm.find_model(models=models, **kwargs)
+    models = bm.find_model(models=models, **kwargs)
     for model in models:
         print(model)
 
@@ -40,7 +40,7 @@ def main(models, args, **kwargs):
 
 
 if __name__ == '__main__':
-    parser = bmm.ModelFilterArgParser(description='plot training curves')
+    parser = bm.ModelFilterArgParser(description='plot training curves')
     parser.add_argument('input', nargs='+',
                         help='list of models whose curves to plot')
     parser.add_argument('--ymin', type=float)

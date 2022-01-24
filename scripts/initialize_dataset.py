@@ -1,7 +1,7 @@
 import os
 
-import brever.modelmanagement as bmm
 from brever.config import defaults
+import brever.management as bm
 
 
 def main(args, params):
@@ -22,11 +22,11 @@ def main(args, params):
     config = {}
     for param, value in params.items():
         if value is not None:
-            key_list = bmm.DatasetInitArgParser.arg_to_keys_map[param]
-            bmm.set_dict_field(config, key_list, value)
+            key_list = bm.DatasetInitArgParser.arg_to_keys_map[param]
+            bm.set_dict_field(config, key_list, value)
 
     if args.name is None:
-        args.name = bmm.get_unique_id(config)
+        args.name = bm.get_unique_id(config)
 
     dirpath = os.path.join(processed_dir, args.name)
     if not os.path.exists(dirpath):
@@ -35,12 +35,12 @@ def main(args, params):
     if os.path.exists(config_filepath) and not args.force:
         print(f'Already exists! {config_filepath} ')
     else:
-        bmm.dump_yaml(config, config_filepath)
+        bm.dump_yaml(config, config_filepath)
         print(f'Created {config_filepath}')
 
 
 if __name__ == '__main__':
-    parser = bmm.DatasetInitArgParser(description='initialize dataset')
+    parser = bm.DatasetInitArgParser(description='initialize dataset')
     parser.add_argument('--name', type=str,
                         help='dataset name')
     parser.add_argument('-f', '--force', action='store_true',

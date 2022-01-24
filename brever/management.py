@@ -6,7 +6,7 @@ from glob import glob
 
 import yaml
 
-from brever.config import defaults
+from .config import defaults
 
 
 def read_yaml(path):

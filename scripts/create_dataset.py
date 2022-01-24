@@ -1,25 +1,27 @@
-import os
 import argparse
-import logging
-import time
-import pprint
-import pickle
-import random
-from glob import glob
-import sys
 import copy
 # from functools import partial
+from glob import glob
+import logging
+import os
+import pickle
+import pprint
+import random
+import sys
+import time
 
-import numpy as np
+import h5py
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import h5py
+import numpy as np
 import soundfile as sf
 
+from brever import (RandomMixtureMaker, Framer, MultiThreadFilterbank,
+                    FeatureExtractor, LabelExtractor)
 from brever.config import defaults
-import brever.classes as bpipes
+import brever.management as bm
+from brever.utils import UnitRMSScaler, Standardizer
 # from brever.utils import wola
-import brever.modelmanagement as bmm
 
 
 def add_to_vlen_dset(dset, data):
@@ -46,7 +48,7 @@ def main(dataset_dir, force):
     # load config file
     config = defaults()
     config_file = os.path.join(dataset_dir, 'config.yaml')
-    config.update(bmm.read_yaml(config_file))
+    config.update(bm.read_yaml(config_file))
 
     # redirect logger
     logger = logging.getLogger()
@@ -68,7 +70,7 @@ def main(dataset_dir, force):
         random.seed(config.PRE.SEED.VALUE)
 
     # mixture maker
-    randomMixtureMaker = bpipes.RandomMixtureMaker(
+    randomMixtureMaker = RandomMixtureMaker(
         fs=config.PRE.FS,
         rooms=config.PRE.MIX.RANDOM.ROOMS,
         speakers=config.PRE.MIX.RANDOM.TARGET.SPEAKERS,
@@ -124,12 +126,12 @@ def main(dataset_dir, force):
     )
 
     # scaler
-    scaler = bpipes.UnitRMSScaler(
+    scaler = UnitRMSScaler(
         active=config.PRE.MIX.SCALERMS,
     )
 
     # filterbank
-    filterbank = bpipes.MultiThreadFilterbank(
+    filterbank = MultiThreadFilterbank(
         kind=config.PRE.FILTERBANK.KIND,
         n_filters=config.PRE.FILTERBANK.NFILTERS,
         f_min=config.PRE.FILTERBANK.FMIN,
@@ -139,7 +141,7 @@ def main(dataset_dir, force):
     )
 
     # framer
-    framer = bpipes.Framer(
+    framer = Framer(
         frame_length=config.PRE.FRAMER.FRAMELENGTH,
         hop_length=config.PRE.FRAMER.HOPLENGTH,
         window=config.PRE.FRAMER.WINDOW,
@@ -147,12 +149,12 @@ def main(dataset_dir, force):
     )
 
     # feature extractor
-    featureExtractor = bpipes.FeatureExtractor(
+    featureExtractor = FeatureExtractor(
         features=sorted(config.PRE.FEATURES),
     )
 
     # label extractor
-    labelExtractor = bpipes.LabelExtractor(
+    labelExtractor = LabelExtractor(
         labels=sorted(config.PRE.LABELS),
     )
 
@@ -324,11 +326,11 @@ def main(dataset_dir, force):
     h5f.close()
 
     # save mixtures metadata
-    bmm.dump_json(metadatas, metadatas_output_path)
+    bm.dump_json(metadatas, metadatas_output_path)
 
     # write full config file
     full_config_file = os.path.join(dataset_dir, 'config_full.yaml')
-    bmm.dump_yaml(config.to_dict(), full_config_file)
+    bm.dump_yaml(config.to_dict(), full_config_file)
 
     # save pipes
     pipes_output_path = os.path.join(dataset_dir, 'pipes.pkl')
@@ -405,7 +407,7 @@ def main(dataset_dir, force):
         y = labels[:config.PRE.PLOT.NSAMPLES]
         plot(x, y, 'peek.png')
 
-        standardizer = bpipes.Standardizer()
+        standardizer = Standardizer()
         standardizer.fit(features)
         x = standardizer.transform(x)
         plot(x, y, 'peek_standardized.png')

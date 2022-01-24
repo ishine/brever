@@ -541,3 +541,62 @@ def segmental_scores(*args, frame_length=160, hop_length=160, DRdB=45,
         ))
         scores.append(score)
     return scores
+
+
+class Framer:
+    def __init__(self, frame_length, hop_length, window, center):
+        self.frame_length = frame_length
+        self.hop_length = hop_length
+        self.window = window
+        self.center = center
+
+    def frame(self, x):
+        return frame(x, frame_length=self.frame_length,
+                     hop_length=self.hop_length, window=self.window,
+                     center=self.center)
+
+
+class Standardizer:
+    def __init__(self, axis=0):
+        self.axis = axis
+
+    def fit(self, X):
+        self.means = X.mean(axis=self.axis)
+        self.stds = X.std(axis=self.axis)
+
+    def transform(self, X):
+        means = np.expand_dims(self.means, axis=self.axis)
+        stds = np.expand_dims(self.stds, axis=self.axis)
+        return (X - means)/stds
+
+
+class PCA:
+    def __init__(self, n_components=None, pve=None):
+        self.n_components = n_components
+        self.pve = pve
+
+    def fit(self, X):
+        components, ve, means = pca(X, n_components=self.n_components,
+                                    pve=self.pve)
+        self.components = components
+        self.variance_explained = ve
+        self.means = means
+
+    def transform(self, X):
+        return (X - self.means) @ self.components
+
+
+class UnitRMSScaler:
+    def __init__(self, active=True):
+        self.active = active
+        self.gain = None
+
+    def fit(self, signal):
+        rms_max = rms(signal).max()
+        self.gain = 1/rms_max
+
+    def scale(self, signal):
+        if self.active:
+            return self.gain*signal
+        else:
+            return signal

@@ -1,10 +1,10 @@
-import time
 import argparse
+import time
 
 import torch
 
 from brever.config import defaults
-from brever.pytorchtools import H5Dataset
+from brever.data import H5Dataset
 
 
 def main(args):

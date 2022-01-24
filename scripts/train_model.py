@@ -11,8 +11,10 @@ import matplotlib.pyplot as plt
 import torch
 
 from brever.config import defaults
-import brever.pytorchtools as bptt
-import brever.modelmanagement as bmm
+import brever.data as bdata
+import brever.management as bm
+from brever.models import DNN
+from brever.training import EarlyStopping, ProgressTracker, evaluate
 
 
 def clear_logger():
@@ -39,8 +41,8 @@ def set_logger(output_dir):
 def check_overlapping_files(train_path, val_path):
     train_info_path = os.path.join(train_path, 'mixture_info.json')
     val_info_path = os.path.join(val_path, 'mixture_info.json')
-    train_info = bmm.read_json(train_info_path)
-    val_info = bmm.read_json(val_info_path)
+    train_info = bm.read_json(train_info_path)
+    val_info = bm.read_json(val_info_path)
 
     train_targets = [x['target']['filename'] for x in train_info]
     val_targets = [x['target']['filename'] for x in val_info]
@@ -92,7 +94,7 @@ def main(model_dir, force, no_cuda):
     # load config file
     config = defaults()
     config_file = os.path.join(model_dir, 'config.yaml')
-    config.update(bmm.read_yaml(config_file))
+    config.update(bm.read_yaml(config_file))
 
     # check if model is already trained using directory contents
     loss_path = os.path.join(model_dir, 'losses.npz')
@@ -120,7 +122,7 @@ def main(model_dir, force, no_cuda):
 
     # initialize datasets
     logging.info('Initializing training dataset')
-    train_dataset = bptt.H5Dataset(
+    train_dataset = bdata.H5Dataset(
         dirpath=config.POST.PATH.TRAIN,
         features=config.POST.FEATURES,
         labels=config.POST.LABELS,
@@ -132,7 +134,7 @@ def main(model_dir, force, no_cuda):
         prestack=config.POST.PRESTACK,
     )
     logging.info('Initializing validation dataset')
-    val_dataset = bptt.H5Dataset(
+    val_dataset = bdata.H5Dataset(
         dirpath=config.POST.PATH.VAL,
         features=config.POST.FEATURES,
         labels=config.POST.LABELS,
@@ -179,7 +181,7 @@ def main(model_dir, force, no_cuda):
     # set normalization transform
     logging.info('Calculating mean and std')
     if config.POST.NORMALIZATION.TYPE in ['global', 'recursive']:
-        mean, std = bptt.get_mean_and_std(
+        mean, std = bdata.get_mean_and_std(
             train_dataset,
             train_dataloader,
             config.POST.NORMALIZATION.UNIFORMFEATURES,
@@ -188,15 +190,15 @@ def main(model_dir, force, no_cuda):
         stat_path = os.path.join(model_dir, 'statistics.npy')
         np.save(stat_path, to_save)
         if config.POST.NORMALIZATION.TYPE == 'global':
-            train_dataset.transform = bptt.TensorStandardizer(mean, std)
-            val_dataset.transform = bptt.TensorStandardizer(mean, std)
+            train_dataset.transform = bdata.TensorStandardizer(mean, std)
+            val_dataset.transform = bdata.TensorStandardizer(mean, std)
         elif config.POST.NORMALIZATION.TYPE == 'recursive':
-            train_dataset.transform = bptt.ResursiveTensorStandardizer(
+            train_dataset.transform = bdata.ResursiveTensorStandardizer(
                 mean=mean,
                 std=std,
                 momentum=config.POST.NORMALIZATION.RECURSIVEMOMENTUM,
             )
-            val_dataset.transform = bptt.ResursiveTensorStandardizer(
+            val_dataset.transform = bdata.ResursiveTensorStandardizer(
                 mean=mean,
                 std=std,
                 momentum=config.POST.NORMALIZATION.RECURSIVEMOMENTUM,
@@ -204,19 +206,19 @@ def main(model_dir, force, no_cuda):
         else:
             raise ValueError('This error should never happen')
     elif config.POST.NORMALIZATION.TYPE == 'filebased':
-        train_means, train_stds = bptt.get_files_mean_and_std(
+        train_means, train_stds = bdata.get_files_mean_and_std(
             train_dataset,
             config.POST.NORMALIZATION.UNIFORMFEATURES,
         )
-        train_dataset.transform = bptt.StateTensorStandardizer(
+        train_dataset.transform = bdata.StateTensorStandardizer(
             train_means,
             train_stds,
         )
-        val_means, val_stds = bptt.get_files_mean_and_std(
+        val_means, val_stds = bdata.get_files_mean_and_std(
             val_dataset,
             config.POST.NORMALIZATION.UNIFORMFEATURES,
         )
-        val_dataset.transform = bptt.StateTensorStandardizer(
+        val_dataset.transform = bdata.StateTensorStandardizer(
             val_means,
             val_stds,
         )
@@ -236,9 +238,9 @@ def main(model_dir, force, no_cuda):
         'batchnorm_momentum': config.MODEL.BATCHNORM.MOMENTUM,
         'hidden_sizes': config.MODEL.HIDDENSIZES,
     }
-    model = bptt.Feedforward(**model_args)
+    model = DNN(**model_args)
     model_args_path = os.path.join(model_dir, 'model_args.yaml')
-    bmm.dump_yaml(model_args, model_args_path)
+    bm.dump_yaml(model_args, model_args_path)
     if config.MODEL.CUDA and not no_cuda:
         model = model.cuda()
 
@@ -251,14 +253,14 @@ def main(model_dir, force, no_cuda):
     )
 
     # initialize early stopper
-    earlyStop = bptt.EarlyStopping(
+    earlyStop = EarlyStopping(
         patience=config.MODEL.EARLYSTOP.PATIENCE,
         verbose=config.MODEL.EARLYSTOP.VERBOSE,
         delta=config.MODEL.EARLYSTOP.DELTA,
     )
 
     # initialize progress tracker
-    progressTracker = bptt.ProgressTracker(
+    progressTracker = ProgressTracker(
         strip=config.MODEL.PROGRESS.STRIP,
         threshold=config.MODEL.PROGRESS.THRESHOLD,
     )
@@ -271,13 +273,13 @@ def main(model_dir, force, no_cuda):
     start_time = time.time()
     for epoch in range(config.MODEL.EPOCHS):
         # evaluate
-        train_loss = bptt.evaluate(
+        train_loss = evaluate(
             model=model,
             criterion=criterion,
             dataloader=train_dataloader,
             cuda=config.MODEL.CUDA and not no_cuda,
         )
-        val_loss = bptt.evaluate(
+        val_loss = evaluate(
             model=model,
             criterion=criterion,
             dataloader=val_dataloader,
@@ -338,7 +340,7 @@ def main(model_dir, force, no_cuda):
 
     # write full config file
     full_config_file = os.path.join(model_dir, 'config_full.yaml')
-    bmm.dump_yaml(config.to_dict(), full_config_file)
+    bm.dump_yaml(config.to_dict(), full_config_file)
 
     # close log file handler
     clear_logger()

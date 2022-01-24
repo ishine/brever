@@ -1,7 +1,7 @@
 import os
 import argparse
 
-import brever.modelmanagement as bmm
+import brever.management as bm
 from brever.config import defaults
 
 
@@ -82,7 +82,7 @@ def main():
             }
 
             if features is not None:
-                bmm.set_dict_field(config, ['PRE', 'FEATURES'], features)
+                bm.set_dict_field(config, ['PRE', 'FEATURES'], features)
 
             return config
 
@@ -90,9 +90,9 @@ def main():
         def_cfg.update(config)  # throws an error if config is not valid
 
         if kind == 'val':
-            dset_id = bmm.get_unique_id(make_config('train'))
+            dset_id = bm.get_unique_id(make_config('train'))
         else:
-            dset_id = bmm.get_unique_id(config)
+            dset_id = bm.get_unique_id(config)
         dset_path = os.path.join(processed_dir, kind, dset_id)
 
         if (config, dset_path) not in configs:
@@ -300,7 +300,7 @@ def main():
                 if os.path.exists(config_filepath) and not args.force:
                     print(f'{config_filepath} already exists')
                     continue
-                bmm.dump_yaml(config, config_filepath)
+                bm.dump_yaml(config, config_filepath)
                 print(f'Initialized {config_filepath}')
         else:
             print('No dataset was initialized.')

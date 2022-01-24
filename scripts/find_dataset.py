@@ -2,7 +2,7 @@ import os
 import shutil
 
 from brever.config import defaults
-import brever.modelmanagement as bmm
+import brever.management as bm
 
 
 def main(args, **kwargs):
@@ -24,12 +24,12 @@ def main(args, **kwargs):
             config_file = os.path.join(root, 'config_full.yaml')
             if not os.path.exists(config_file):
                 config_file = os.path.join(root, 'config.yaml')
-            config = bmm.read_yaml(config_file)
+            config = bm.read_yaml(config_file)
             valid = True
             for key, value in kwargs.items():
-                keys = bmm.DatasetInitArgParser.arg_to_keys_map[key]
+                keys = bm.DatasetInitArgParser.arg_to_keys_map[key]
                 if value is not None:
-                    if bmm.get_dict_field(config, keys) != value:
+                    if bm.get_dict_field(config, keys) != value:
                         valid = False
                         break
             if not valid:
@@ -62,7 +62,7 @@ def main(args, **kwargs):
 
 
 if __name__ == '__main__':
-    parser = bmm.DatasetInitArgParser(description='find datasets')
+    parser = bm.DatasetInitArgParser(description='find datasets')
     parser.add_argument('-d', '--delete', action='store_true',
                         help='delete found datasets')
     parser.add_argument('--train', action='store_true',

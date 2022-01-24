@@ -1,8 +1,7 @@
 __pycache__/
-venv/
-data
-models/
+/venv
+/data
+/models
 brever.egg-info/
-jobs/logs/
-defaults_user.yaml
-experiments/
+/jobs/logs/
+/defaults_user.yaml

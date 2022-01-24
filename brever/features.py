@@ -1,8 +1,10 @@
+import inspect
+
 import numpy as np
 import scipy.fftpack
 
 from .utils import standardize, frame
-from .filters import filt
+from .tf import filt
 
 
 def ccf(x, y, method='convolve', max_lag=40, negative_lags=False, axis=0,
@@ -698,3 +700,33 @@ def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
                          'be 4-dimensional with size '
                          'n_frames*frame_length*n_filters*2')
     return x
+
+
+class FeatureExtractor:
+    def __init__(self, features):
+        self.features = features
+        self.indices = None
+
+    def run(self, x):
+        # pre-compute energy
+        x = x.mean(axis=-1)  # average channels
+        energy = x**2  # get energy
+        energy = energy.mean(axis=1)  # average each frame
+        # main loop
+        output = []
+        for feature in self.features:
+            feature_func = globals()[feature]
+            argspec = inspect.getfullargspec(feature_func)
+            if 'energy' in argspec.args:
+                featmat = feature_func(x, filtered=True, framed=True,
+                                       energy=energy)
+            else:
+                featmat = feature_func(x, filtered=True, framed=True)
+            output.append(featmat)
+        self.indices = []
+        i_start = 0
+        for feature_set in output:
+            i_end = i_start + feature_set.shape[1]
+            self.indices.append((i_start, i_end))
+            i_start = i_end
+        return np.hstack(output)

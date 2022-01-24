@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 
-import brever.modelmanagement as bmm
+import brever.management as bm
 
 
 def find_dset(
@@ -22,7 +22,7 @@ def find_dset(
         'train': (train_dsets, train_configs),
         'test': (test_dsets, test_configs),
     }[kind]
-    return bmm.find_dataset(
+    return bm.find_dataset(
         dsets=dsets,
         configs=configs,
         speakers=speakers,
@@ -39,14 +39,14 @@ def find_dset(
 
 def find_model(batchnorm=[False], dropout_rate=[0.2], layers=[2],
                hidden_sizes=[[1024, 1024]], **kwargs):
-    return bmm.find_model(models=all_models, configs=all_configs,
+    return bm.find_model(models=all_models, configs=all_configs,
                           batchnorm=batchnorm, dropout_rate=dropout_rate,
                           layers=layers, hidden_sizes=hidden_sizes, **kwargs)
 
 
 def get_score(model, test_path, metric='MSE'):
     score_file = os.path.join(model, 'scores.json')
-    data = bmm.read_json(score_file)
+    data = bm.read_json(score_file)
     if metric == 'MSE':
         return np.mean(data[test_path]['model']['MSE'])
     if metric == 'dPESQ':
@@ -530,7 +530,7 @@ def main():
 
 
 if __name__ == '__main__':
-    all_models, all_configs = bmm.find_model(return_configs=True)
-    train_dsets, train_configs = bmm.find_dataset('train', return_configs=True)
-    test_dsets, test_configs = bmm.find_dataset('test', return_configs=True)
+    all_models, all_configs = bm.find_model(return_configs=True)
+    train_dsets, train_configs = bm.find_dataset('train', return_configs=True)
+    test_dsets, test_configs = bm.find_dataset('test', return_configs=True)
     main()

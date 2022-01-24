@@ -1,6 +1,7 @@
 import os
 import shutil
-import brever.modelmanagement as bmm
+
+import brever.management as bm
 
 
 def main(args, **kwargs):
@@ -10,7 +11,7 @@ def main(args, **kwargs):
         raise ValueError("can't use both --tested and --untested")
 
     # first filtering of models
-    pre_models = bmm.find_model(**kwargs)
+    pre_models = bm.find_model(**kwargs)
 
     # second filtering of models based on extra argumgents
     models = []
@@ -48,7 +49,7 @@ def main(args, **kwargs):
 
 
 if __name__ == '__main__':
-    parser = bmm.ModelFilterArgParser(description='find models')
+    parser = bm.ModelFilterArgParser(description='find models')
     parser.add_argument('-d', '--delete', action='store_true',
                         help='delete found models')
     parser.add_argument('--trained', action='store_true',

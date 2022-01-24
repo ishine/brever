@@ -1,7 +1,7 @@
 import numpy as np
 
 from .utils import frame
-from .filters import filt
+from .tf import filt
 
 
 def irm(target, noise, filtered=False, filt_kwargs=None, framed=False,
@@ -114,3 +114,22 @@ def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
         raise ValueError('x should be 4-dimensional with size '
                          'n_frames*frame_length*n_filters*2.')
     return x
+
+
+class LabelExtractor:
+    def __init__(self, labels):
+        self.labels = labels
+        self.indices = None
+
+    def run(self, mix_object):
+        output = []
+        for label in self.labels:
+            label_func = globals()[label]
+            output.append(label_func(mix_object, filtered=True, framed=True))
+        self.indices = []
+        i_start = 0
+        for label_set in output:
+            i_end = i_start + label_set.shape[1]
+            self.indices.append((i_start, i_end))
+            i_start = i_end
+        return np.hstack(output)

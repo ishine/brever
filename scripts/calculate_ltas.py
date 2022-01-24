@@ -1,7 +1,7 @@
 import argparse
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 from brever.io import get_ltas
 

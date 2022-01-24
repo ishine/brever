@@ -4,15 +4,15 @@ import shutil
 import copy
 
 from brever.config import defaults
-import brever.modelmanagement as bmm
+import brever.management as bm
 
 
 def check_if_path_exists(configs, path_type, def_cfg):
     if path_type not in ['train', 'val']:
         raise ValueError('path_type must be train or val')
-    default_path = bmm.get_config_field(def_cfg, f'{path_type}_path')
+    default_path = bm.get_config_field(def_cfg, f'{path_type}_path')
     for config in configs:
-        path = bmm.get_config_field(config, f'{path_type}_path')
+        path = bm.get_config_field(config, f'{path_type}_path')
         if path is None:
             path = default_path
             msg = f'No {path_type} path specified, and default path does not '\
@@ -26,16 +26,16 @@ def check_if_path_exists(configs, path_type, def_cfg):
 
 
 def check_if_test_datasets_exist(configs, def_cfg):
-    default_paths = bmm.get_config_field(def_cfg, 'test_path')
+    default_paths = bm.get_config_field(def_cfg, 'test_path')
     for config in configs:
-        paths = bmm.get_config_field(config, 'test_path')
+        paths = bm.get_config_field(config, 'test_path')
         if paths is None:
             paths = default_paths
             msg = 'No test paths specified, and not all the default test '\
                   'paths exist'
         else:
             msg = 'The specified test paths do not all exist'
-        paths = bmm.globbed(paths)
+        paths = bm.globbed(paths)
         if not paths or any(not os.path.exists(path) for path in paths):
             print(msg)
             return ask_user_yes_no('Do you wish to continue? y/n')
@@ -76,7 +76,7 @@ def find_dset(
             features={'logfbe'}
         ):
     target_angle_min, target_angle_max = target_angle_lims
-    return bmm.find_dataset(
+    return bm.find_dataset(
         dsets=dsets,
         configs=configs,
         kind=kind,
@@ -96,24 +96,24 @@ def add_config(configs, seed, train_path, val_path, test_paths,
                extra_kwargs=None):
     for layers, hidden_sizes in zip([1, 2], [[1024], [1024, 1024]]):
         config = {}
-        bmm.set_config_field(config, 'layers', layers)
-        bmm.set_config_field(config, 'hidden_sizes', hidden_sizes)
-        bmm.set_config_field(config, 'stacks', 5)
-        bmm.set_config_field(config, 'dropout', True)
-        bmm.set_config_field(config, 'seed', seed)
-        bmm.set_config_field(config, 'train_path', train_path)
-        bmm.set_config_field(config, 'val_path', val_path)
-        bmm.set_config_field(config, 'test_path', test_paths)
+        bm.set_config_field(config, 'layers', layers)
+        bm.set_config_field(config, 'hidden_sizes', hidden_sizes)
+        bm.set_config_field(config, 'stacks', 5)
+        bm.set_config_field(config, 'dropout', True)
+        bm.set_config_field(config, 'seed', seed)
+        bm.set_config_field(config, 'train_path', train_path)
+        bm.set_config_field(config, 'val_path', val_path)
+        bm.set_config_field(config, 'test_path', test_paths)
         if extra_kwargs is not None:
             for key, val in extra_kwargs.items():
-                bmm.set_config_field(config, key, val)
+                bm.set_config_field(config, key, val)
         configs.append(config)
 
 
 def main():
 
-    train_dsets, train_configs = bmm.find_dataset('train', return_configs=True)
-    test_dsets, test_configs = bmm.find_dataset('test', return_configs=True)
+    train_dsets, train_configs = bm.find_dataset('train', return_configs=True)
+    test_dsets, test_configs = bm.find_dataset('test', return_configs=True)
 
     configs = []
 
@@ -416,25 +416,25 @@ def main():
     for i, config_1 in enumerate(configs):
         for j, config_2 in enumerate(configs):
             if j > i:
-                train_1 = bmm.get_config_field(config_1, 'train_path')
-                train_2 = bmm.get_config_field(config_2, 'train_path')
-                seed_1 = bmm.get_config_field(config_1, 'seed')
-                seed_2 = bmm.get_config_field(config_2, 'seed')
+                train_1 = bm.get_config_field(config_1, 'train_path')
+                train_2 = bm.get_config_field(config_2, 'train_path')
+                seed_1 = bm.get_config_field(config_1, 'seed')
+                seed_2 = bm.get_config_field(config_2, 'seed')
                 if train_1 == train_2 and seed_1 == seed_2:
-                    test_path_1 = bmm.get_config_field(
+                    test_path_1 = bm.get_config_field(
                         config_1,
                         'test_path',
                     )
-                    test_path_2 = bmm.get_config_field(
+                    test_path_2 = bm.get_config_field(
                         config_2,
                         'test_path',
                     )
-                    bmm.set_config_field(
+                    bm.set_config_field(
                         config_1,
                         'test_path',
                         test_path_1 | test_path_2,
                     )
-                    bmm.set_config_field(
+                    bm.set_config_field(
                         config_2,
                         'test_path',
                         test_path_1 | test_path_2,
@@ -467,7 +467,7 @@ def main():
     for config in configs:
         def_cfg.update(config)  # throws an error if config is not valid
 
-        model_id = bmm.get_unique_id(config)
+        model_id = bm.get_unique_id(config)
         model_dir = os.path.join(models_dir, model_id)
         attempted_model_dirs.append(model_dir)
 
@@ -477,8 +477,8 @@ def main():
 
         # exclude configs with uniform normalization features not included
         # in the list of features
-        uni_feats = bmm.get_config_field(config, 'uni_norm_features', None)
-        features = bmm.get_config_field(config, 'features', None)
+        uni_feats = bm.get_config_field(config, 'uni_norm_features', None)
+        features = bm.get_config_field(config, 'features', None)
         if (uni_feats is not None and features is not None
                 and not uni_feats.issubset(features)):
             skipped += 1
@@ -495,16 +495,16 @@ def main():
     for model_id in os.listdir(models_dir):
         model_dir = os.path.join(models_dir, model_id)
         cfg_path = os.path.join(model_dir, 'config.yaml')
-        cfg = bmm.read_yaml(cfg_path)
+        cfg = bm.read_yaml(cfg_path)
         existing_models.append(model_dir)
         existing_configs.append(cfg)
     existing_tests = [c['POST']['PATH'].pop('TEST') for c in existing_configs]
     for config in new_configs:
-        model_id = bmm.get_unique_id(config)
+        model_id = bm.get_unique_id(config)
         model_dir = os.path.join(models_dir, model_id)
         if not(os.path.exists(model_dir)):
             copy_ = copy.deepcopy(config)
-            copy_id = bmm.get_unique_id(config)
+            copy_id = bm.get_unique_id(config)
             new_tests = copy_['POST']['PATH'].pop('TEST')
             try:
                 index = existing_configs.index(copy_)
@@ -535,9 +535,9 @@ def main():
                 for items in exist_but_with_different_test_path:
                     model, tests, old_model, old_tests = items
                     cfg_path = os.path.join(old_model, 'config.yaml')
-                    cfg = bmm.read_yaml(cfg_path)
-                    bmm.set_config_field(cfg, 'test_path', tests)
-                    bmm.dump_yaml(cfg, cfg_path)
+                    cfg = bm.read_yaml(cfg_path)
+                    bm.set_config_field(cfg, 'test_path', tests)
+                    bm.dump_yaml(cfg, cfg_path)
                 new_configs = totally_new_configs
                 break
             elif resp.lower() == 'merge':
@@ -547,9 +547,9 @@ def main():
                 for items in exist_but_with_different_test_path:
                     model, tests, old_model, old_tests = items
                     cfg_path = os.path.join(old_model, 'config.yaml')
-                    cfg = bmm.read_yaml(cfg_path)
-                    bmm.set_config_field(cfg, 'test_path', tests | old_tests)
-                    bmm.dump_yaml(cfg, cfg_path)
+                    cfg = bm.read_yaml(cfg_path)
+                    bm.set_config_field(cfg, 'test_path', tests | old_tests)
+                    bm.dump_yaml(cfg, cfg_path)
                 new_configs = totally_new_configs
                 break
             elif resp.lower() == 'new':
@@ -589,7 +589,7 @@ def main():
                     shutil.rmtree(dirpath)
                 os.makedirs(dirpath)
                 config_path = os.path.join(dirpath, 'config.yaml')
-                bmm.dump_yaml(config, config_path)
+                bm.dump_yaml(config, config_path)
                 print(f'Initialized {config_path}')
         else:
             print('No model was initialized')

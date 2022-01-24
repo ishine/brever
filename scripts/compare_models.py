@@ -1,17 +1,16 @@
-import os
 from glob import glob
+import os
 
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import matplotlib.lines as mlines
 from matplotlib.colors import to_rgb
+import matplotlib.lines as mlines
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import numpy as np
 from scipy.stats import sem
 
-import brever.modelmanagement as bmm
 from brever.config import defaults
 from brever.display import barplot, get_color_cycle
-from brever.tex import np_to_tex
+import brever.management as bm
 
 
 def check_models(models, dims):
@@ -24,7 +23,7 @@ def check_models(models, dims):
         if not os.path.exists(config_file):
             print(f'Model {model} is not trained!')
             continue
-        config = bmm.read_yaml(config_file)
+        config = bm.read_yaml(config_file)
         # check if model is evaluated
         scores_file = os.path.join(model, 'scores.json')
         if not os.path.exists(scores_file):
@@ -34,11 +33,11 @@ def check_models(models, dims):
         if dims is None:  # if no dims just return all models
             val = model  # the value is just the model name
         else:
-            val = {dim: bmm.get_config_field(config, dim) for dim in dims}
+            val = {dim: bm.get_config_field(config, dim) for dim in dims}
             if val in values:
                 dupe_model = models_out[values.index(val)]
                 dupe_path = os.path.join(dupe_model, 'config_full.yaml')
-                dupe_config = bmm.read_yaml(dupe_path)
+                dupe_config = bm.read_yaml(dupe_path)
                 if dupe_config == config:
                     print(
                         f'Models {model} and {dupe_model} have the exact same '
@@ -57,9 +56,9 @@ def check_models(models, dims):
                 continue
         # check if models all have the same training label
         if training_label is None:
-            training_label = bmm.get_config_field(config, 'labels')
+            training_label = bm.get_config_field(config, 'labels')
         else:
-            if training_label != bmm.get_config_field(config, 'labels'):
+            if training_label != bm.get_config_field(config, 'labels'):
                 raise ValueError('All models do not use the same target label')
         values.append(val)
         models_out.append(model)
@@ -102,7 +101,7 @@ def load_scores(groups, test_dirs):
         for i in range(len(group)):
             model = group[i]['model']
             # load scores
-            scores = bmm.read_json(os.path.join(model, 'scores.json'))
+            scores = bm.read_json(os.path.join(model, 'scores.json'))
             group[i]['scores'] = {}
             for test_dir in test_dirs:
                 if test_dir not in scores.keys():
@@ -149,7 +148,7 @@ def set_default_parameters(filter_, dimensions, group_by):
     for key, value in filter_.items():
         if (value is None and (dimensions is None or key not in dimensions)
                 and (group_by is None or key not in group_by)):
-            new_value = [bmm.get_config_field(default_config, key)]
+            new_value = [bm.get_config_field(default_config, key)]
             filter_[key] = new_value
 
 
@@ -224,7 +223,7 @@ def check_scores(groups, test_dirs, system, metric):
             if any(
                 abs(np.asarray(model['scores'][test_dir][system][metric]) -
                     np.asarray(models[0]['scores'][test_dir][system][metric]))
-                > 2*np.finfo(float).eps
+                > 1e-10
             ):
                 raise ValueError('All models do not have the same '
                                  f'reference scores on test dir '
@@ -262,70 +261,13 @@ def set_ax_lims(ax, xmin=None, xmax=None, ymin=None, ymax=None):
         ax.set_ylim(ax_ymin, ymax)
 
 
-def format_tex_cell(str_, makecell_if_linebreak=True):
-    if str_ is None:
-        return None
-
-    str_ = list(str_)
-    math = False
-    for i in range(len(str_)):
-        if str_[i] == '$':
-            if not math:
-                math = True
-            else:
-                math = False
-        elif str_[i] == '_' and not math:
-            str_[i] = r'\_'
-    str_ = ''.join(str_)
-
-    if makecell_if_linebreak and r'\\' in str_:
-        str_ = rf'\makecell{{{str_}}}'
-    return str_
-
-
-def write_tex(scores, dir_, columns, index, caption, metric,
-              index_name=None):
-    scores = np.asarray(scores)
-
-    scaling = int(np.floor(np.log10(scores.mean())))
-    scores *= 10**(-scaling)
-    if scaling != 0:
-        scaling = scaling = f'($\\times 10^{{{scaling}}}$)'
-    else:
-        scaling = ''
-    caption = caption.format(metric=metric, scaling=scaling)
-    if caption.endswith(' .'):
-        caption = caption[:-2] + '.'
-
-    scores = scores.reshape(scores.shape[0], np.prod(scores.shape[1:])).T
-    columns = [format_tex_cell(x) for x in columns]
-    index = [format_tex_cell(x, makecell_if_linebreak=False) for x in index]
-    index_name = format_tex_cell(index_name)
-    bold = [(i, 0) for i in range(scores.shape[0])]
-    if metric == 'MSE':
-        func = min
-    else:
-        func = max
-    for i in range(scores.shape[0]):
-        for j in range(scores.shape[1]):
-            if columns[j] not in ('ref', 'oracle'):
-                if scores[i, j] == func(scores[i, j], scores[bold[i]]):
-                    bold[i] = (i, j)
-    if not os.path.exists(dir_):
-        os.makedirs(dir_)
-    filename = os.path.join(dir_, f'{metric}.tex')
-    np_to_tex(scores, filename=filename, precision=2, loc=None,
-              label='tab:my_label', caption=caption, columns=columns,
-              index=index, index_name=index_name, star=True, bold=bold)
-
-
 def main(models, args, filter_):
     # add default params to filter is user requested
     if args.default:
         set_default_parameters(filter_, args.dims, args.group_by)
 
     # filter the models
-    possible_models = bmm.find_model(**filter_)
+    possible_models = bm.find_model(**filter_)
     models = [model for model in models if model in possible_models]
 
     # add the group dimensions to the list of dimensions
@@ -569,10 +511,6 @@ def main(models, args, filter_):
         barplot(scores, ax, errs=errs, ylabel=metric, labels=labels,
                 colors=colors, xticklabels=args.xticks,
                 rotation=args.rotation, lw=args.lw)
-        if args.tex is not None:
-            write_tex(scores, args.tex, columns=labels,
-                      index=args.xticks, caption=args.tex_caption,
-                      metric=metric)
         LegendFormatter(fig, ncol=args.ncol)
         figs[metric] = fig
 
@@ -692,12 +630,12 @@ def main(models, args, filter_):
 
 
 if __name__ == '__main__':
-    parser = bmm.ModelFilterArgParser(description='compare models')
+    parser = bm.ModelFilterArgParser(description='compare models')
     parser.add_argument('-i', '--input', nargs='+', required=True,
-                        type=lambda x: x.rstrip('/').rstrip('\\'),
+                        type=lambda x: x.replace('\\', '/').rstrip('/'),
                         help='list of models to compare')
     parser.add_argument('-t', '--test_dirs', nargs='+', required=True,
-                        type=lambda x: x.rstrip('/').rstrip('\\'),
+                        type=lambda x: x.replace('\\', '/').rstrip('/'),
                         help='list of test dirs')
     parser.add_argument('--dims', nargs='+',
                         type=lambda x: x.replace('-', '_'),
@@ -735,10 +673,6 @@ if __name__ == '__main__':
                         help='test dirs label rotation')
     parser.add_argument('--lw', type=float,
                         help='error bar line width')
-    parser.add_argument('--tex',
-                        help='output tex dir')
-    parser.add_argument('--tex-caption',
-                        help='table caption template')
     parser.add_argument('--no-show', action='store_true',
                         help='do not show figures')
     filter_args, args = parser.parse_args()
@@ -749,6 +683,6 @@ if __name__ == '__main__':
             print(f'Model not found: {input_}')
         model_dirs += glob(input_)
 
-    args.test_dirs = bmm.globbed(args.test_dirs)
+    args.test_dirs = bm.globbed(args.test_dirs)
 
     main(model_dirs, args, vars(filter_args))

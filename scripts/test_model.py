@@ -1,23 +1,24 @@
-import os
 import argparse
 from glob import glob
-import pickle
 import logging
+import os
+import pickle
 import sys
 import time
 
-import torch
-import numpy as np
 import h5py
-import soundfile as sf
+import numpy as np
 from pesq import pesq
 from pystoi import stoi
+import soundfile as sf
+import torch
 
 from brever.config import defaults
-# from brever.utils import wola, segmental_scores
+import brever.data as bdata
+import brever.management as bm
+from brever.models import DNN
+# from brever.utils import segmental_scores
 from brever.utils import wola
-import brever.pytorchtools as bptt
-import brever.modelmanagement as bmm
 
 
 def main(model_dir, args):
@@ -32,7 +33,7 @@ def main(model_dir, args):
     # load config file
     config = defaults()
     config_file = os.path.join(model_dir, 'config.yaml')
-    config.update(bmm.read_yaml(config_file))
+    config.update(bm.read_yaml(config_file))
 
     # seed for reproducibility
     torch.manual_seed(0)
@@ -49,7 +50,8 @@ def main(model_dir, args):
     # initialize and load network
     logging.info('Loading model...')
     model_args_path = os.path.join(model_dir, 'model_args.yaml')
-    model = bptt.Feedforward.build(model_args_path)
+    model_args = bm.read_yaml(model_args_path)
+    model = DNN(**model_args)
     state_file = os.path.join(model_dir, 'checkpoint.pt')
     model.load_state_dict(torch.load(state_file, map_location='cpu'))
     if config.MODEL.CUDA and not args.no_cuda:
@@ -61,12 +63,12 @@ def main(model_dir, args):
     # init scores dict
     scores_path = os.path.join(model_dir, 'scores.json')
     if os.path.exists(scores_path):
-        scores = bmm.read_json(scores_path)
+        scores = bm.read_json(scores_path)
     else:
         scores = {}
 
     # main loop
-    for test_dir in bmm.globbed(config.POST.PATH.TEST):
+    for test_dir in bm.globbed(config.POST.PATH.TEST):
         # check if already tested
         if test_dir in scores.keys() and not args.force:
             logging.info(f'{test_dir} was already tested, skipping')
@@ -110,7 +112,7 @@ def main(model_dir, args):
         filterbank = pipes['filterbank']
 
         # initialize dataset
-        test_dataset = bptt.H5Dataset(
+        test_dataset = bdata.H5Dataset(
             dirpath=test_dir,
             features=config.POST.FEATURES,
             labels=config.POST.LABELS,
@@ -124,19 +126,19 @@ def main(model_dir, args):
 
         # set normalization transform
         if config.POST.NORMALIZATION.TYPE == 'global':
-            test_dataset.transform = bptt.TensorStandardizer(mean, std)
+            test_dataset.transform = bdata.TensorStandardizer(mean, std)
         elif config.POST.NORMALIZATION.TYPE == 'recursive':
-            test_dataset.transform = bptt.ResursiveTensorStandardizer(
+            test_dataset.transform = bdata.ResursiveTensorStandardizer(
                 mean=mean,
                 std=std,
                 momentum=config.POST.NORMALIZATION.RECURSIVEMOMENTUM,
             )
         elif config.POST.NORMALIZATION.TYPE == 'filebased':
-            test_means, test_stds = bptt.get_files_mean_and_std(
+            test_means, test_stds = bdata.get_files_mean_and_std(
                 test_dataset,
                 config.POST.NORMALIZATION.UNIFORMFEATURES,
             )
-            test_dataset.transform = bptt.StateTensorStandardizer(
+            test_dataset.transform = bdata.StateTensorStandardizer(
                 test_means,
                 test_stds,
             )
@@ -340,7 +342,7 @@ def main(model_dir, args):
             ))
 
         # update scores file
-        bmm.dump_json(scores, scores_path)
+        bm.dump_json(scores, scores_path)
 
         # log time spent
         logging.info(f'Time spent: {time.time() - start_time:.2f}')

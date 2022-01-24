@@ -1,6 +1,14 @@
+import logging
+import random
+import re
+
 import numpy as np
 import scipy.signal
 
+from .config import defaults
+from .io import (load_random_target, load_brirs, load_random_noise,
+                 get_available_angles, get_rooms, get_average_duration,
+                 get_all_filepaths, get_ltas)
 from .utils import pad, fft_freqs, rms
 
 
@@ -372,11 +380,11 @@ class Mixture:
             self.diffuse_noise *= gain
 
     def rms(self):
-        rms_dB = 20*np.log10(rms(self.mixture).max())
+        rms_dB = 20*np.log10(rms(self.mix).max())
         return rms_dB
 
     def adjust_rms(self, rms_dB):
-        _, gain = adjust_rms(self.mixture, rms_dB)
+        _, gain = adjust_rms(self.mix, rms_dB)
         self.early_target *= gain
         self.late_target *= gain
         if self.dir_noise is not None:
@@ -410,3 +418,502 @@ class Mixture:
         energy_masker = np.sum(masker[slice_].mean(axis=-1)**2)
         label = energy_target / (energy_target + energy_masker)
         return label
+
+
+class RandomPool:
+    """
+    A pool of elements to randomly draw from. Has it's own random generator.
+    Supports weights for non-uniform probability distribution.
+
+    Useful to generate random datasets that differ only along specific
+    hyperparameters. For the same seed, we want two datasets to be identical
+    along dimensions with common hyperparameter values (e.g. if the set
+    of noise types is the same, the random noise recordings should be the
+    same). Using the same random generator for the randomization of all
+    dimensions would break this.
+    """
+    def __init__(self, pool, seed=None, weights=None):
+        self.set_pool(pool, weights)
+        self.random = random.Random(seed)
+
+    def get(self):
+        item, = self.random.choices(self.pool, weights=self.weights)
+        return item
+
+    def set_pool(self, pool, weights=None):
+        self.weights = weights
+        if isinstance(pool, set):
+            self.pool = sorted(pool)
+            if weights is not None:
+                if not isinstance(weights, dict):
+                    raise ValueError('weights must be dict when pool is set')
+                if set(weights.keys()) != pool:
+                    raise ValueError('weights keys do not match pool')
+                self.weights = [weights[x] for x in pool]
+        else:
+            self.pool = pool
+            if weights is not None:
+                if not isinstance(weights, list):
+                    raise ValueError('weights must be list when pool is list')
+                if len(weights) != len(pool):
+                    raise ValueError('weights and pool must have same length')
+                self.weights = weights
+
+
+class MultiRandomPool:
+    """
+    Like RandomPool, but multiple elements can be drawn simultaneously, with
+    replacement. Each extra element is drawn from a dedicated random
+    generator. This means that for the same seed, drawing more elements will
+    not change the sequence for elements drawn.
+
+    E.g.: Pool is [1, 2, 3]. First experiment draws 2 elements twice and
+    obtains [1, 3] and [1, 2]. Second experiment has the same seed but draws 3
+    elements twice. Obtains [1, 3, 3] and [1, 2, 1]. Notice the first two
+    elements in each draw are the same. If we were using the same random
+    generator for every single number, the third number in the first draw
+    would have changed the seed, and the second draw would have thus been
+    completely different.
+    """
+    def __init__(self, pool, k_max, seed=None):
+        self.set_pool(pool)
+        if seed is None:
+            self.randoms = [random.Random() for i in range(k_max)]
+        else:
+            self.randoms = [random.Random(seed+i) for i in range(k_max)]
+        self.k_max = k_max
+
+    def get(self, k):
+        assert k <= self.k_max
+        output = [self.randoms[i].choice(self.pool) for i in range(self.k_max)]
+        return output[:k]
+
+    def set_pool(self, pool):
+        if isinstance(pool, set):
+            self.pool = sorted(pool)
+        else:
+            self.pool = pool
+
+
+class ContinuousRandomGenerator:
+    """
+    Like RandomPool, but for continuous distributions.
+    """
+    def __init__(self, dist_name, dist_args, seed=None):
+        self.random = np.random.RandomState(seed)
+        self.dist_name = dist_name
+        self.dist_args = dist_args
+
+    def get(self):
+        dist_func = getattr(self.random, self.dist_name)
+        return dist_func(*self.dist_args)
+
+
+class Seeder:
+    """
+    An integer number generator. Used to generate seeds for other random
+    generators.
+    """
+    def __init__(self, seed_value, max_seed=100):
+        self.random = random.Random(seed_value)
+        self.max_seed = max_seed
+
+    def get(self):
+        return self.random.randrange(self.max_seed)
+
+
+class RandomMixtureMaker:
+    def __init__(
+                self,
+                fs,
+                rooms,
+                speakers,
+                target_snr_dist_name,
+                target_snr_dist_args,
+                target_angle_min,
+                target_angle_max,
+                dir_noise_nums,
+                dir_noise_types,
+                dir_noise_snrs,
+                dir_noise_angle_min,
+                dir_noise_angle_max,
+                diffuse_noise_on,
+                diffuse_noise_color,
+                diffuse_noise_ltas_eq,
+                mixture_pad,
+                mixture_rb,
+                mixture_rms_jitter_on,
+                mixture_rms_jitters,
+                filelims_target,
+                filelims_dir_noise,
+                filelims_room,
+                decay_on,
+                decay_color,
+                decay_rt60s,
+                decay_drr_dist_name,
+                decay_drr_dist_args,
+                decay_delays,
+                seed_on,
+                seed_value,
+                uniform_tmr,
+            ):
+
+        if not seed_on:
+            seed_value = None
+        seeder = Seeder(seed_value)
+
+        self.def_cfg = defaults()
+        self.fs = fs
+        self.room_regexps = RandomPool(rooms, seeder.get())
+        self.rooms = RandomPool([], seeder.get())
+
+        # For the speakers random generator, the probability distribution must
+        # be weighted according to the average duration of the sentences,
+        # otherwise the speech material in the dataset will be unbalanced.
+        # Example: TIMIT sentences are 3 seconds long on average, while LIBRI
+        # sentences are 12 seconds long on average, so making a dataset using
+        # 50 TIMIT sentences and 50 LIBRI sentences will result in much more
+        # LIBRI material.
+        if len(speakers) > 1:
+            logging.info('Calculating each corpus average duration to weight '
+                         'probabilities')
+            weights = {speaker: 1/get_average_duration(speaker, self.def_cfg)
+                       for speaker in speakers}
+        else:
+            weights = {speaker: 1 for speaker in speakers}
+        self.speakers = RandomPool(speakers, seeder.get(), weights)
+
+        self.target_snrs = ContinuousRandomGenerator(target_snr_dist_name,
+                                                     target_snr_dist_args,
+                                                     seeder.get())
+        self.target_angle_min = target_angle_min
+        self.target_angle_max = target_angle_max
+        self.dir_noise_snrs = RandomPool(dir_noise_snrs, seeder.get())
+        self.dir_noise_nums = RandomPool(dir_noise_nums, seeder.get())
+        self.dir_noise_types = MultiRandomPool(dir_noise_types,
+                                               max(dir_noise_nums),
+                                               seeder.get())
+        self.dir_noise_angle_min = dir_noise_angle_min
+        self.dir_noise_angle_max = dir_noise_angle_max
+        self.diffuse_noise_on = diffuse_noise_on
+        self.diffuse_noise_color = diffuse_noise_color
+        self.diffuse_noise_ltas_eq = diffuse_noise_ltas_eq
+        self.mixture_pad = mixture_pad
+        self.mixture_rb = mixture_rb
+        self.mixture_rms_jitter_on = mixture_rms_jitter_on
+        self.mixture_rms_jitters = RandomPool(mixture_rms_jitters,
+                                              seeder.get())
+        self.filelims_target = filelims_target
+        self.filelims_dir_noise = filelims_dir_noise
+        self.filelims_room = filelims_room
+        self.decay_on = decay_on
+        self.decay_color = decay_color
+        self.decay_rt60s = RandomPool(decay_rt60s, seeder.get())
+        self.decay_drrs = ContinuousRandomGenerator(decay_drr_dist_name,
+                                                    decay_drr_dist_args,
+                                                    seeder.get())
+        self.decay_delays = RandomPool(decay_delays, seeder.get())
+
+        self.target_filename_randomizer = RandomPool([], seeder.get())
+        self.noise_filename_randomizer = MultiRandomPool([],
+                                                         max(dir_noise_nums),
+                                                         seeder.get())
+        self.uniform_tmr = uniform_tmr
+        self.tmrs = ContinuousRandomGenerator('uniform', [], seeder.get())
+        self.target_angles = RandomPool([], seeder.get())
+        self.dir_noise_angles = MultiRandomPool([], max(dir_noise_nums),
+                                                seeder.get())
+
+        self.bbl_speakers = RandomPool(speakers, seeder.get(), weights)
+        self.bbl_filename_randomizer = RandomPool([], seeder.get())
+
+        self.all_filepaths_dict = {
+            speaker: get_all_filepaths(speaker, def_cfg=self.def_cfg)
+            for speaker in speakers
+        }
+
+        if ((diffuse_noise_on and diffuse_noise_ltas_eq)
+                or ('ssn' in dir_noise_types and max(dir_noise_nums) > 0)):
+            merged_filepaths = [f for l_ in self.all_filepaths_dict.values()
+                                for f in l_]
+            logging.info(f'Calculating LTAS from {len(merged_filepaths)} '
+                         'speech files')
+            self.ltas = get_ltas(all_filepaths=merged_filepaths,
+                                 def_cfg=self.def_cfg)
+        else:
+            self.ltas = None
+
+    def make(self):
+        self.mix = Mixture()
+        self.metadata = {}
+        self.room = self.get_random_room()
+        self.decayer = self.get_random_decayer()
+        self.add_random_target()
+        self.add_random_dir_noises()
+        self.add_random_diffuse_noise()
+        self.set_random_dir_to_diff_snr()
+        self.set_random_target_snr()
+        self.set_random_tmr()
+        self.set_random_rms()
+        self.get_long_term_labels()
+        return self.mix, self.metadata
+
+    def get_random_room(self):
+        room_regexp = self.room_regexps.get()
+        self.rooms.set_pool(get_rooms(room_regexp))
+        room = self.rooms.get()
+        self.metadata['room'] = room
+        return room
+
+    def get_random_decayer(self):
+        rt60 = self.decay_rt60s.get()
+        drr = self.decay_drrs.get()
+        delay = self.decay_delays.get()
+        decayer = Decayer(
+            rt60,
+            drr,
+            delay,
+            self.fs,
+            self.decay_color,
+            self.decay_on,
+        )
+        if self.decay_on:
+            self.metadata['decay'] = {}
+            self.metadata['decay']['rt60'] = rt60
+            self.metadata['decay']['drr'] = drr
+            self.metadata['decay']['delay'] = delay
+            self.metadata['decay']['color'] = self.decay_color
+        return decayer
+
+    def add_random_target(self):
+        angles = get_available_angles(
+            self.room,
+            def_cfg=self.def_cfg,
+            angle_min=self.target_angle_min,
+            angle_max=self.target_angle_max,
+            parity=self.filelims_room,
+        )
+        self.target_angles.set_pool(angles)
+        angle = self.target_angles.get()
+        brir = self._load_brirs(self.room, angle)
+        brir = self.decayer.run(brir)
+        speaker = self.speakers.get()
+        target, filename = load_random_target(
+            speaker,
+            self.filelims_target,
+            self.fs,
+            randomizer=self.target_filename_randomizer.random,
+            def_cfg=self.def_cfg,
+            all_filepaths=self.all_filepaths_dict[speaker]
+        )
+        self.mix.add_target(
+            x=target,
+            brir=brir,
+            rb=self.mixture_rb,
+            t_pad=self.mixture_pad,
+            fs=self.fs,
+        )
+        self.metadata['target'] = {}
+        self.metadata['target']['angle'] = angle
+        self.metadata['target']['filename'] = filename
+
+    def add_random_dir_noises(self):
+        number = self.dir_noise_nums.get()
+        types = self.dir_noise_types.get(number)
+
+        if types and types[0] == 'bbl':
+
+            angles = get_available_angles(self.room, self.def_cfg)
+            if len(angles) == 1:
+                raise ValueError('cannot use bbl noise with a room that only '
+                                 'has one brir')
+            angles = [a for a in angles
+                      if a != self.metadata['target']['angle']]
+            brirs = self._load_brirs(self.room, angles)
+            brirs = [self.decayer.run(brir) for brir in brirs]
+            noises = []
+            for i in range(len(angles)):
+                speaker = self.bbl_speakers.get()
+                noise, _ = load_random_target(
+                    speaker,
+                    self.filelims_target,
+                    self.fs,
+                    randomizer=self.bbl_filename_randomizer.random,
+                    def_cfg=self.def_cfg,
+                    all_filepaths=self.all_filepaths_dict[speaker]
+                )
+                while len(noise) < len(self.mix):
+                    noise_, _ = load_random_target(
+                        speaker,
+                        self.filelims_target,
+                        self.fs,
+                        randomizer=self.bbl_filename_randomizer.random,
+                        def_cfg=self.def_cfg,
+                        all_filepaths=self.all_filepaths_dict[speaker]
+                    )
+                    noise = np.hstack((noise, noise_))
+                noise = noise[:len(self.mix)]
+                noises.append(noise)
+            self.mix.add_dir_noises(noises, brirs)
+            self.metadata['directional'] = {}
+            self.metadata['directional']['number'] = len(angles)
+            self.metadata['directional']['sources'] = []
+
+        else:
+
+            types = [t for t in types if t != 'bbl']
+            number = len(types)
+            angles = get_available_angles(
+                self.room,
+                def_cfg=self.def_cfg,
+                angle_min=self.dir_noise_angle_min,
+                angle_max=self.dir_noise_angle_max,
+                parity=self.filelims_room,
+            )
+            if len(angles) > 1:
+                angles = [a for a in angles if a !=
+                          self.metadata['target']['angle']]
+            self.dir_noise_angles.set_pool(angles)
+            angles = self.dir_noise_angles.get(number)
+            noises, files, indices = self._load_noises(
+                types,
+                len(self.mix),
+            )
+            brirs = self._load_brirs(self.room, angles)
+            brirs = [self.decayer.run(brir) for brir in brirs]
+            self.mix.add_dir_noises(noises, brirs)
+            self.metadata['directional'] = {}
+            self.metadata['directional']['number'] = number
+            self.metadata['directional']['sources'] = []
+            for i in range(number):
+                source_metadata = {
+                    'angle': angles[i],
+                    'type': types[i],
+                    'filename': files[i],
+                    'indices': indices[i],
+                }
+                self.metadata['directional']['sources'].append(source_metadata)
+
+    def add_random_diffuse_noise(self):
+        if self.diffuse_noise_on:
+            brirs = self._load_brirs(self.room)
+            self.mix.add_diffuse_noise(
+                brirs,
+                self.diffuse_noise_color,
+                self.ltas,
+            )
+            self.metadata['diffuse'] = {}
+            self.metadata['diffuse']['color'] = self.diffuse_noise_color
+            self.metadata['diffuse']['ltas_eq'] = self.diffuse_noise_ltas_eq
+
+    def set_random_dir_to_diff_snr(self):
+        snr = self.dir_noise_snrs.get()
+        if self.metadata['directional']['number'] == 0:
+            return
+        if self.diffuse_noise_on:
+            self.mix.adjust_dir_to_diff_snr(snr)
+            self.metadata['directional']['snr'] = snr
+
+    def set_random_target_snr(self):
+        snr = self.target_snrs.get()
+        if self.metadata['directional']['number'] == 0:
+            if not self.diffuse_noise_on:
+                return
+        self.mix.adjust_target_snr(snr)
+        self.metadata['target']['snr'] = snr
+
+    def set_random_tmr(self):
+        tmr = self.tmrs.get()
+        alpha = self.tmrs.get()
+        if self.uniform_tmr:
+            target_energy = np.sum(self.mix.early_target.mean(axis=1)**2)
+            new_masker_energy = target_energy*(1/tmr-1)
+            new_noise_energy = alpha*new_masker_energy
+            new_reverb_energy = (1-alpha)*new_masker_energy
+            cur_noise_energy = np.sum(self.mix.noise.mean(axis=1)**2)
+            cur_reverb_energy = np.sum(self.mix.late_target.mean(axis=1)**2)
+            noise_gain = (new_noise_energy/cur_noise_energy)**0.5
+            reverb_gain = (new_reverb_energy/cur_reverb_energy)**0.5
+            if self.mix.dir_noise is not None:
+                self.mix.dir_noise = noise_gain*self.mix.dir_noise
+            if self.mix.diffuse_noise is not None:
+                self.mix.diffuse_noise = noise_gain*self.mix.diffuse_noise
+            self.mix.late_target = reverb_gain*self.mix.late_target
+            self.metadata['uniform_tmr'] = {}
+            self.metadata['uniform_tmr']['tmr'] = tmr
+            self.metadata['uniform_tmr']['alpha'] = alpha
+            self.metadata['target']['snr'] = None
+            self.metadata['decay']['drr'] = None
+
+    def set_random_rms(self):
+        rms_dB = self.mixture_rms_jitters.get()
+        if self.mixture_rms_jitter_on:
+            rms_start = self.mix.rms()
+            self.mix.adjust_rms(rms_start + rms_dB)
+            self.metadata['rms_dB'] = rms_dB
+
+    def get_long_term_labels(self):
+        self.metadata['lt_labels'] = {}
+        for label in ['tmr', 'tnr', 'trr']:
+            long_term_label = self.mix.get_long_term_label(label)
+            self.metadata['lt_labels'][label] = long_term_label
+
+    def _load_brirs(self, room, angles=None):
+        brirs, _ = load_brirs(room, angles, self.fs, self.def_cfg)
+        return brirs
+
+    def _load_noises(self, types, n_samples):
+        if not types:
+            return [], [], []
+        zipped = []
+        randomizers = self.noise_filename_randomizer.randoms
+        for type_, randomizer in zip(types, randomizers):
+            if type_ is None:
+                x, filepath, indices = None, None, None
+            elif type_.startswith('colored_'):
+                color = re.match('^colored_(.*)$', type_).group(1)
+                x = colored_noise(color, n_samples)
+                filepath = None
+                indices = None
+            elif type_ == 'ssn':
+                x = colored_noise('white', n_samples)
+                x = match_ltas(x, self.ltas)
+                filepath = None
+                indices = None
+            else:
+                x, filepath, indices = load_random_noise(
+                    type_,
+                    n_samples,
+                    self.filelims_dir_noise,
+                    self.fs,
+                    randomizer=randomizer,
+                    def_cfg=self.def_cfg,
+                )
+            zipped.append((x, filepath, indices))
+        xs, filepaths, indicess = zip(*zipped)
+        return xs, filepaths, indicess
+
+
+class Decayer:
+    """
+    A convenience class that calls add_decay with attributes as arguments
+    """
+    def __init__(self, rt60, drr, delay, fs, color, active):
+        self.rt60 = rt60
+        self.drr = drr
+        self.delay = delay
+        self.fs = fs
+        self.color = color
+        self.active = active
+
+    def run(self, brir):
+        if self.active:
+            brir = add_decay(
+                brir,
+                self.rt60,
+                self.drr,
+                self.delay,
+                self.fs,
+                self.color,
+            )
+        return brir
