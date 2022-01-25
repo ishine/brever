@@ -169,8 +169,8 @@ def main(dataset_dir, force):
         # scale signal
         scaler.fit(mixObject.mixture)
         mixObject.transform(scaler.scale)
-        metadata['rms_scaler_gain'] = scaler.gain
-        scaler.__init__(scaler.active)
+        if scaler.active:
+            metadata['rms_scaler_gain'] = scaler.gain
 
         # save metadata
         metadatas.append(metadata)

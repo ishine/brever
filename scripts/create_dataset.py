@@ -249,10 +249,11 @@ def main(dataset_dir, force):
         total_duration += len(mixObject)/config.PRE.FS
 
         # scale signal
+        # scale signal
         scaler.fit(mixObject.mixture)
         mixObject.transform(scaler.scale)
-        metadata['rms_scaler_gain'] = scaler.gain
-        scaler.__init__(scaler.active)
+        if scaler.active:
+            metadata['rms_scaler_gain'] = scaler.gain
 
         # apply filterbank
         mixObject.transform(filterbank.filt)
