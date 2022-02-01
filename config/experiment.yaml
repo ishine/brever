@@ -1,0 +1,2 @@
+MODEL: models/foo
+TEST_PATH: data/processed/test/foo

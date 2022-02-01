@@ -169,9 +169,9 @@ def main(args):
         background = (background**2).mean(axis=1)
 
         # convert to dB
-        mixture = 10*np.log10(mixture + np.nextafter(0, 1))
-        foreground = 10*np.log10(foreground + np.nextafter(0, 1))
-        background = 10*np.log10(background + np.nextafter(0, 1))
+        mixture = 10*np.log10(mixture + np.finfo(float).eps)
+        foreground = 10*np.log10(foreground + np.finfo(float).eps)
+        background = 10*np.log10(background + np.finfo(float).eps)
 
         # plot
         vars_ = [

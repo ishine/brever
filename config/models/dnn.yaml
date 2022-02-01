@@ -1,0 +1,33 @@
+ARCH: dnn
+BATCH_NORM:
+  MOMENTUM: 0.1
+  TOGGLE: false
+DROPOUT: 0.2  # 0.0 to disable
+HIDDEN_LAYERS: [1024, 1024]
+NORMALIZATION:
+  ONLINE: false
+  GROUP: false 
+FEATURES: !!set
+  # ild: null
+  # itd_ic: null
+  # logpdf: null
+  # logmfcc: null
+  # cubicmfcc: null
+  # pdf: null
+  # pdfcc: null
+  logfbe: null
+FILTERBANK:
+  FMIN: 50
+  FMAX: 8000
+  KIND: mel
+  FILTERS: 64
+  ORDER: 4
+FRAMER:
+  CENTER: false
+  FRAME_LENGTH: 512
+  HOP_LENGTH: 256
+  WINDOW: hann
+DECIMATION: 2
+DCT_COEFF: 0
+STACKS: 0
+SCALE_RMS: false

@@ -6,9 +6,9 @@ import brever.management as bm
 
 def main(args, **kwargs):
     if args.trained and args.untrained:
-        raise ValueError("can't use both --trained and --untrained")
+        raise ValueError('cannot use both --trained and --untrained')
     if args.tested and args.untested:
-        raise ValueError("can't use both --tested and --untested")
+        raise ValueError('cannot use both --tested and --untested')
 
     # first filtering of models
     pre_models = bm.find_model(**kwargs)

@@ -1,62 +1,18 @@
 import os
-import argparse
 import logging
 import time
-from glob import glob
-import sys
 
 import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 
-from brever.config import defaults
-import brever.data as bdata
-import brever.management as bm
+from brever.args import TrainingArgParser
+from brever.config import get_config
+from brever.data import DNNDataset, BreverBatchSampler, BreverDataLoader
 from brever.models import DNN
-from brever.training import EarlyStopping, ProgressTracker, evaluate
-
-
-def clear_logger():
-    logger = logging.getLogger()
-    for i in reversed(range(len(logger.handlers))):
-        logger.handlers[i].close()
-        logger.removeHandler(logger.handlers[i])
-
-
-def set_logger(output_dir):
-    logger = logging.getLogger()
-    logfile = os.path.join(output_dir, 'log.txt')
-    filehandler = logging.FileHandler(logfile, mode='w')
-    streamhandler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    )
-    filehandler.setFormatter(formatter)
-    streamhandler.setFormatter(formatter)
-    logger.addHandler(filehandler)
-    logger.addHandler(streamhandler)
-
-
-def check_overlapping_files(train_path, val_path):
-    train_info_path = os.path.join(train_path, 'mixture_info.json')
-    val_info_path = os.path.join(val_path, 'mixture_info.json')
-    train_info = bm.read_json(train_info_path)
-    val_info = bm.read_json(val_info_path)
-
-    train_targets = [x['target']['filename'] for x in train_info]
-    val_targets = [x['target']['filename'] for x in val_info]
-    if set(train_targets) & set(val_targets):
-        logging.warning('Training and validation speech materials are '
-                        'overlapping')
-
-    train_noises = [y['filename'] for x in train_info
-                    for y in x['directional']['sources']]
-    val_noises = [y['filename'] for x in val_info
-                  for y in x['directional']['sources']]
-    if set(train_noises) & set(val_noises):
-        logging.warning('Training and validation noise materials are '
-                        'overlapping')
+from brever.training import EarlyStopping, ConvergenceTracker, evaluate
+from brever.logger import set_logger
 
 
 def train(model, criterion, optimizer, dataloader, cuda):
@@ -64,7 +20,7 @@ def train(model, criterion, optimizer, dataloader, cuda):
     for data, target in dataloader:
         if cuda:
             data, target = data.cuda(), target.cuda()
-        data, target = data.float(), target.float()
+        # data, target = data.float(), target.float()
         optimizer.zero_grad()
         output = model(data)
         loss = criterion(output, target)
@@ -88,202 +44,128 @@ def plot_losses(train_losses, val_losses, output_dir):
     plt.close(fig)
 
 
-def main(model_dir, force, no_cuda):
-    logging.info(f'Processing {model_dir}')
+def main():
+    # initialize training config
+    train_cfg = get_config('config/training.yaml')
+    train_cfg.update_from_args(args, parser.arg_map)
+    train_id = train_cfg.get_hash()
 
-    # load config file
-    config = defaults()
-    config_file = os.path.join(model_dir, 'config.yaml')
-    config.update(bm.read_yaml(config_file))
+    # create training directory
+    if not os.path.exists(args.input):
+        raise FileNotFoundError(f'{args.input} does not exist')
+    train_dir = os.path.join(args.input, 'trainings', train_id)
+    if not os.path.exists(train_dir):
+        os.makedirs(train_dir)
 
-    # check if model is already trained using directory contents
-    loss_path = os.path.join(model_dir, 'losses.npz')
-    if os.path.exists(loss_path):
-        if not force:
-            logging.info('Model is already trained')
-            return
+    # check if training already exists
+    train_cfg_path = os.path.join(train_dir, 'config.yaml')
+    if os.path.exists(train_cfg_path) and not not args.force:
+        raise FileExistsError(f'training already done: {train_cfg_path}')
 
-    # set logger
-    clear_logger()
-    set_logger(model_dir)
+    # load model config
+    model_cfg_path = os.path.join(args.input, 'config.yaml')
+    model_cfg = get_config(model_cfg_path)
 
-    # print model info
-    logging.info(yaml.dump({
-        'POST': config.POST.to_dict(),
-        'MODEL': config.MODEL.to_dict(),
-    }))
-
-    # check that there are no overlapping files between train and val sets
-    logging.info('Checking if any material files are overlapping')
-    check_overlapping_files(config.POST.PATH.TRAIN, config.POST.PATH.VAL)
+    # initialize logger
+    log_file = os.path.join(train_dir, 'log.log')
+    set_logger(log_file)
+    logging.info(f'Training {args.input}')
+    logging.info(model_cfg.to_dict())
+    logging.info(train_cfg.to_dict())
 
     # seed for reproducibility
-    torch.manual_seed(config.MODEL.SEED)
+    torch.manual_seed(train_cfg.SEED)
 
-    # initialize datasets
-    logging.info('Initializing training dataset')
-    train_dataset = bdata.H5Dataset(
-        dirpath=config.POST.PATH.TRAIN,
-        features=config.POST.FEATURES,
-        labels=config.POST.LABELS,
-        load=config.POST.LOAD,
-        stack=config.POST.STACK,
-        decimation=config.POST.DECIMATION,
-        dct_toggle=config.POST.DCT.ON,
-        n_dct=config.POST.DCT.NCOEFF,
-        prestack=config.POST.PRESTACK,
-    )
-    logging.info('Initializing validation dataset')
-    val_dataset = bdata.H5Dataset(
-        dirpath=config.POST.PATH.VAL,
-        features=config.POST.FEATURES,
-        labels=config.POST.LABELS,
-        load=config.POST.LOAD,
-        stack=config.POST.STACK,
-        decimation=config.POST.DECIMATION,
-        dct_toggle=config.POST.DCT.ON,
-        n_dct=config.POST.DCT.NCOEFF,
-        prestack=config.POST.PRESTACK,
-    )
-    logging.info(f'Number of features: {train_dataset.n_features}')
-
-    # Recursive normalization is incompatible with shuffling and num_workers>0.
-    # Force no shuffling and num_workers=0.
-    num_workers = config.MODEL.NWORKERS
-    shuffle = config.MODEL.SHUFFLE
-    if config.POST.NORMALIZATION.TYPE == 'recursive' and num_workers > 0:
-        logging.warning('Recursive normalization incompatible with '
-                        'num_workers>0, forcing num_workers=0')
-        num_workers = 0
-    if config.POST.NORMALIZATION.TYPE == 'recursive' and shuffle:
-        logging.warning('Recursive normalization incompatible with '
-                        'shuffling, forcing no shuffling')
-        shuffle = False
-
-    # initialize dataloaders
-    logging.info('Initializing training dataloader')
-    train_dataloader = torch.utils.data.DataLoader(
-        dataset=train_dataset,
-        batch_size=config.MODEL.BATCHSIZE,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        drop_last=True,
-    )
-    logging.info('Initializing validation dataloader')
-    val_dataloader = torch.utils.data.DataLoader(
-        dataset=val_dataset,
-        batch_size=config.MODEL.BATCHSIZE,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        drop_last=True,
-    )
-
-    # set normalization transform
-    logging.info('Calculating mean and std')
-    if config.POST.NORMALIZATION.TYPE in ['global', 'recursive']:
-        mean, std = bdata.get_mean_and_std(
-            train_dataset,
-            train_dataloader,
-            config.POST.NORMALIZATION.UNIFORMFEATURES,
-        )
-        to_save = np.vstack((mean, std))
-        stat_path = os.path.join(model_dir, 'statistics.npy')
-        np.save(stat_path, to_save)
-        if config.POST.NORMALIZATION.TYPE == 'global':
-            train_dataset.transform = bdata.TensorStandardizer(mean, std)
-            val_dataset.transform = bdata.TensorStandardizer(mean, std)
-        elif config.POST.NORMALIZATION.TYPE == 'recursive':
-            train_dataset.transform = bdata.ResursiveTensorStandardizer(
-                mean=mean,
-                std=std,
-                momentum=config.POST.NORMALIZATION.RECURSIVEMOMENTUM,
-            )
-            val_dataset.transform = bdata.ResursiveTensorStandardizer(
-                mean=mean,
-                std=std,
-                momentum=config.POST.NORMALIZATION.RECURSIVEMOMENTUM,
-            )
-        else:
-            raise ValueError('This error should never happen')
-    elif config.POST.NORMALIZATION.TYPE == 'filebased':
-        train_means, train_stds = bdata.get_files_mean_and_std(
-            train_dataset,
-            config.POST.NORMALIZATION.UNIFORMFEATURES,
-        )
-        train_dataset.transform = bdata.StateTensorStandardizer(
-            train_means,
-            train_stds,
-        )
-        val_means, val_stds = bdata.get_files_mean_and_std(
-            val_dataset,
-            config.POST.NORMALIZATION.UNIFORMFEATURES,
-        )
-        val_dataset.transform = bdata.StateTensorStandardizer(
-            val_means,
-            val_stds,
+    # initialize dataset
+    logging.info('Initializing dataset')
+    if model_cfg.arch == 'dnn':
+        dataset = DNNDataset(
+            path=train_cfg.PATH,
+            features=model_cfg.FEATURES,
         )
     else:
-        raise ValueError('Unrecognized normalization strategy: '
-                         f'{config.POST.NORMALIZATION.TYPE}')
+        raise ValueError(f'wrong model architecture, got {model_cfg.arch}')
+
+    # train val split
+    self.train_dataset, self.val_dataset = torch.utils.data.random_split(
+        dataset, [train_length, val_length])
+
+    self.train_dataloader = torch.utils.data.DataLoader(
+        dataset=self.train_dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=workers,
+    )
+    self.val_dataloader = torch.utils.data.DataLoader(
+        dataset=self.val_dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=workers,
+    )
+
+    # initialize batch sampler
+    batch_sampler = BreverBatchSampler(
+        dataset=dataset,
+        batch_size=train_cfg.batch_size,
+    )
+
+    # initialize dataloaders
+    logging.info('Initializing dataloader')
+    dataloader = BreverDataLoader(
+        dataset=dataset,
+        batch_sampler=batch_sampler,
+        num_workers=train_cfg.WORKERS,
+    )
 
     # initialize network
-    model_args = {
-        'input_size': train_dataset.n_features,
-        'output_size': train_dataset.n_labels,
-        'n_layers': config.MODEL.NLAYERS,
-        'dropout_toggle': config.MODEL.DROPOUT.ON,
-        'dropout_rate': config.MODEL.DROPOUT.RATE,
-        'dropout_input': config.MODEL.DROPOUT.INPUT,
-        'batchnorm_toggle': config.MODEL.BATCHNORM.ON,
-        'batchnorm_momentum': config.MODEL.BATCHNORM.MOMENTUM,
-        'hidden_sizes': config.MODEL.HIDDENSIZES,
-    }
-    model = DNN(**model_args)
-    model_args_path = os.path.join(model_dir, 'model_args.yaml')
-    bm.dump_yaml(model_args, model_args_path)
-    if config.MODEL.CUDA and not no_cuda:
+    if model_cfg.arch == 'dnn':
+        model = DNN(
+            input_size=dataset.n_features,
+            output_size=dataset.n_labels,
+            hidden_layers=model_cfg.HIDDEN_LAYERS,
+            dropout=model_cfg.DROPOUT,
+            batchnorm=model_cfg.BATCH_NORM.TOGGLE,
+            batchnorm_momentum=model_cfg.BATCH_NORM.MOMENTUM,
+        )
+    else:
+        raise ValueError(f'wrong model architecture, got {model_cfg.arch}')
+
+    # cast to cuda
+    if train_cfg.CUDA:
         model = model.cuda()
 
     # initialize criterion and optimizer
-    criterion = getattr(torch.nn, config.MODEL.CRITERION)()
-    optimizer = getattr(torch.optim, config.MODEL.OPTIMIZER)(
+    criterion = getattr(torch.nn, train_cfg.CRITERION)()
+    optimizer = getattr(torch.optim, train_cfg.OPTIMIZER)(
         params=model.parameters(),
-        lr=config.MODEL.LEARNINGRATE,
-        weight_decay=config.MODEL.WEIGHTDECAY,
+        lr=train_cfg.LEARNING_RATE,
+        weight_decay=train_cfg.WEIGHT_DECAY,
     )
 
     # initialize early stopper
     earlyStop = EarlyStopping(
-        patience=config.MODEL.EARLYSTOP.PATIENCE,
-        verbose=config.MODEL.EARLYSTOP.VERBOSE,
-        delta=config.MODEL.EARLYSTOP.DELTA,
+        patience=train_cfg.EARLY_STOP.PATIENCE,
     )
 
-    # initialize progress tracker
-    progressTracker = ProgressTracker(
-        strip=config.MODEL.PROGRESS.STRIP,
-        threshold=config.MODEL.PROGRESS.THRESHOLD,
+    # initialize convergence tracker
+    progressTracker = ConvergenceTracker(
+        window=train_cfg.CONVERGENCE.WINDOW,
+        threshold=train_cfg.CONVERGENCE.THRESHOLD,
     )
 
     # main loop
-    logging.info('Starting main loop')
+    logging.info('Starting training loop')
     train_losses = []
     val_losses = []
     total_time = 0
     start_time = time.time()
-    for epoch in range(config.MODEL.EPOCHS):
+    for epoch in range(train_cfg.EPOCHS):
         # evaluate
-        train_loss = evaluate(
+        loss = evaluate(
             model=model,
             criterion=criterion,
-            dataloader=train_dataloader,
-            cuda=config.MODEL.CUDA and not no_cuda,
-        )
-        val_loss = evaluate(
-            model=model,
-            criterion=criterion,
-            dataloader=val_dataloader,
-            cuda=config.MODEL.CUDA and not no_cuda,
+            dataloader=dataloader,
+            cuda=train_cfg.CUDA,
         )
 
         # log and store errors
@@ -321,8 +203,8 @@ def main(model_dir, force, no_cuda):
                 logging.info('Train loss has converged')
                 break
         else:
-            raise ValueError("Can't have both early stopping and progress "
-                             "criterion")
+            raise ValueError('cannot have both early stopping and progress '
+                             'criterion')
 
         # update time spent
         total_time = time.time() - start_time
@@ -342,29 +224,12 @@ def main(model_dir, force, no_cuda):
     full_config_file = os.path.join(model_dir, 'config_full.yaml')
     bm.dump_yaml(config.to_dict(), full_config_file)
 
-    # close log file handler
-    clear_logger()
-
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='train a model')
-    parser.add_argument('input', nargs='+',
-                        help='input model directories')
+    parser = TrainingArgParser(description='train a model')
+    parser.add_argument('input',
+                        help='model directory')
     parser.add_argument('-f', '--force', action='store_true',
                         help='train even if already trained')
-    parser.add_argument('--no-cuda', action='store_true',
-                        help='force training on cpu')
     args = parser.parse_args()
-
-    logging.basicConfig(
-        level=logging.INFO,
-        stream=sys.stdout,
-    )
-
-    model_dirs = []
-    for input_ in args.input:
-        if not glob(input_):
-            logging.info(f'Model not found: {input_}')
-        model_dirs += glob(input_)
-    for model_dir in model_dirs:
-        main(model_dir, args.force, args.no_cuda)
+    main()

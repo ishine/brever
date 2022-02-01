@@ -1,74 +1,91 @@
+import hashlib
+
 import yaml
-import os
 
 
-class AttrDict:
-    '''
-    Immutable class initialized from a dictionary and implementing attribute
-    access.
-    '''
+class BreverConfig:
     def __init__(self, dict_):
         for key, value in dict_.items():
             if isinstance(value, dict):
-                object.__setattr__(self, key, AttrDict(value))
+                super().__setattr__(key, BreverConfig(value))
             else:
-                object.__setattr__(self, key, value)
+                super().__setattr__(key, value)
 
     def __setattr__(self, attr, value):
         class_name = self.__class__.__name__
-        raise AttributeError(f'{class_name} is an immutable class')
-
-    def update(self, dict_):
-        '''
-        Attributes can only be modified via the update method, which takes as
-        only argument a dictionary that is valid i.e. that respects the
-        attribute hierarchy of the instance and the attribute types.
-        '''
-        if dict_ is None:
-            return
-        for key, value in dict_.items():
-            if key not in self.__dict__:
-                class_name = self.__class__.__name__
-                raise AttributeError(
-                    f'{class_name} instance has no attribute {key}'
-                )
-            elif isinstance(self.__getattribute__(key), AttrDict):
-                '''
-                If the instance attribute is a nested AttrDict, then the value
-                in the input dictionary must be a nested dictionary.
-                '''
-                if not isinstance(value, dict):
-                    in_type = value.__class__.__name__
-                    raise TypeError(
-                        f'field {key} must have type dict, got {in_type}'
-                    )
-                self.__getattribute__(key).update(value)
-            else:
-                if self.__getattribute__(key).__class__ != value.__class__:
-                    at_type = self.__getattribute__(key).__class__.__name__
-                    in_type = value.__class__.__name__
-                    raise TypeError(
-                        f'field {key} must have type {at_type}, got {in_type}'
-                    )
-                else:
-                    object.__setattr__(self, key, value)
+        raise AttributeError(f'{class_name} objects are immutable')
 
     def to_dict(self):
         dict_ = {}
         for key, value in self.__dict__.items():
-            if value.__class__ == self.__class__:
+            if isinstance(value, BreverConfig):
                 dict_[key] = value.to_dict()
             else:
                 dict_[key] = value
         return dict_
 
+    def get_hash(self, length=8):
 
-def defaults():
-    with open('defaults.yaml') as f:
-        dict_ = yaml.safe_load(f)
-    config = AttrDict(dict_)
-    user_defaults_path = 'defaults_user.yaml'
-    if os.path.exists(user_defaults_path):
-        with open(user_defaults_path) as f:
-            config.update(yaml.safe_load(f))
+        def sorted_dict(input_dict):
+            output_dict = {}
+            for key, value in sorted(input_dict.items()):
+                if isinstance(value, dict):
+                    output_dict[key] = sorted_dict(value)
+                elif isinstance(value, set):
+                    output_dict[key] = sorted(value)
+                else:
+                    output_dict[key] = value
+            return output_dict
+
+        dict_ = self.to_dict()
+        dict_ = sorted_dict(dict_)
+        str_ = str(dict_.items())
+        hash_ = hashlib.sha256(str_.encode()).hexdigest()
+        return hash_[:length]
+
+    def get_field(self, key_list):
+        attr = getattr(self, key_list[0])
+        if len(key_list) == 1:
+            return attr
+        else:
+            return attr.get_field(key_list[1:])
+
+    def set_field(self, key_list, value):
+        if len(key_list) == 1:
+            key = key_list[0]
+            attr = getattr(self, key)
+            if not isinstance(value, type(attr)):
+                type_a = attr.__class__.__name__
+                type_v = value.__class__.__name__
+                msg = f'attribute {key} must be {type_a}, got {type_v}'
+                raise TypeError(msg)
+            super().__setattr__(key, value)
+        else:
+            config = self.get_field(key_list[:-1])
+            config.set_field(key_list[-1:], value)
+
+    def update_from_args(self, args, arg_map):
+        for arg_name, key_list in arg_map.items():
+            value = getattr(args, arg_name)
+            if value is not None:
+                self.set_field(key_list, value)
+
+    def update_from_dict(self, dict_, parent_keys=[]):
+
+        def flatten_dict(dict_, parent_keys=[]):
+            for key, value in dict_.items():
+                key_list = parent_keys + [key]
+                if isinstance(value, dict):
+                    yield from flatten_dict(value, key_list)
+                else:
+                    yield key_list, value
+
+        for key_list, value in flatten_dict(dict_):
+            self.set_field(key_list, value)
+
+
+def get_config(path):
+    with open(path) as f:
+        config_dict = yaml.safe_load(f)
+    config = BreverConfig(config_dict)
     return config

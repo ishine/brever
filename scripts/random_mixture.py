@@ -52,22 +52,12 @@ def main():
         filelims_room=config.PRE.MIX.FILELIMITS.ROOM,
         decay_on=config.PRE.MIX.DECAY.ON,
         decay_color=config.PRE.MIX.DECAY.COLOR,
-        decay_rt60s=np.arange(
-            config.PRE.MIX.RANDOM.DECAY.RT60.MIN,
-            config.PRE.MIX.RANDOM.DECAY.RT60.MAX
-            + config.PRE.MIX.RANDOM.DECAY.RT60.STEP,
-            config.PRE.MIX.RANDOM.DECAY.RT60.STEP,
-            dtype=float,
-        ),
-        decay_drr_dist_name=config.PRE.MIX.RANDOM.DECAY.DRR.DISTNAME,
-        decay_drr_dist_args=config.PRE.MIX.RANDOM.DECAY.DRR.DISTARGS,
-        decay_delays=np.arange(
-            config.PRE.MIX.RANDOM.DECAY.DELAY.MIN,
-            config.PRE.MIX.RANDOM.DECAY.DELAY.MAX
-            + config.PRE.MIX.RANDOM.DECAY.DELAY.STEP,
-            config.PRE.MIX.RANDOM.DECAY.DELAY.STEP,
-            dtype=float,
-        ),
+        decay_rt60_dist_name=config.DATASET.DECAY.RT60.DISTNAME,
+        decay_rt60_dist_args=config.DATASET.DECAY.RT60.DISTARGS,
+        decay_drr_dist_name=config.DATASET.DECAY.DRR.DISTNAME,
+        decay_drr_dist_args=config.DATASET.DECAY.DRR.DISTARGS,
+        decay_delay_dist_name=config.DATASET.DECAY.DELAY.DISTNAME,
+        decay_delay_dist_args=config.DATASET.DECAY.DELAY.DISTARGS,
         seed_on=config.PRE.SEED.ON,
         seed_value=config.PRE.SEED.VALUE,
         uniform_tmr=config.PRE.MIX.RANDOM.UNIFORMTMR,
@@ -121,7 +111,7 @@ def main():
         X = (x_framed**2).mean(axis=1)
 
         # convert to dB
-        X_dB = 10*np.log10(X + np.nextafter(0, 1))
+        X_dB = 10*np.log10(X + np.finfo(float).eps)
 
         # plot spectrogram
         bplot.plot_spectrogram(

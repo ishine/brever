@@ -4,4 +4,3 @@ __pycache__/
 /models
 brever.egg-info/
 /jobs/logs/
-/defaults_user.yaml

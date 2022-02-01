@@ -45,8 +45,9 @@ class Encoder(nn.Module):
 
     def pad(self, x):
         batch_size, length = x.shape
+        # pad to obtain integer number of frames
         padding = (self.filter_length - length) % self.stride
-        x = F.pad(x, (0, padding))
+        x = F.pad(x, (0, padding))  # pad left or right matters little here
         return x
 
     def forward(self, x):
@@ -192,7 +193,7 @@ class Conv1DBlock(nn.Module):
         out = self.norm_1(out)
         # pad to ensure residual has same size as input
         padding = (self.kernel_size - 1) * self.dilation
-        out = F.pad(out, (padding, 0))
+        out = F.pad(out, (padding, 0))  # pad left to ensure causality!
         # depthwise convolution
         out = self.d_conv(out)
         out = self.prelu_2(out)

@@ -161,7 +161,7 @@ def barplot(datas, ax, xticklabels=None, errs=None, ylabel=None, labels=None,
         raise ValueError('barplot input must be a numpy array or a list of '
                          'numpy arrays')
     if len(datas) == 0:
-        raise ValueError("Can't barplot empty data")
+        raise ValueError('cannot barplot empty data')
     for i, data in enumerate(datas):
         if not isinstance(data, np.ndarray):
             raise ValueError('barplot input must be a numpy array or a list '

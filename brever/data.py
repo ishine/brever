@@ -1,13 +1,19 @@
-import os
+import json
 import logging
+import os
 import pickle
+import random
 
 import numpy as np
 import torch
+import torch.nn.functional as F
+import torchaudio
 import h5py
 
+from .features import FeatureExtractor
+from .labels import irm
 from .utils import dct
-from .management import read_json
+from .tf import Filterbank
 
 
 def get_mean_and_std(dataset, dataloader, uniform_stats_features):
@@ -189,7 +195,7 @@ class H5Dataset(torch.utils.data.Dataset):
     def transform(self, value):
         if self._transformed_when_prestacked:
             raise ValueError(
-                'Cannot set transform attribute anymore as the dataset was '
+                'cannot set transform attribute anymore as the dataset was '
                 'already prestacked using the current transform object.'
             )
         self._transform = value
@@ -310,3 +316,207 @@ class H5Dataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.n_samples
+
+
+class AudioDataset(torch.utils.data.Dataset):
+    """
+    Reads mixtures from a created dataset. Mixtures can be loaded as segments
+    of fixed length or entirely by setting segment_length=-1. When a fixed
+    segment is used, the last samples in each mixture are dropped.
+    """
+    def __init__(self, path, segment_length=-1, overlap_length=0,
+                 components=['foreground', 'background']):
+        self.path = path
+        self.segment_length = segment_length
+        self.overlap_length = overlap_length
+        self.components = components
+        self.segment_info = self.get_segments()
+
+    def build_paths(self, mix_idx):
+        mix_dir = os.path.join(self.path, 'audio')
+        mix_path = os.path.join(mix_dir, f'{mix_idx:05d}_mixture.wav')
+        comp_paths = []
+        for component in self.components:
+            comp_path = os.path.join(mix_dir, f'{mix_idx:05d}_{component}.wav')
+            comp_paths.append(comp_path)
+        return mix_path, comp_paths
+
+    def get_segments(self):
+        mix_lengths = self.get_mix_lengths()
+        segment_info = []
+        if self.segment_length == -1:
+            for mix_idx, mix_length in enumerate(mix_lengths):
+                segment_info.append((mix_idx, (0, mix_length)))
+        else:
+            hop_length = self.segment_length - self.overlap_length
+            for mix_idx, mix_length in enumerate(mix_lengths):
+                n_segments = (mix_length - self.segment_length)//hop_length + 1
+                for segment_idx in range(n_segments):
+                    start = segment_idx*hop_length
+                    end = start + self.segment_length
+                    segment_info.append((mix_idx, (start, end)))
+        return segment_info
+
+    def get_mix_lengths(self):
+        json_path = os.path.join(self.path, 'mixture_info.json')
+        with open(json_path) as f:
+            json_data = json.load(f)
+        n_mix = len(json_data)
+        mix_lengths = []
+        for i in range(n_mix):
+            mix_path, comp_paths = self.build_paths(i)
+            mix_metadata = torchaudio.info(mix_path)
+            mix_length = mix_metadata.num_frames
+            for comp_path in comp_paths:
+                comp_metadata = torchaudio.info(comp_path)
+                comp_length = comp_metadata.num_frames
+                assert mix_length == comp_length
+            mix_lengths.append(mix_length)
+        return mix_lengths
+
+    def __getitem__(self, index):
+        if not 0 <= index < len(self):
+            raise IndexError
+        mix_idx, (start, end) = self.segment_info[index]
+        mix_path, comp_paths = self.build_paths(mix_idx)
+        mix, _ = torchaudio.load(mix_path)
+        mix = mix[:, start:end]
+        components = []
+        for comp_path in comp_paths:
+            component, _ = torchaudio.load(comp_path)
+            component = component[:, start:end]
+            components.append(component)
+        return mix, torch.stack(components)
+
+    def __len__(self):
+        return len(self.segment_info)
+
+    @property
+    def item_lengths(self):
+        return [end-start for _, (start, end) in self.segment_info]
+
+
+class BreverBatchSampler(torch.utils.data.Sampler):
+    """
+    Batch sampler that minimizes the amount of padding required to collate
+    mixtures of different length. This is done by sorting the mixtures by
+    length. So within a batch the order is deterministic, but batches can
+    be shuffled. The dataset must have an item_lengths attribute containing
+    the list of each item length such that the batch list can be created
+    without manually iterating across the dataset.
+    """
+    def __init__(self, dataset, batch_size, drop_last=False, shuffle=True):
+        self.dataset = dataset
+        self.batch_size = batch_size
+        self.drop_last = drop_last
+        self.shuffle = shuffle
+        self.batches = self.generate_batches()
+
+    def generate_batches(self):
+        lengths = enumerate(self.dataset.item_lengths)
+        lengths = sorted(lengths, key=lambda x: x[1])
+        batch_list = []
+        batch = []
+        for idx, length in lengths:
+            batch.append(idx)
+            if len(batch) == self.batch_size:
+                batch_list.append(batch)
+                batch = []
+        if len(batch) > 0 and not self.drop_last:
+            batch_list.append(batch)
+        return batch_list
+
+    def __iter__(self):
+        if self.shuffle:
+            random.shuffle(self.batches)
+        for i in self.batches:
+            yield i
+
+    def __len__(self):
+        return len(self.batches)
+
+
+class BreverDataLoader(torch.utils.data.DataLoader):
+    """
+    Implements the collating function to form batches from mixtures of
+    different length.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.collate_fn = self._collate_fn
+
+    def _collate_fn(self, batch):
+        max_length = max(x.shape[-1] for x, _ in batch)
+        batch_x, batch_y = [], []
+        for x, y in batch:
+            batch_x.append(F.pad(x, (0, max_length - x.shape[-1])))
+            batch_y.append(F.pad(y, (0, max_length - y.shape[-1])))
+        return torch.stack(batch_x), torch.stack(batch_y)
+
+
+class DNNDataset(torch.utils.data.Dataset):
+    def __init__(
+        self,
+        path,
+        features,
+        audio_dataset_kwargs={},
+        framer_kwargs={},
+        filterbank_kwargs={},
+    ):
+        self._dataset = AudioDataset(
+            path=path,
+            components=['foreground', 'background'],
+            **audio_dataset_kwargs,
+        )
+        self.feature_extractor = FeatureExtractor(features)
+        self.framer = Framer(**framer_kwargs)
+        self.filterbank = Filterbank(**filterbank_kwargs)
+
+    def __getitem__(self, index):
+        mix, components = self._dataset[index]
+        data = torch.stack([mix, *components])  # (sources, channels, time)
+        data = self.framer(data)  # (sources, channels, frames, samples)
+        data = self.filterbank(data)  # (filters, sources, channels, ...)
+        mix = data[:, 0, :, :, :]
+        foreground = data[:, 1, :, :, :]
+        background = data[:, 2, :, :, :]
+        data = self.feature_extractor(data)  # (features, frames)
+        label = irm(foreground, background)  # (labels, frames)
+        return torch.from_numpy(data), torch.from_numpy(label)
+
+    def __len__(self):
+        return len(self._dataset)
+
+    @property
+    def item_lengths(self):
+        return [self.framer.count(x) for x in self._dataset.item_lengths]
+
+    @property
+    def n_features(self):
+        data, _ = self[0]
+        return data.shape[0]
+
+    @property
+    def n_labels(self):
+        _, label = self[0]
+        return label.shape[0]
+
+
+class Framer:
+    def __init__(self, frame_length=120, hop_length=120, pad=True):
+        self.frame_length = frame_length
+        self.hop_length = hop_length
+        self.pad = pad
+
+    def __call__(self, x):
+        if self.pad:
+            padding = (self.frame_length - len(x)) % self.hop_length
+            x = F.pad(x, (0, padding))
+        return x.unfold(-1, size=self.frame_length, step=self.hop_length)
+
+    def count(self, length):
+
+        def ceil(a, b):
+            return -(a//-b)
+
+        return ceil(length - self.frame_length, self.hop_length) + 1

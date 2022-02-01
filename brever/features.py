@@ -1,13 +1,12 @@
-import inspect
-
 import numpy as np
-import scipy.fftpack
+import scipy.fft
 
-from .utils import standardize, frame
-from .tf import filt
+from .utils import standardize, pad
+
+eps = np.finfo(float).eps
 
 
-def ccf(x, y, method='convolve', max_lag=40, negative_lags=False, axis=0,
+def ccf(x, y, method='fft', max_lag=16, negative_lags=True, axis=-1,
         normalize=True):
     """
     Cross-correlation function.
@@ -22,30 +21,27 @@ def ccf(x, y, method='convolve', max_lag=40, negative_lags=False, axis=0,
     y : array_like
         Second time series.
     method : {'convolve', 'fft'}, optional
-        Calculation method. Default is `'convolve'`.
-        ``convolve``
-            The cross-correlation is calculated as usually done in time series
-            analysis, i.e. purely in time domain by summation of products up to
-            lag `max_lag`. This implementation matches the equivalent function
-            in R. Currently only supports one-dimensional inputs.
+        Calculation method. Default is `'fft'`.
         ``fft``
             The calculation is done by multiplication in the frequency domain.
-            The inputs should have same length and ideally a power of two.
-            Supports multidimensional input.
+            The inputs should have same shape. Supports multidimensional input.
+        ``convolve``
+            The cross-correlation is in time series analysis, i.e. purely in
+            time domain by summation of products up to lag `max_lag`. This
+            implementation matches the equivalent function in R. Currently
+            only supports one-dimensional inputs.
     max_lag : int, optional
-        Maximum lag up to which to compute the cross-correlation for. Default
-        is 40.
+        Maximum lag the cross-correlation is calculated for. Default is 16.
     negative_lags : bool, optional
-        If `True`, negative lags are also calculated i.e. `y` is also delayed.
-        Default is `False`.
+        If `True`, negative lags are also calculated, i.e. `y` is also delayed.
+        Default is `True`.
     axis : int, optional
-        Axis along which to compute the cross-correlation. Currently not
-        supported together with `'convolve'` method. Default is 0.
+        Axis along which to compute the cross-correlation. Default is -1.
     normalize : bool, optional
         If `True`, the inputs are standardized before convolving. This
         ensures the output values lie between -1 and 1, and thus a true
-        cross-correlation function is calculated. If `False`, the output ends
-        up being the cross-covariance function instead. Default is `True`.
+        cross-correlation function is calculated. If `False`, the output is
+        instead the cross-covariance function. Default is `True`.
 
     Returns
     -------
@@ -93,640 +89,210 @@ def ccf(x, y, method='convolve', max_lag=40, negative_lags=False, axis=0,
     return CCF, lags
 
 
-def ild(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
+def ild(x, time_axis=-1, channel_axis=-3):
     """
     Interaural level difference.
 
-    Calculates the interaural level difference in each time-frequency unit.
+    Calculates the interaural level difference between two channels.
 
     Parameters
     ----------
     x : array_like
         Input signal.
-    filtered : bool, optional
-        If `True`, the input signal `x` is assumed to be already filtered. It
-        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
-        filtered using `~filters.filt` before calculation and should have
-        shape `(n_samples, 2)`. Default is False.
-    filt_kwargs : dict or None, optional
-        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
-        is `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    framed : bool, optional
-        If `True`, the input signal `x` is assumed to be already framed. It
-        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
-        the input is framed before calculation and should have shape
-        `(n_samples, n_filters, 2)`. Default is False.
-    frame_kwargs : dict or None, optional
-        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
-        `False`. Default is `None`, which means no keyword arguments are
-        passed.
+    time_axis: int, optional
+        Time axis in input array. Default is -1.
+    channel_axis : int, optional
+        Channel axis in input array. The size of `x` along `axis` must be 2.
+        Default is -3.
 
     Returns
     -------
     ild : array_like
-        Interaural level difference. Shape `(n_frames, n_filters)`
+        Interaural level difference.
     """
-    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-    energy = np.sum(x**2, axis=1) + np.nextafter(0, 1)
-    return 10*np.log10(energy[:, :, 1]/energy[:, :, 0])
+    assert x.shape[channel_axis] == 2
+    energy = np.sum(x**2, axis=time_axis, keepdims=True) + eps
+    left = np.take(energy, [0], axis=channel_axis)
+    right = np.take(energy, [1], axis=channel_axis)
+    ild = 10*np.log10(left/right)
+    return ild.squeeze(axis=(time_axis, channel_axis))
 
 
-def itd(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
+def itd(x, time_axis=-1, channel_axis=-3):
     """
     Interaural time difference.
 
-    Calculates the interaural time difference in each time-frequency unit.
+    Calculates the interaural time difference between two channels.
 
     Parameters
     ----------
     x : array_like
         Input signal.
-    filtered : bool, optional
-        If `True`, the input signal `x` is assumed to be already filtered. It
-        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
-        filtered using `~filters.filt` before calculation and should have
-        shape `(n_samples, 2)`. Default is False.
-    filt_kwargs : dict or None, optional
-        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
-        is `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    framed : bool, optional
-        If `True`, the input signal `x` is assumed to be already framed. It
-        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
-        the input is framed before calculation and should have shape
-        `(n_samples, n_filters, 2)`. Default is False.
-    frame_kwargs : dict or None, optional
-        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
-        `False`. Default is `None`, which means no keyword arguments are
-        passed.
+    time_axis: int, optional
+        Time axis in input array. Default is -1.
+    channel_axis : int, optional
+        Channel axis in input array. The size of `x` along `axis` must be 2.
+        Default is -3.
 
     Returns
     -------
     itd : array_like
-        Interaural time difference. Shape `(n_frames, n_filters)`
+        Interaural time difference.
     """
-    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-    CCF, lags = ccf(x[:, :, :, 1], x[:, :, :, 0], max_lag=16,
-                    negative_lags=True, method='fft', axis=1, normalize=True)
-    return lags[CCF.argmax(axis=1)]
+    assert x.shape[channel_axis] == 2
+    left = np.take(x, [0], axis=channel_axis)
+    right = np.take(x, [1], axis=channel_axis)
+    CCF, lags = ccf(left, right, axis=time_axis)
+    itd = lags[CCF.argmax(axis=time_axis, keepdims=True)]
+    return itd.squeeze(axis=(time_axis, channel_axis))
 
 
-def ic(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None):
+def ic(x, time_axis=-1, channel_axis=-3):
     """
     Interaural coherence.
 
-    Calculates the interaural coherence difference in each time-frequency unit.
+    Calculates the interaural coherence between two channels.
 
     Parameters
     ----------
     x : array_like
         Input signal.
-    filtered : bool, optional
-        If `True`, the input signal `x` is assumed to be already filtered. It
-        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
-        filtered using `~filters.filt` before calculation and should have
-        shape `(n_samples, 2)`. Default is False.
-    filt_kwargs : dict or None, optional
-        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
-        is `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    framed : bool, optional
-        If `True`, the input signal `x` is assumed to be already framed. It
-        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
-        the input is framed before calculation and should have shape
-        `(n_samples, n_filters, 2)`. Default is False.
-    frame_kwargs : dict or None, optional
-        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
-        `False`. Default is `None`, which means no keyword arguments are
-        passed.
+    time_axis: int, optional
+        Time axis in input array. Default is -1.
+    channel_axis : int, optional
+        Channel axis in input array. The size of `x` along `axis` must be 2.
+        Default is -3.
 
     Returns
     -------
     ic : array_like
-        Interaural coherence. Shape `(n_frames, n_filters)`
+        Interaural coherence.
     """
-    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-    CCF, lags = ccf(x[:, :, :, 1], x[:, :, :, 0], max_lag=16,
-                    negative_lags=True, method='fft', axis=1, normalize=True)
-    return CCF.max(axis=1)
+    assert x.shape[channel_axis] == 2
+    left = np.take(x, [0], axis=channel_axis)
+    right = np.take(x, [1], axis=channel_axis)
+    CCF, lags = ccf(left, right, axis=time_axis)
+    ic = CCF.max(axis=time_axis, keepdims=True)
+    return ic.squeeze(axis=(time_axis, channel_axis))
 
 
-def itd_ic(x, filtered=False, filt_kwargs=None, framed=False,
-           frame_kwargs=None):
-    """
-    Interaural level difference and interaural coherence.
-
-    Calculates both the interaural level difference and the interaural
-    coherence. Calculating these together speeds up the dataset generation
-    since they both use the cross-correlation function.
-
-    Parameters
-    ----------
-    x : array_like
-        Input signal.
-    filtered : bool, optional
-        If `True`, the input signal `x` is assumed to be already filtered. It
-        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
-        filtered using `~filters.filt` before calculation and should have
-        shape `(n_samples, 2)`. Default is False.
-    filt_kwargs : dict or None, optional
-        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
-        is `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    framed : bool, optional
-        If `True`, the input signal `x` is assumed to be already framed. It
-        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
-        the input is framed before calculation and should have shape
-        `(n_samples, n_filters, 2)`. Default is False.
-    frame_kwargs : dict or None, optional
-        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
-        `False`. Default is `None`, which means no keyword arguments are
-        passed.
-
-    Returns
-    -------
-    itd-ic : array_like
-        Interaural time difference and interaural coherence stacked together.
-        Shape `(n_frames, n_filters*2)`.
-    """
-    x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-    CCF, lags = ccf(x[:, :, :, 1], x[:, :, :, 0], max_lag=16,
-                    negative_lags=True, method='fft', axis=1, normalize=True)
-    ITD = lags[CCF.argmax(axis=1)]
-    IC = CCF.max(axis=1)
-    return np.hstack((ITD, IC))
-
-
-def logmfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
-            filt_kwargs=None, framed=False, frame_kwargs=None, energy=None):
-    """
-    Mel-frequency cepstral coefficients.
-
-    Calculates the mel-frequency cepstral coefficients (MFCC). DC term is not
-    returned. Deltas and double deltas are also returned. Uses logarithmic
-    compression.
-
-    Parameters
-    ----------
-    x : array_like
-        Input signal.
-    n_mfcc : int, optional
-        Number of MFCCs to return, DC term not included. Default is 13.
-    dct_type : {1, 2, 3, 4}, optional
-        Type of the discrete cosine transform (DCT). See the `np.fft.dct`
-        documentation. Default is 2.
-    norm : {'backward', 'ortho', 'forward'}, optional
-        Normalization mode of the discrete cosine transform (DCT). See the
-        `np.fft.dct` documentation. Default is `'ortho'`.
-    filtered : bool, optional
-        If `True`, the input signal `x` is assumed to be already filtered. It
-        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
-        filtered using `~filters.filt` before calculation and should have
-        shape `(n_samples, 2)`. Default is False.
-    filt_kwargs : dict or None, optional
-        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
-        is `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    framed : bool, optional
-        If `True`, the input signal `x` is assumed to be already framed. It
-        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
-        the input is framed before calculation and should have shape
-        `(n_samples, n_filters, 2)`. Default is False.
-    frame_kwargs : dict or None, optional
-        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
-        `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    energy : array_like
-        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
-        Default is None.
-
-    Returns
-    -------
-    mfcc : array_like
-        Mel-frequency cepstral coefficients. Shape `(n_frames, n_mfcc*3)`.
-    """
-    if energy is None:
-        x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-        x = x.mean(axis=-1)  # average channels
-        energy = x**2  # get energy
-        energy = energy.mean(axis=1)  # average each frame
-    energy_comp = np.log(energy + np.nextafter(0, 1))
-    mfcc = scipy.fftpack.dct(energy_comp, axis=1, type=dct_type, norm=norm)
-    mfcc = mfcc[:, 1:n_mfcc+1]
-    dmfcc = np.diff(mfcc, axis=0, prepend=mfcc[0, None])
-    ddmfcc = np.diff(dmfcc, axis=0, prepend=dmfcc[0, None])
-    return np.hstack((mfcc, dmfcc, ddmfcc))
-
-
-def cubicmfcc(x, n_mfcc=13, dct_type=2, norm='ortho', filtered=False,
-              filt_kwargs=None, framed=False, frame_kwargs=None,
-              energy=None):
-    """
-    Mel-frequency cepstral coefficients.
-
-    Calculates the mel-frequency cepstral coefficients (MFCC). DC term is not
-    returned. Deltas and double deltas are also returned. Uses cubic
-    compression.
-
-    Parameters
-    ----------
-    x : array_like
-        Input signal.
-    n_mfcc : int, optional
-        Number of MFCCs to return, DC term not included. Default is 13.
-    dct_type : {1, 2, 3, 4}, optional
-        Type of the discrete cosine transform (DCT). See the `np.fft.dct`
-        documentation. Default is 2.
-    norm : {'backward', 'ortho', 'forward'}, optional
-        Normalization mode of the discrete cosine transform (DCT). See the
-        `np.fft.dct` documentation. Default is `'ortho'`.
-    filtered : bool, optional
-        If `True`, the input signal `x` is assumed to be already filtered. It
-        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
-        filtered using `~filters.filt` before calculation and should have
-        shape `(n_samples, 2)`. Default is False.
-    filt_kwargs : dict or None, optional
-        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
-        is `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    framed : bool, optional
-        If `True`, the input signal `x` is assumed to be already framed. It
-        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
-        the input is framed before calculation and should have shape
-        `(n_samples, n_filters, 2)`. Default is False.
-    frame_kwargs : dict or None, optional
-        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
-        `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    energy : array_like
-        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
-        Default is None.
-
-    Returns
-    -------
-    mfcc : array_like
-        Mel-frequency cepstral coefficients. Shape `(n_frames, n_mfcc*3)`.
-    """
-    if energy is None:
-        x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-        x = x.mean(axis=-1)  # average channels
-        energy = x**2  # get energy
-        energy = energy.mean(axis=1)  # average each frame
-    energy_comp = energy**(1/3)
-    mfcc = scipy.fftpack.dct(energy_comp, axis=1, type=dct_type, norm=norm)
-    mfcc = mfcc[:, 1:n_mfcc+1]
-    dmfcc = np.diff(mfcc, axis=0, prepend=mfcc[0, None])
-    ddmfcc = np.diff(dmfcc, axis=0, prepend=dmfcc[0, None])
-    return np.hstack((mfcc, dmfcc, ddmfcc))
-
-
-def pdf(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None,
-        log=False, energy=None):
-    """
-    Probability density function estimate.
-
-    Calculates the probability density function estimate (PDF) in each
-    time-frequency unit.
-
-    Parameters
-    ----------
-    x : array_like
-        Input signal.
-    filtered : bool, optional
-        If `True`, the input signal `x` is assumed to be already filtered. It
-        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
-        filtered using `~filters.filt` before calculation and should have
-        shape `(n_samples, 2)`. Default is False.
-    filt_kwargs : dict or None, optional
-        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
-        is `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    framed : bool, optional
-        If `True`, the input signal `x` is assumed to be already framed. It
-        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
-        the input is framed before calculation and should have shape
-        `(n_samples, n_filters, 2)`. Default is False.
-    frame_kwargs : dict or None, optional
-        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
-        `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    log : bool, optional
-        If `True`, logarithmic compression is applied to the output. Default is
-        `False`.
-    energy : array_like
-        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
-        Default is None.
-
-    Returns
-    -------
-    pdf : array_like
-        Probability density function estimate. Shape `(n_frames, n_filters)`.
-    """
-    if energy is None:
-        x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-        x = x.mean(axis=-1)  # average channels
-        energy = x**2  # get energy
-        energy = energy.mean(axis=1)  # average each frame
-    total_energy = energy.sum(axis=1, keepdims=True)  # energy across bands
-    pdf = energy/(total_energy + np.nextafter(0, 1))  # normalization
-    if log:
-        pdf = np.log(pdf + np.nextafter(0, 1))
-    return pdf
-
-
-def pdfcc(x, n_pdfcc=13, dct_type=2, norm='ortho', filtered=False,
-          filt_kwargs=None, framed=False, frame_kwargs=None,
-          energy=None):
-    """
-    DCT-compressed PDF feature
-
-    Calculates a DCT-compressed version the PDF feature. It is calculated
-    exactly like the MFCC, but the energy is normalized before applying the
-    logarithmic and DCT transforms such that it lies between 0 and 1. Deltas
-    and double deltas are also returned.
-
-    Parameters
-    ----------
-    x : array_like
-        Input signal.
-    n_pffcc : int, optional
-        Number of coefficients to return, DC term not included. Default is 13.
-    dct_type : {1, 2, 3, 4}, optional
-        Type of the discrete cosine transform (DCT). See the `np.fft.dct`
-        documentation. Default is 2.
-    norm : {'backward', 'ortho', 'forward'}, optional
-        Normalization mode of the discrete cosine transform (DCT). See the
-        `np.fft.dct` documentation. Default is `'ortho'`.
-    filtered : bool, optional
-        If `True`, the input signal `x` is assumed to be already filtered. It
-        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
-        filtered using `~filters.filt` before calculation and should have
-        shape `(n_samples, 2)`. Default is False.
-    filt_kwargs : dict or None, optional
-        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
-        is `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    framed : bool, optional
-        If `True`, the input signal `x` is assumed to be already framed. It
-        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
-        the input is framed before calculation and should have shape
-        `(n_samples, n_filters, 2)`. Default is False.
-    frame_kwargs : dict or None, optional
-        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
-        `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    energy : array_like
-        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
-        Default is None.
-
-    Returns
-    -------
-    pdfcc : array_like
-        DCT-compressed PDF feature. Shape `(n_frames, n_pdfcc*3)`.
-    """
-    if energy is None:
-        x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-        x = x.mean(axis=-1)  # average channels
-        energy = x**2  # get energy
-        energy = energy.mean(axis=1)  # average each frame
-    total_energy = energy.sum(axis=1, keepdims=True)  # energy across bands
-    energy = energy/(total_energy + np.nextafter(0, 1))  # normalization
-    log_energy = np.log(energy + np.nextafter(0, 1))
-    pdfcc = scipy.fftpack.dct(log_energy, axis=1, type=dct_type, norm=norm)
-    pdfcc = pdfcc[:, 1:n_pdfcc+1]
-    dpdfcc = np.diff(pdfcc, axis=0, prepend=pdfcc[0, None])
-    ddpdfcc = np.diff(dpdfcc, axis=0, prepend=dpdfcc[0, None])
-    return np.hstack((pdfcc, dpdfcc, ddpdfcc))
-
-
-def logpdf(x, filtered=False, filt_kwargs=None, framed=False,
-           frame_kwargs=None, energy=None):
-    """
-    Log-compressed probability density function estimate.
-
-    Calculates the log-compressed probability density function estimate in each
-    time-frequency unit.
-
-    Parameters
-    ----------
-    x : array_like
-        Input signal.
-    filtered : bool, optional
-        If `True`, the input signal `x` is assumed to be already filtered. It
-        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
-        filtered using `~filters.filt` before calculation and should have
-        shape `(n_samples, 2)`. Default is False.
-    filt_kwargs : dict or None, optional
-        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
-        is `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    framed : bool, optional
-        If `True`, the input signal `x` is assumed to be already framed. It
-        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
-        the input is framed before calculation and should have shape
-        `(n_samples, n_filters, 2)`. Default is False.
-    frame_kwargs : dict or None, optional
-        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
-        `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    energy : array_like
-        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
-        Default is None.
-
-    Returns
-    -------
-    logpdf : array_like
-        Log-compressed probability density function estimate. Shape
-        `(n_frames, n_filters)`.
-    """
-    return pdf(x, filtered=filtered, filt_kwargs=filt_kwargs, framed=framed,
-               frame_kwargs=frame_kwargs, log=True, energy=energy)
-
-
-def fbe(x, filtered=False, filt_kwargs=None, framed=False, frame_kwargs=None,
-        log=False, energy=None):
+def fbe(x, normalize=False, compression='none', dct=False, n_dct=14,
+        dct_type=2, dct_norm='ortho', return_dc=False, return_deltas=True,
+        return_double_deltas=True, time_axis=-1, frame_axis=-2,
+        channel_axis=-3, frequency_axis=0):
     """
     Filterbank energies.
 
-    Calculates the energy in each time-frequency unit.
+    Calculates the energy in each time-frequency unit. Supports a series of
+    compression and normalization options to obtain MFCC or PDF features.
 
     Parameters
     ----------
     x : array_like
         Input signal.
-    filtered : bool, optional
-        If `True`, the input signal `x` is assumed to be already filtered. It
-        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
-        filtered using `~filters.filt` before calculation and should have
-        shape `(n_samples, 2)`. Default is False.
-    filt_kwargs : dict or None, optional
-        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
-        is `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    framed : bool, optional
-        If `True`, the input signal `x` is assumed to be already framed. It
-        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
-        the input is framed before calculation and should have shape
-        `(n_samples, n_filters, 2)`. Default is False.
-    frame_kwargs : dict or None, optional
-        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
-        `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    log : bool, optional
-        If `True`, logarithmic compression is applied to the output. Default is
+    normalize : bool, optional
+        Whether to normalize along frequency axis. Default is `False`.
+    compression : {'log', 'cubic', 'none'}, optional
+        Compression type. Default is `'none'`.
+    dct : bool, optional
+        Wheter to apply DCT compression along the frequency axis. Default is
         `False`.
-    energy : array_like
-        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
-        Default is None.
+    n_dct : int, optional
+        Number of DCT coefficients to return, including DC term. Ignored if
+        `dct` is `False`. Default is 14.
+    dct_type : {1, 2, 3, 4}, optional
+        Type of DCT. Ignored if `dct` is `False`. Default is 2.
+    dct_norm : {'backward', 'ortho', 'forward'}, optional
+        Normalization mode for the DCT. Ignored if `dct` is `False`. Default is
+        `'ortho'`.
+    return_dc : bool, optional
+        Whether to return the DC term. Ignored if `dct` is `False`. Default is
+        `False`.
+    return_deltas : bool or None, optional
+        Whether to return first order difference along the frame axis. Ignored
+        if `dct` is `False`. Default is `True`.
+    return_double_deltas : bool or None, optional
+        Whether to return second order difference along the frame axis. Ignored
+        if `dct` is `False`. Default is `True`.
+    time_axis: int, optional
+        Time axis in input array. Default is -1.
+    frame_axis : int, optional
+        Frame axis in input array. Default is -2.
+    channel_axis : int, optional
+        Channel axis in input array. The size of `x` along `axis` must be 2.
+        Default is -3.
+    frequency_axis : int, optional
+        Frequency axis in input array. Default is 0.
 
     Returns
     -------
     fbe : array_like
-        Filterbank energies. Shape `(n_frames, n_filters)`.
+        Filterbank energies.
     """
-    if energy is None:
-        x = _check_input(x, filtered, filt_kwargs, framed, frame_kwargs)
-        x = x.mean(axis=-1)  # average channels
-        energy = x**2  # get energy
-        energy = energy.mean(axis=1)  # average each frame
-    if log:
-        energy = np.log(energy + np.nextafter(0, 1))
-    return energy
-
-
-def logfbe(x, filtered=False, filt_kwargs=None, framed=False,
-           frame_kwargs=None, energy=None):
-    """
-    Log-compressed filterbank energies.
-
-    Calculates a log-compressed version of the energy in each time-frequency
-    unit.
-
-    Parameters
-    ----------
-    x : array_like
-        Input signal.
-    filtered : bool, optional
-        If `True`, the input signal `x` is assumed to be already filtered. It
-        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
-        filtered using `~filters.filt` before calculation and should have
-        shape `(n_samples, 2)`. Default is False.
-    filt_kwargs : dict or None, optional
-        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
-        is `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    framed : bool, optional
-        If `True`, the input signal `x` is assumed to be already framed. It
-        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
-        the input is framed before calculation and should have shape
-        `(n_samples, n_filters, 2)`. Default is False.
-    frame_kwargs : dict or None, optional
-        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
-        `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    energy : array_like
-        Pre-computed filterbank energies. Shape `(n_samples, n_filters)`.
-        Default is None.
-
-    Returns
-    -------
-    logfbe : array_like
-        Log-compressed filterbank energies. Shape `(n_frames, n_filters)`.
-    """
-    return fbe(x, filtered=filtered, filt_kwargs=filt_kwargs, framed=framed,
-               frame_kwargs=frame_kwargs, log=True, energy=energy)
-
-
-def _check_input(x, filtered=False, filt_kwargs=None, framed=False,
-                 frame_kwargs=None):
-    """
-    Input check prior to feature calculation.
-
-    Checks input shape before feature calculation and transforms it if
-    necesarry. Transformations are namely filtering and framing.
-
-    Parameters
-    ----------
-    x : array_like
-        Input signal.
-    filtered : bool, optional
-        If `True`, the input signal `x` is assumed to be already filtered. It
-        should then have shape `(n_samples, n_filters, 2)`. Else, the input is
-        filtered using `~filters.filt` before calculation and should have
-        shape `(n_samples, 2)`. Default is False.
-    filt_kwargs : dict or None, optional
-        Keyword arguments passed to `~filters.filt`. Used only if `filtered`
-        is `False`. Default is `None`, which means no keyword arguments are
-        passed.
-    framed : bool, optional
-        If `True`, the input signal `x` is assumed to be already framed. It
-        should then have shape `(n_frames, frame_length, n_filters, 2)`. Else,
-        the input is framed before calculation and should have shape
-        `(n_samples, n_filters, 2)`. Default is False.
-    frame_kwargs : dict or None, optional
-        Keyword arguments passed to `~utils.frame`. Used only if `framed` is
-        `False`. Default is `None`, which means no keyword arguments are
-        passed.
-
-    Returns
-    -------
-    y :
-        Transformed input.
-    """
-    if framed and not filtered:
-        raise ValueError('framed cannot be True if filtered is False, since '
-                         'framing must be done after filtering')
-    if filt_kwargs is None:
-        filt_kwargs = {}
-    if frame_kwargs is None:
-        frame_kwargs = {}
-    if x.shape[-1] != 2:
-        raise ValueError('the last dimension of x must be the number of '
-                         'channels which must be 2')
-    if not filtered:
-        if x.ndim != 2:
-            raise ValueError('when filtered is False, x should be '
-                             '2-dimensional with size n_samples*2')
-        x, _ = filt(x, **filt_kwargs)
-    if not framed:
-        if x.ndim != 3:
-            raise ValueError('when filtered is True and framed is False, x '
-                             'should be 3-dimensional with size '
-                             'n_samples*n_filters*2')
-        x = frame(x, **frame_kwargs)
-    if x.ndim != 4:
-        raise ValueError('when filtered is True and framed is True, x should '
-                         'be 4-dimensional with size '
-                         'n_frames*frame_length*n_filters*2')
-    return x
+    assert x.shape[channel_axis] == 2
+    # calculate energy
+    out = np.sum(x**2, axis=(time_axis, channel_axis), keepdims=True)
+    # normalize
+    if normalize:
+        out /= out.sum(axis=frequency_axis, keepdims=True) + eps
+    # compress
+    if compression == 'log':
+        out = np.log(out + eps)
+    elif compression == 'cubic':
+        out = out**(1/3)
+    elif compression != 'none':
+        raise ValueError('compression must be log, cubic or none, got '
+                         f'{compression}')
+    # apply dct
+    if dct:
+        out = scipy.fft.dct(out, axis=frequency_axis, type=dct_type,
+                            norm=dct_norm)
+        if return_dc:
+            out = np.take(out, range(n_dct), axis=frequency_axis)
+        else:
+            out = np.take(out, range(1, n_dct), axis=frequency_axis)
+        present = out
+        if return_deltas:
+            diff = np.diff(present, n=1, axis=frame_axis)
+            diff = pad(diff, n=1, axis=frame_axis, where='left')
+            out = np.concatenate((out, diff), axis=frequency_axis)
+        if return_double_deltas:
+            diff = np.diff(present, n=2, axis=frame_axis)
+            diff = pad(diff, n=2, axis=frame_axis, where='left')
+            out = np.concatenate((out, diff), axis=frequency_axis)
+    return out.squeeze(axis=(time_axis, channel_axis))
 
 
 class FeatureExtractor:
+
+    feature_map = {
+        'ild': ild,
+        'itd': itd,
+        'ic': ic,
+        'fbe': fbe,
+        'logfbe': lambda x: fbe(x, compression='log'),
+        'cubicfbe': lambda x: fbe(x, compression='cubic'),
+        'pdf': lambda x: fbe(x, normalize=True),
+        'logpdf': lambda x: fbe(x, normalize=True, compression='log'),
+        'cubicpdf': lambda x: fbe(x, normalize=True, compression='cubic'),
+        'mfcc': lambda x: fbe(x, compression='log', dct=True),
+        'cubicmfcc': lambda x: fbe(x, compression='cubic', dct=True),
+        'pdfcc': lambda x: fbe(x, normalize=True, compression='log', dct=True),
+    }
+
     def __init__(self, features):
         self.features = features
         self.indices = None
 
-    def run(self, x):
-        # pre-compute energy
-        x = x.mean(axis=-1)  # average channels
-        energy = x**2  # get energy
-        energy = energy.mean(axis=1)  # average each frame
-        # main loop
+    def __call__(self, x):
         output = []
-        for feature in self.features:
-            feature_func = globals()[feature]
-            argspec = inspect.getfullargspec(feature_func)
-            if 'energy' in argspec.args:
-                featmat = feature_func(x, filtered=True, framed=True,
-                                       energy=energy)
-            else:
-                featmat = feature_func(x, filtered=True, framed=True)
-            output.append(featmat)
-        self.indices = []
+        self.indices = {}
         i_start = 0
-        for feature_set in output:
-            i_end = i_start + feature_set.shape[1]
-            self.indices.append((i_start, i_end))
+        for feature in self.features:
+            feature_func = self.feature_map[feature]
+            data = feature_func(x)
+            output.append(feature_func(x))
+            i_end = i_start + len(data)
+            self.indices[feature] = (i_start, i_end)
             i_start = i_end
-        return np.hstack(output)
+        return np.concatenate(output, axis=0)

@@ -3,57 +3,7 @@ import math
 import scipy.signal
 
 
-def resample(x, old_fs, new_fs, axis=0):
-    """
-    Resampling.
-
-    Resample an array given an original sample rate and a target sample rate
-    along a given axis.
-
-    Parameters
-    ----------
-    x : array_like
-        Input array.
-    old_fs : int
-        Original samplerate.
-    new_fs : int
-        Target samplerate.
-    axis : int
-        Axis along which to resample.
-
-    Returns
-    -------
-    y : array_like
-        Resampled array.
-    """
-    ratio = new_fs/old_fs
-    n_samples = int(np.ceil(x.shape[axis] * ratio))
-    y = scipy.signal.resample(x, n_samples, axis=axis)
-    return y
-
-
-def rms(x, axis=0):
-    """
-    Root mean square.
-
-    Calculates the root mean square (RMS) of input array along given axis.
-
-    Parameters
-    ----------
-    x : array_like
-        Input array.
-    axis : int, optional
-        Axis along which to calculate. Default is 0.
-
-    Returns
-    -------
-    rms : array_like
-        RMS values.
-    """
-    return np.mean(x**2, axis=axis)**0.5
-
-
-def pad(x, n, axis=0, where='after'):
+def pad(x, n, axis=0, where='right'):
     """
     Zero-padding.
 
@@ -67,8 +17,8 @@ def pad(x, n, axis=0, where='after'):
         Number of zeros to append.
     axis : int, optional
         Axis along which to pad. Default is 0.
-    where : {'after', 'before', 'both'}, optional
-        Where to pad the zeros. Default is `'after'`.
+    where : {'left', 'right', 'both'}, optional
+        Where to pad the zeros. Default is `'right'`.
 
     Returns
     -------
@@ -76,15 +26,15 @@ def pad(x, n, axis=0, where='after'):
         Padded array.
     """
     padding = np.zeros((x.ndim, 2), int)
-    if where == 'before':
+    if where == 'left':
         padding[axis][0] = n
-    elif where == 'after':
+    elif where == 'right':
         padding[axis][1] = n
     elif where == 'both':
         padding[axis][0] = n
         padding[axis][1] = n
     else:
-        raise ValueError("`where` must be either 'before', 'after' or 'both'")
+        raise ValueError(f'where must be left, right or both, got {where}')
     return np.pad(x, padding)
 
 
@@ -216,7 +166,7 @@ def standardize(x, axis=0):
     stds = x.std(axis=axis)
     means = np.expand_dims(means, axis=axis)
     stds = np.expand_dims(stds, axis=axis)
-    x_standard = (x - means)/(stds + np.nextafter(0, 1))
+    x_standard = (x - means)/(stds + np.finfo(float).eps)
     return x_standard
 
 
@@ -251,9 +201,9 @@ def pca(X, n_components=None, fve=None):
         Per-feature empirical mean. Length `n_features`.
     """
     if n_components is not None and fve is not None:
-        raise ValueError("can't specify both `n_components` and `fve`")
+        raise ValueError('cannot specify both n_components and fve')
     if fve is not None and not 0 <= fve <= 1:
-        raise ValueError("`fve` must be between 0 and 1")
+        raise ValueError('fve must be between 0 and 1')
     means = X.mean(axis=0)
     X_center = X-means
     components, ve, _ = np.linalg.svd(X_center.T@X_center)
@@ -268,117 +218,6 @@ def pca(X, n_components=None, fve=None):
     components = components[:, :n_components]
     ve = ve[:n_components]
     return components, ve, means
-
-
-def freq_to_erb(f):
-    """
-    Frequency-to-ERB scale.
-
-    Converts frequency values in hertz to ERB (equivalent rectangular
-    bandwidth) values.
-
-    Parameters
-    ----------
-    f : array-like
-        Frequency values in hertz.
-
-    Returns
-    -------
-    erb : array-like
-        ERB values.
-    """
-    f = np.asarray(f)
-    erb = 21.4*np.log10(1 + 0.00437*f)
-    return erb
-
-
-def erb_to_freq(erb):
-    """
-    ERB-to-frequency scale.
-
-    Converts ERB (equivalent rectangular bandwidth) values to frequency
-    values in hertz.
-
-    Parameters
-    ----------
-    erb : array-like
-        ERB values.
-
-    Returns
-    -------
-    f : array-like
-        Frequency values in hertz.
-    """
-    erb = np.asarray(erb)
-    f = (10**(erb/21.4) - 1)/0.00437
-    return f
-
-
-def freq_to_mel(f):
-    """
-    Hertz-to-mel scale.
-
-    Converts frequency values in hertz to mel values.
-
-    Parameters
-    ----------
-    f : array-like
-        Frequency values in hertz.
-
-    Returns
-    -------
-    mel : array-like
-        Mel values.
-    """
-    f = np.asarray(f)
-    mel = 2595*np.log10(1 + f/700)
-    return mel
-
-
-def mel_to_freq(mel):
-    """
-    Mel-to-hertz scale.
-
-    Converts mel values to frequency values in hertz.
-
-    Parameters
-    ----------
-    mel : array-like
-        Mel values.
-
-    Returns
-    -------
-    f : array-like
-        Frequency values in hertz.
-    """
-    mel = np.asarray(mel)
-    f = 700*(10**(mel/2595) - 1)
-    return f
-
-
-def frames_to_time(frames, fs=16e3, hop_length=256):
-    """
-    Time vector from framed data.
-
-    Calculates the time vector from any framed data. The first axis of the
-    input array is assumed to be the time axis, i.e. the frame index axis.
-
-    Parameters
-    ----------
-    frames : array-like
-        Framed data with shape `(n_frames, frame_length)`.
-    fs : float or int, optional
-        Sampling frequency. Default is 16e3.
-    hop_length : int, optional
-        Frame shift in samples. Default is 256.
-
-    Returns
-    -------
-    t : array_like
-        Time vector.
-    """
-    t = np.arange(len(frames))*hop_length/fs
-    return t
 
 
 def fft_freqs(fs=16e3, n_fft=512, onesided=True):
@@ -511,7 +350,7 @@ def segmental_scores(*args, frame_length=160, hop_length=160, DRdB=45,
         arg = frame(arg, frame_length=frame_length, hop_length=hop_length,
                     window='boxcar')
         if i == 0:
-            activity = 10*np.log10(np.sum(arg**2, axis=1) + np.nextafter(0, 1))
+            activity = 10*np.log10(np.sum(arg**2, axis=1) + np.finfo(float).eps)
             activity = (activity - activity.max()) > -abs(DRdB)
         args[i] = arg[activity, :]
     scores = []
@@ -530,30 +369,17 @@ def segmental_scores(*args, frame_length=160, hop_length=160, DRdB=45,
                 num = alpha*ref
                 den = ref-hat
             else:
-                raise ValueError("`sdr` must be 'default', 'si' or 'sd'")
+                raise ValueError(f'sdr must be default, si or sd, got {sdr}')
         else:
             num = ref
             den = hat
             # TODO: extend the definitions of SI-SDR and SD-SDR to segNR
         score = np.mean(10*np.log10(
-            (np.sum(num**2, axis=1) + np.nextafter(0, 1)) /
-            (np.sum(den**2, axis=1) + np.nextafter(0, 1))
+            (np.sum(num**2, axis=1) + np.finfo(float).eps) /
+            (np.sum(den**2, axis=1) + np.finfo(float).eps)
         ))
         scores.append(score)
     return scores
-
-
-class Framer:
-    def __init__(self, frame_length, hop_length, window, center):
-        self.frame_length = frame_length
-        self.hop_length = hop_length
-        self.window = window
-        self.center = center
-
-    def frame(self, x):
-        return frame(x, frame_length=self.frame_length,
-                     hop_length=self.hop_length, window=self.window,
-                     center=self.center)
 
 
 class Standardizer:
@@ -584,19 +410,3 @@ class PCA:
 
     def transform(self, X):
         return (X - self.means) @ self.components
-
-
-class UnitRMSScaler:
-    def __init__(self, active=True):
-        self.active = active
-        self.gain = None
-
-    def fit(self, signal):
-        rms_max = rms(signal).max()
-        self.gain = 1/rms_max
-
-    def scale(self, signal):
-        if self.active:
-            return self.gain*signal
-        else:
-            return signal

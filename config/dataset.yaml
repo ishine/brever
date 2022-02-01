@@ -1,0 +1,70 @@
+FS: 16000
+DURATION: 36000
+SEED: 0
+PADDING: 0.0
+UNIFORM_TMR: false
+REFLECTION_BOUNDARY: 0.05
+SPEAKERS: !!set
+  timit_.*: null
+  libri_.*: null
+  ieee: null
+  arctic: null
+  hint: null
+NOISES: !!set
+  dcase_.*: null
+  noisex_.*: null
+  icra_.*: null
+  demand: null
+  arte: null
+ROOMS: !!set
+  surrey_.*: null
+  ash_.*: null
+  bras_.*: null
+  catt_.*: null
+  avil_.*: null
+TARGET:
+  SNR:
+    # DIST_NAME: logistic
+    # DIST_ARGS: [0.0, 4.3429448190325175]
+    DIST_NAME: uniform
+    DIST_ARGS: [-5.0, 10.0]
+  ANGLE: [-90.0, 90.0]
+NOISE:
+  NUMBER: [1, 3]
+  ANGLE: [-90.0, 90.0]
+  NDR:  # noise-to-diffuse ratio
+    DIST_NAME: uniform
+    DIST_ARGS: [0.0, 30.0]
+DIFFUSE:
+  COLOR: white
+  LTAS_EQ: false
+  TOGGLE: false
+DECAY:
+  COLOR: white
+  TOGGLE: false
+  DELAY:
+    DIST_NAME: uniform
+    DIST_ARGS: [0.075, 0.100]
+  DRR:
+    # DIST_NAME: logistic
+    # DIST_ARGS: [0.0, 4.3429448190325175]
+    DIST_NAME: uniform
+    DIST_ARGS: [5.0, 35.0]
+  RT60:
+    DIST_NAME: uniform
+    DIST_ARGS: [0.1, 5.0]
+RMS_JITTER:
+  DIST_NAME: uniform
+  DIST_ARGS: [0.0, 0.0]
+FILES:
+  NOISE: [0.0, 0.1]
+  SPEECH: [0.0, 0.1]
+  ROOM: all
+  # ROOM: even
+  # ROOM: odd
+COMPONENTS: !!set
+  mixture: null
+  foreground: null
+  background: null
+  # noise: null
+  # late_target: null

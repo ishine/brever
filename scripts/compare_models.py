@@ -137,7 +137,7 @@ def sort_groups(groups, by, dims, group_vals, test_dirs):
                 groups = [groups[i] for i in i_sorted]
                 group_vals_copy = [group_vals_copy[i] for i in i_sorted]
         else:
-            raise ValueError("Can't sort by dims when no dim is provided")
+            raise ValueError('cannot sort by dims when no dim is provided')
     else:
         raise ValueError(f'Unrecognized sorting argument, got {by}')
     return groups
@@ -290,8 +290,8 @@ def main(models, args, filter_):
     for i, test_dir in enumerate(args.test_dirs):
         config_file = os.path.join(test_dir, 'config.yaml')
         if not os.path.exists(config_file):
-            print(f"Can't display condition {i} parameters because the config "
-                  "file can't be found in the filesystem")
+            print(f'cannot display condition {i} parameters because the '
+                  'config file cannot be found in the filesystem')
         else:
             print(f'Condition {i}:')
             with open(config_file) as f:
