@@ -1,18 +1,18 @@
-import os
 import logging
+import os
 import time
 
-import yaml
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
+import yaml
 
 from brever.args import TrainingArgParser
 from brever.config import get_config
 from brever.data import DNNDataset, BreverBatchSampler, BreverDataLoader
+from brever.logger import set_logger
 from brever.models import DNN
 from brever.training import EarlyStopping, ConvergenceTracker, evaluate
-from brever.logger import set_logger
 
 
 def train(model, criterion, optimizer, dataloader, cuda):
@@ -78,47 +78,48 @@ def main():
 
     # initialize dataset
     logging.info('Initializing dataset')
-    if model_cfg.arch == 'dnn':
+    if model_cfg.ARCH == 'dnn':
         dataset = DNNDataset(
             path=train_cfg.PATH,
             features=model_cfg.FEATURES,
         )
     else:
-        raise ValueError(f'wrong model architecture, got {model_cfg.arch}')
+        raise ValueError(f'wrong model architecture, got {model_cfg.ARCH}')
 
     # train val split
-    self.train_dataset, self.val_dataset = torch.utils.data.random_split(
-        dataset, [train_length, val_length])
-
-    self.train_dataloader = torch.utils.data.DataLoader(
-        dataset=self.train_dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=workers,
-    )
-    self.val_dataloader = torch.utils.data.DataLoader(
-        dataset=self.val_dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=workers,
+    val_length = int(len(dataset)*train_cfg.VAL_SPLIT)
+    train_length = len(dataset) - val_length
+    train_dataset, val_dataset = torch.utils.data.random_split(
+        dataset, [train_length, val_length]
     )
 
-    # initialize batch sampler
-    batch_sampler = BreverBatchSampler(
-        dataset=dataset,
-        batch_size=train_cfg.batch_size,
+    # initialize batch samplers
+    logging.info('Initializing batch samplers')
+    train_batch_sampler = BreverBatchSampler(
+        dataset=train_dataset,
+        batch_size=train_cfg.BATCH_SIZE,
+    )
+    val_batch_sampler = BreverBatchSampler(
+        dataset=val_dataset,
+        batch_size=train_cfg.BATCH_SIZE,
     )
 
     # initialize dataloaders
-    logging.info('Initializing dataloader')
-    dataloader = BreverDataLoader(
-        dataset=dataset,
-        batch_sampler=batch_sampler,
+    logging.info('Initializing dataloaders')
+    train_dataloader = BreverDataLoader(
+        dataset=train_dataset,
+        batch_sampler=train_batch_sampler,
+        num_workers=train_cfg.WORKERS,
+    )
+    val_dataloader = BreverDataLoader(
+        dataset=val_dataset,
+        batch_sampler=val_batch_sampler,
         num_workers=train_cfg.WORKERS,
     )
 
-    # initialize network
-    if model_cfg.arch == 'dnn':
+    # initialize model
+    logging.info('Initializing model')
+    if model_cfg.ARCH == 'dnn':
         model = DNN(
             input_size=dataset.n_features,
             output_size=dataset.n_labels,
@@ -128,7 +129,7 @@ def main():
             batchnorm_momentum=model_cfg.BATCH_NORM.MOMENTUM,
         )
     else:
-        raise ValueError(f'wrong model architecture, got {model_cfg.arch}')
+        raise ValueError(f'wrong model architecture, got {model_cfg.ARCH}')
 
     # cast to cuda
     if train_cfg.CUDA:
@@ -148,23 +149,32 @@ def main():
     )
 
     # initialize convergence tracker
-    progressTracker = ConvergenceTracker(
+    convergenceTracker = ConvergenceTracker(
         window=train_cfg.CONVERGENCE.WINDOW,
         threshold=train_cfg.CONVERGENCE.THRESHOLD,
     )
 
-    # main loop
+    # training loop initialization
     logging.info('Starting training loop')
+    checkpoint_path = os.path.join(train_dir, 'checkpoint.pt')
     train_losses = []
     val_losses = []
     total_time = 0
     start_time = time.time()
+
     for epoch in range(train_cfg.EPOCHS):
+
         # evaluate
-        loss = evaluate(
+        train_loss = evaluate(
             model=model,
             criterion=criterion,
-            dataloader=dataloader,
+            dataloader=train_dataloader,
+            cuda=train_cfg.CUDA,
+        )
+        val_loss = evaluate(
+            model=model,
+            criterion=criterion,
+            dataloader=val_dataloader,
             cuda=train_cfg.CUDA,
         )
 
@@ -186,21 +196,20 @@ def main():
             criterion=criterion,
             optimizer=optimizer,
             dataloader=train_dataloader,
-            cuda=config.MODEL.CUDA and not no_cuda,
+            cuda=train_cfg.CUDA,
         )
 
         # check stop criterion
-        checkpoint_path = os.path.join(model_dir, 'checkpoint.pt')
-        if config.MODEL.EARLYSTOP.ON:
+        if train_cfg.EARLY_STOP.TOGGLE:
             earlyStop(val_loss, model, checkpoint_path)
             if earlyStop.stop:
-                logging.info('Early stopping!')
+                logging.info('Early stopping now')
                 logging.info(f'Best validation loss: {earlyStop.min_loss}')
                 break
-        elif config.MODEL.PROGRESS.ON:
-            progressTracker(train_loss, model, checkpoint_path)
-            if progressTracker.stop:
-                logging.info('Train loss has converged')
+        elif train_cfg.CONVERGENCE.TOGGLE:
+            convergenceTracker(train_loss, model, checkpoint_path)
+            if convergenceTracker.stop:
+                logging.info('Train loss has now converged')
                 break
         else:
             raise ValueError('cannot have both early stopping and progress '
@@ -215,14 +224,15 @@ def main():
                  f'{int(total_time%3600/60)} m {int(total_time%60)} s')
 
     # plot training and validation error
-    plot_losses(train_losses, val_losses, model_dir)
+    plot_losses(train_losses, val_losses, train_dir)
 
     # save errors
+    loss_path = os.path.join(train_dir, 'losses.npz')
     np.savez(loss_path, train=train_losses, val=val_losses)
 
-    # write full config file
-    full_config_file = os.path.join(model_dir, 'config_full.yaml')
-    bm.dump_yaml(config.to_dict(), full_config_file)
+    # write config file
+    with open(train_cfg_path, 'w') as f:
+        yaml.dump(train_cfg.to_dict(), f)
 
 
 if __name__ == '__main__':

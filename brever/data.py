@@ -13,7 +13,7 @@ import h5py
 from .features import FeatureExtractor
 from .labels import irm
 from .utils import dct
-from .tf import Filterbank
+from .filters import Filterbank
 
 
 def get_mean_and_std(dataset, dataloader, uniform_stats_features):
@@ -413,7 +413,7 @@ class BreverBatchSampler(torch.utils.data.Sampler):
         self.batches = self.generate_batches()
 
     def generate_batches(self):
-        lengths = enumerate(self.dataset.item_lengths)
+        lengths = self.get_item_lengths()
         lengths = sorted(lengths, key=lambda x: x[1])
         batch_list = []
         batch = []
@@ -425,6 +425,15 @@ class BreverBatchSampler(torch.utils.data.Sampler):
         if len(batch) > 0 and not self.drop_last:
             batch_list.append(batch)
         return batch_list
+
+    def get_item_lengths(self):
+        if isinstance(self.dataset, torch.utils.data.Subset):
+            dataset = self.dataset.dataset
+            indices = self.dataset.indices
+            for i in range(len(self.dataset)):
+                yield i, dataset.item_lengths[indices[i]]
+        else:
+            return enumerate(self.dataset.item_lengths)
 
     def __iter__(self):
         if self.shuffle:
@@ -480,7 +489,7 @@ class DNNDataset(torch.utils.data.Dataset):
         mix = data[:, 0, :, :, :]
         foreground = data[:, 1, :, :, :]
         background = data[:, 2, :, :, :]
-        data = self.feature_extractor(data)  # (features, frames)
+        data = self.feature_extractor(mix)  # (features, frames)
         label = irm(foreground, background)  # (labels, frames)
         return torch.from_numpy(data), torch.from_numpy(label)
 

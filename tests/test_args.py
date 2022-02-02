@@ -65,8 +65,9 @@ def test_training_args():
         '--learning-rate', '0',
         '--workers', '0',
         '--weight-decay', '0',
-        '--train-path', 'foo',
+        '--path', 'foo',
         '--seed', '0',
+        '--val-split', '0',
     ]
     args = parser.parse_args(arg_cmd)
 

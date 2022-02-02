@@ -125,25 +125,25 @@ class TrainingArgParser(argparse.ArgumentParser):
         'learning_rate': ['LEARNING_RATE'],
         'workers': ['WORKERS'],
         'weight_decay': ['WEIGHT_DECAY'],
-        'train_path': ['PATH'],
+        'path': ['PATH'],
         'seed': ['SEED'],
+        'val_split': ['VAL_SPLIT'],
     }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._add_arguments()
-
-    def _add_arguments(self):
-        self.add_argument('--batch-size', type=int)
-        self.add_argument('--cuda', type=arg_type_bool)
-        self.add_argument('--early-stop', type=arg_type_bool)
-        self.add_argument('--convergence', type=arg_type_bool)
-        self.add_argument('--epochs', type=int)
-        self.add_argument('--learning-rate', type=float)
-        self.add_argument('--workers', type=int)
-        self.add_argument('--weight-decay', type=float)
-        self.add_argument('--train-path', type=arg_type_path)
-        self.add_argument('--seed', type=int)
+        group = self.add_argument_group('training options')
+        group.add_argument('--batch-size', type=int)
+        group.add_argument('--cuda', type=arg_type_bool)
+        group.add_argument('--early-stop', type=arg_type_bool)
+        group.add_argument('--convergence', type=arg_type_bool)
+        group.add_argument('--epochs', type=int)
+        group.add_argument('--learning-rate', type=float)
+        group.add_argument('--workers', type=int)
+        group.add_argument('--weight-decay', type=float)
+        group.add_argument('--path', type=arg_type_path)
+        group.add_argument('--seed', type=int)
+        group.add_argument('--val-split', type=float)
 
 
 class ModelArgParser(argparse.ArgumentParser):
