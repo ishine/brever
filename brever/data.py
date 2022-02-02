@@ -430,10 +430,12 @@ class BreverBatchSampler(torch.utils.data.Sampler):
         if isinstance(self.dataset, torch.utils.data.Subset):
             dataset = self.dataset.dataset
             indices = self.dataset.indices
-            for i in range(len(self.dataset)):
-                yield i, dataset.item_lengths[indices[i]]
+            lengths = []
+            for i, index in enumerate(indices):
+                lengths.append((i, dataset.item_lengths[index]))
         else:
-            return enumerate(self.dataset.item_lengths)
+            lengths = list(enumerate(self.dataset.item_lengths))
+        return lengths
 
     def __iter__(self):
         if self.shuffle:

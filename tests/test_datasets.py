@@ -19,17 +19,17 @@ def test_audio_dataset():
         pass
 
     dataset = AudioDataset('tests/test_dataset', segment_length=4000)
-    assert len(dataset) == 92
+    assert len(dataset) == 121
 
     batch_sampler = BreverBatchSampler(dataset, 3)
     dataloader = BreverDataLoader(dataset, batch_sampler=batch_sampler)
-    assert len(dataloader) == 31
+    assert len(dataloader) == 41
     for data, target in dataloader:
         pass
 
     batch_sampler = BreverBatchSampler(dataset, 3, drop_last=True)
     dataloader = BreverDataLoader(dataset, batch_sampler=batch_sampler)
-    assert len(dataloader) == 30
+    assert len(dataloader) == 40
     for data, target in dataloader:
         pass
 
@@ -45,10 +45,10 @@ def test_dnn_dataset():
         pass
 
     dataset = AudioDataset('tests/test_dataset', segment_length=4000)
-    assert len(dataset) == 92
+    assert len(dataset) == 121
 
     batch_sampler = BreverBatchSampler(dataset, 3, drop_last=True)
     dataloader = BreverDataLoader(dataset, batch_sampler=batch_sampler)
-    assert len(dataloader) == 30
+    assert len(dataloader) == 40
     for data, target in dataloader:
         pass

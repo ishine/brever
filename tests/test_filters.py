@@ -1,6 +1,6 @@
 import numpy as np
 
-from brever.tf import Filterbank
+from brever.filters import Filterbank
 
 
 def test_filterbank():
