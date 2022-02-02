@@ -65,7 +65,7 @@ def test_training_args():
         '--learning-rate', '0',
         '--workers', '0',
         '--weight-decay', '0',
-        '--path', 'foo',
+        '--train-path', 'foo',
         '--seed', '0',
         '--val-split', '0',
     ]
@@ -82,8 +82,8 @@ def test_model_args():
 
     for action in parser._actions:
         if isinstance(action, argparse._SubParsersAction):
-            assert len(action.choices) == len(parser.arg_map)
-            for key, val in parser.arg_map.items():
+            assert len(action.choices) == len(parser.model_arg_map)
+            for key, val in parser.model_arg_map.items():
                 assert len(action.choices[key]._actions) == len(val) + 1
 
 
@@ -91,6 +91,17 @@ def test_dnn_args():
     parser = ModelArgParser()
 
     arg_cmd = [
+        '--batch-size', '0',
+        '--cuda', '0',
+        '--early-stop', '0',
+        '--convergence', '0',
+        '--epochs', '0',
+        '--learning-rate', '0',
+        '--workers', '0',
+        '--weight-decay', '0',
+        '--train-path', 'foo',
+        '--seed', '0',
+        '--val-split', '0',
         'dnn',
         '--batch-norm', '0',
         '--dropout', '0',
@@ -108,13 +119,24 @@ def test_dnn_args():
     assert all(arg is not None for arg in args.__dict__.values())
 
     config = get_config('config/models/dnn.yaml')
-    config.update_from_args(args, parser.arg_map['dnn'])
+    config.update_from_args(args, parser.model_arg_map['dnn'])
 
 
 def test_convtasnet_args():
     parser = ModelArgParser()
 
     arg_cmd = [
+        '--batch-size', '0',
+        '--cuda', '0',
+        '--early-stop', '0',
+        '--convergence', '0',
+        '--epochs', '0',
+        '--learning-rate', '0',
+        '--workers', '0',
+        '--weight-decay', '0',
+        '--train-path', 'foo',
+        '--seed', '0',
+        '--val-split', '0',
         'convtasnet',
         '--filters', '0',
         '--filter-length', '0',
@@ -131,4 +153,4 @@ def test_convtasnet_args():
     assert all(arg is not None for arg in args.__dict__.values())
 
     config = get_config('config/models/convtasnet.yaml')
-    config.update_from_args(args, parser.arg_map['convtasnet'])
+    config.update_from_args(args, parser.model_arg_map['convtasnet'])
