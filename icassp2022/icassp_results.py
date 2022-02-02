@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 
-import brever.management as bm
+import brever.modelmanagement as bmm
 
 
 def find_dset(
@@ -22,7 +22,7 @@ def find_dset(
         'train': (train_dsets, train_configs),
         'test': (test_dsets, test_configs),
     }[kind]
-    return bm.find_dataset(
+    return bmm.find_dataset(
         dsets=dsets,
         configs=configs,
         speakers=speakers,
@@ -39,20 +39,14 @@ def find_dset(
 
 def find_model(batchnorm=[False], dropout_rate=[0.2], layers=[2],
                hidden_sizes=[[1024, 1024]], **kwargs):
-    return bm.find_model(
-        models=all_models,
-        configs=all_configs,
-        batchnorm=batchnorm,
-        dropout_rate=dropout_rate,
-        layers=layers,
-        hidden_sizes=hidden_sizes,
-        **kwargs,
-    )
+    return bmm.find_model(models=all_models, configs=all_configs,
+                          batchnorm=batchnorm, dropout_rate=dropout_rate,
+                          layers=layers, hidden_sizes=hidden_sizes, **kwargs)
 
 
 def get_score(model, test_path, metric='MSE'):
     score_file = os.path.join(model, 'scores.json')
-    data = bm.read_json(score_file)
+    data = bmm.read_json(score_file)
     if metric == 'MSE':
         return np.mean(data[test_path]['model']['MSE'])
     if metric == 'dPESQ':
@@ -332,7 +326,8 @@ def print_inner_corpus_results(dim, dbase, diversity):
     print(f'& {header} & {training} & {testing} & {score_fmt(scores)}')
 
 
-def print_cross_corpus_results(*args, diversity='low', model_kwargs={}):
+def print_cross_corpus_results(*args, diversity='low', model_kwargs={},
+                               features={'logfbe'}):
     dict_ = {
         'speakers': [
             'timit_.*',
@@ -356,15 +351,17 @@ def print_cross_corpus_results(*args, diversity='low', model_kwargs={}):
             'avil_.*',
         ],
     }
+    model_kwargs['features'] = [features]
+
     score_dicts = []
     for db_tuple in zip(*[dict_[d] for d in args]):
         kwargs = {dim: set([dbase]) for dim, dbase in zip(args, db_tuple)}
-        train_dset, = find_dset('train', **kwargs, brirs='even')
+        train_dset, = find_dset('train', **kwargs, brirs='even', features=features)
         model, = find_model(train_path=[train_dset], seed=[0],
                             **model_kwargs)
         kwargs = {dim: set([db for db in dict_[dim] if db != dbase])
                   for dim, dbase in zip(args, db_tuple)}
-        ref_dset, = find_dset('train', **kwargs, brirs='even')
+        ref_dset, = find_dset('train', **kwargs, brirs='even', features=features)
         ref_model, = find_model(train_path=[ref_dset], seed=[0],
                                 **model_kwargs)
         if diversity == 'low':
@@ -372,7 +369,7 @@ def print_cross_corpus_results(*args, diversity='low', model_kwargs={}):
                 if db_tuple_ != db_tuple:
                     kwargs = {dim: set([dbase])
                               for dim, dbase in zip(args, db_tuple_)}
-                    test_dset, = find_dset('test', **kwargs, brirs='odd')
+                    test_dset, = find_dset('test', **kwargs, brirs='odd', features=features)
                     score_dict = {}
                     for metric in ['MSE', 'dPESQ', 'dSTOI']:
                         score = get_score(model, test_dset, metric)
@@ -385,7 +382,7 @@ def print_cross_corpus_results(*args, diversity='low', model_kwargs={}):
         elif diversity == 'high':
             model, ref_model = ref_model, model
             kwargs = {dim: set([dbase]) for dim, dbase in zip(args, db_tuple)}
-            test_dset, = find_dset('test', **kwargs, brirs='odd')
+            test_dset, = find_dset('test', **kwargs, brirs='odd', features=features)
             score_dict = {}
             for metric in ['MSE', 'dPESQ', 'dSTOI']:
                 score = get_score(model, test_dset, metric)
@@ -463,6 +460,86 @@ def print_other_experiment_results(dim):
         print(' & '.join(items) + r'\\')
 
 
+def print_cross_corpus_full_table(dim):
+
+    def _format(score):
+        score, gap = score['MSE']['model']*100, score['MSE']['gap']*100
+        return f'{score:.2f}'.replace('.', '&.') + fr' ({round(gap):+.0f}\%)'
+
+    dict_ = {
+        'speakers': [
+            'timit_.*',
+            'libri_.*',
+            'ieee',
+            'arctic',
+            'hint',
+        ],
+        'noise_types': [
+            'dcase_.*',
+            'noisex_.*',
+            'icra_.*',
+            'demand',
+            'arte',
+        ],
+        'rooms': [
+            'surrey_.*',
+            'ash_.*',
+            'bras_.*',
+            'catt_.*',
+            'avil_.*',
+        ],
+    }
+    dbases = dict_[dim]
+
+    score_table = {}
+    for dbase in dbases:
+        score_table[dbase] = {}
+        kwargs = {dim: set([dbase])}
+        train_dset, = find_dset('train', **kwargs, brirs='even')
+        model, = find_model(train_path=[train_dset], seed=[0])
+        for dbase_ in dbases:
+            kwargs = {dim: set([dbase_])}
+            ref_dset, = find_dset('train', **kwargs, brirs='even')
+            ref_model, = find_model(train_path=[ref_dset], seed=[0])
+            test_dset, = find_dset('test', **kwargs, brirs='odd')
+            score_dict = {}
+            for metric in ['MSE', 'dPESQ', 'dSTOI']:
+                score = get_score(model, test_dset, metric)
+                ref_score = get_score(ref_model, test_dset, metric)
+                score_dict[metric] = {}
+                score_dict[metric]['model'] = score
+                score_dict[metric]['ref'] = ref_score
+                score_dict[metric]['gap'] = score/ref_score - 1
+            score_table[dbase][dbase_] = score_dict
+    for dbase in dbases:
+        print(dbase, end=' & ')
+        print(' & '.join(_format(score_table[db][dbase]) for db in dbases))
+
+    score_table = {}
+    for dbase in dbases:
+        score_table[dbase] = {}
+        kwargs = {dim: set([db for db in dict_[dim] if db != dbase])}
+        train_dset, = find_dset('train', **kwargs, brirs='even')
+        model, = find_model(train_path=[train_dset], seed=[0])
+        for dbase_ in dbases:
+            kwargs = {dim: set([dbase_])}
+            ref_dset, = find_dset('train', **kwargs, brirs='even')
+            ref_model, = find_model(train_path=[ref_dset], seed=[0])
+            test_dset, = find_dset('test', **kwargs, brirs='odd')
+            score_dict = {}
+            for metric in ['MSE', 'dPESQ', 'dSTOI']:
+                score = get_score(model, test_dset, metric)
+                ref_score = get_score(ref_model, test_dset, metric)
+                score_dict[metric] = {}
+                score_dict[metric]['model'] = score
+                score_dict[metric]['ref'] = ref_score
+                score_dict[metric]['gap'] = score/ref_score - 1
+            score_table[dbase][dbase_] = score_dict
+    for dbase in dbases:
+        print(dbase, end=' & ')
+        print(' & '.join(_format(score_table[db][dbase]) for db in dbases))
+
+
 def main():
     print(r'\multirow{8}{*}{\rotatebox[origin=c]{90}{Speech}}')
     for dbase in ['timit', 'libri']:
@@ -526,17 +603,15 @@ def main():
                 print(model_kwargs)
                 print_cross_corpus_results(*dims, diversity=diversity,
                                            model_kwargs=model_kwargs)
-        for features in ['logpdf', 'pdf']:
-            model_kwargs = {
-                'features': [{features}],
-            }
-            print(model_kwargs)
+        print('features now')
+        for features in ['logfbe', 'logpdf', 'pdf']:
             print_cross_corpus_results(*dims, diversity=diversity,
-                                       model_kwargs=model_kwargs)
+                                       features={features})
 
 
 if __name__ == '__main__':
-    all_models, all_configs = bm.find_model(return_configs=True)
-    train_dsets, train_configs = bm.find_dataset('train', return_configs=True)
-    test_dsets, test_configs = bm.find_dataset('test', return_configs=True)
-    main()
+    all_models, all_configs = bmm.find_model(return_configs=True)
+    train_dsets, train_configs = bmm.find_dataset('train', return_configs=True)
+    test_dsets, test_configs = bmm.find_dataset('test', return_configs=True)
+    # main()
+    print_cross_corpus_full_table('speakers')
