@@ -187,6 +187,10 @@ def main():
         )
 
         # check stop criterion
+        if (config.TRAINING.EARLY_STOP.TOGGLE
+                and config.TRAINING.CONVERGENCE.TOGGLE):
+            raise ValueError('cannot have both early stopping and progress '
+                             'criterion')
         if config.TRAINING.EARLY_STOP.TOGGLE:
             earlyStop(val_loss, model, checkpoint_path)
             if earlyStop.stop:
@@ -198,9 +202,6 @@ def main():
             if convergenceTracker.stop:
                 logging.info('Train loss has now converged')
                 break
-        else:
-            raise ValueError('cannot have both early stopping and progress '
-                             'criterion')
 
         # update time spent
         total_time = time.time() - start_time
