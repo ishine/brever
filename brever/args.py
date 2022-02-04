@@ -128,6 +128,8 @@ class TrainingArgParser(argparse.ArgumentParser):
         'train_path': ['PATH'],
         'seed': ['SEED'],
         'val_split': ['VAL_SPLIT'],
+        'criterion': ['CRITERION'],
+        'preload': ['PRELOAD'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -146,6 +148,8 @@ class TrainingArgParser(argparse.ArgumentParser):
         self.add_argument('--train-path', type=arg_type_path, required=True)
         self.add_argument('--seed', type=int)
         self.add_argument('--val-split', type=float)
+        self.add_argument('--criterion')
+        self.add_argument('--preload', type=arg_type_bool)
 
 
 class ModelArgParser(argparse.ArgumentParser):

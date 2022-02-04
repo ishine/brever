@@ -22,9 +22,11 @@ class ConvTasNet(nn.Module):
         )
 
     def forward(self, x):
+        length = x.shape[-1]
         x = self.encoder(x)
         masks = self.tcn(x)
         x = self.decoder(x, masks)
+        x = x[:, :, :length]
         return x
 
 
@@ -142,8 +144,8 @@ class cLN(nn.Module):
 
     def forward(self, x):
         batch_size, channels, length = x.shape
-        mean = torch.empty(batch_size, 1, length)
-        var = torch.empty(batch_size, 1, length)
+        mean = x.new_empty(batch_size, 1, length)
+        var = x.new_empty(batch_size, 1, length)
         for i in range(length):
             mean[:, 0, i] = x[:, :, :i+1].mean(dim=(1, 2))
             var[:, 0, i] = x[:, :, :i+1].var(dim=(1, 2), unbiased=False)

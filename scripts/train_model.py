@@ -8,10 +8,12 @@ import numpy as np
 import torch
 
 from brever.config import get_config
-from brever.data import DNNDataset, BreverBatchSampler, BreverDataLoader
+from brever.data import (DNNDataset, BreverBatchSampler, BreverDataLoader,
+                         ConvTasNetDataset)
 from brever.logger import set_logger
-from brever.models import DNN
-from brever.training import EarlyStopping, ConvergenceTracker, evaluate
+from brever.models import DNN, ConvTasNet
+from brever.training import (EarlyStopping, ConvergenceTracker, get_criterion,
+                             evaluate)
 
 
 def train(model, criterion, optimizer, dataloader, cuda):
@@ -19,7 +21,6 @@ def train(model, criterion, optimizer, dataloader, cuda):
     for data, target in dataloader:
         if cuda:
             data, target = data.cuda(), target.cuda()
-        # data, target = data.float(), target.float()
         optimizer.zero_grad()
         output = model(data)
         loss = criterion(output, target)
@@ -70,6 +71,10 @@ def main():
             path=config.TRAINING.PATH,
             features=config.MODEL.FEATURES,
         )
+    elif config.MODEL.ARCH == 'convtasnet':
+        dataset = ConvTasNetDataset(
+            path=config.TRAINING.PATH,
+        )
     else:
         raise ValueError(f'wrong model architecture, got {config.MODEL.ARCH}')
 
@@ -115,6 +120,18 @@ def main():
             batchnorm=config.MODEL.BATCH_NORM.TOGGLE,
             batchnorm_momentum=config.MODEL.BATCH_NORM.MOMENTUM,
         )
+    elif config.MODEL.ARCH == 'convtasnet':
+        model = ConvTasNet(
+            filters=config.MODEL.ENCODER.FILTERS,
+            filter_length=config.MODEL.ENCODER.FILTER_LENGTH,
+            bottleneck_channels=config.MODEL.TCN.BOTTLENECK_CHANNELS,
+            hidden_channels=config.MODEL.TCN.HIDDEN_CHANNELS,
+            skip_channels=config.MODEL.TCN.SKIP_CHANNELS,
+            kernel_size=config.MODEL.TCN.KERNEL_SIZE,
+            layers=config.MODEL.TCN.LAYERS,
+            repeats=config.MODEL.TCN.REPEATS,
+            sources=config.MODEL.TCN.SOURCES,
+        )
     else:
         raise ValueError(f'wrong model architecture, got {config.MODEL.ARCH}')
 
@@ -123,7 +140,7 @@ def main():
         model = model.cuda()
 
     # initialize criterion and optimizer
-    criterion = getattr(torch.nn, config.TRAINING.CRITERION)()
+    criterion = get_criterion(config.TRAINING.CRITERION)
     optimizer = getattr(torch.optim, config.TRAINING.OPTIMIZER)(
         params=model.parameters(),
         lr=config.TRAINING.LEARNING_RATE,
@@ -141,12 +158,17 @@ def main():
         threshold=config.TRAINING.CONVERGENCE.THRESHOLD,
     )
 
+    # preload data right before loop after setting any transform
+    if config.TRAINING.PRELOAD:
+        train_dataset.dataset.preload(cuda)
+        val_dataset.dataset.preload(cuda)
+
     # training loop initialization
-    logging.info('Starting training loop')
     checkpoint_path = os.path.join(args.input, 'checkpoint.pt')
     train_losses = []
     val_losses = []
     total_time = 0
+    logging.info('Starting training loop')
     start_time = time.time()
 
     for epoch in range(config.TRAINING.EPOCHS):

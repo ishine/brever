@@ -17,3 +17,4 @@ WEIGHT_DECAY: 0.0
 PATH: data/processed/train/foo/
 SEED: 0
 VAL_SPLIT: 0.1
+PRELOAD: true

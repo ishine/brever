@@ -331,6 +331,7 @@ class AudioDataset(torch.utils.data.Dataset):
         self.overlap_length = overlap_length
         self.components = components
         self.segment_info = self.get_segments()
+        self.preloaded_data = None
 
     def build_paths(self, mix_idx):
         mix_dir = os.path.join(self.path, 'audio')
@@ -394,6 +395,18 @@ class AudioDataset(torch.utils.data.Dataset):
     @property
     def item_lengths(self):
         return [end-start for _, (start, end) in self.segment_info]
+
+    def preload(self, cuda):
+        logging.info('Preloading data')
+        preloaded_data = []
+        for i in range(len(self)):
+            data, target = self[i]
+            if cuda:
+                data, target = data.cuda(), target.cuda()
+            preloaded_data.append((data, target))
+        # set the attribute only at the end, otherwise __getitem__ will attempt
+        # to access it insite the loop
+        self.preloaded_data = preloaded_data
 
 
 class BreverBatchSampler(torch.utils.data.Sampler):
@@ -465,26 +478,23 @@ class BreverDataLoader(torch.utils.data.DataLoader):
         return torch.stack(batch_x), torch.stack(batch_y)
 
 
-class DNNDataset(torch.utils.data.Dataset):
+class DNNDataset(AudioDataset):
     def __init__(
         self,
         path,
         features,
-        audio_dataset_kwargs={},
         framer_kwargs={},
         filterbank_kwargs={},
     ):
-        self._dataset = AudioDataset(
-            path=path,
-            components=['foreground', 'background'],
-            **audio_dataset_kwargs,
-        )
+        super().__init__(path)
         self.feature_extractor = FeatureExtractor(features)
         self.framer = Framer(**framer_kwargs)
         self.filterbank = Filterbank(**filterbank_kwargs)
 
     def __getitem__(self, index):
-        mix, components = self._dataset[index]
+        if self.preloaded_data is not None:
+            return self.preloaded_data[index]
+        mix, components = super().__getitem__(index)
         data = torch.stack([mix, *components])  # (sources, channels, time)
         data = self.framer(data)  # (sources, channels, frames, samples)
         data = self.filterbank(data)  # (filters, sources, channels, ...)
@@ -495,12 +505,9 @@ class DNNDataset(torch.utils.data.Dataset):
         label = irm(foreground, background)  # (labels, frames)
         return torch.from_numpy(data), torch.from_numpy(label)
 
-    def __len__(self):
-        return len(self._dataset)
-
     @property
     def item_lengths(self):
-        return [self.framer.count(x) for x in self._dataset.item_lengths]
+        return [self.framer.count(x) for x in super().item_lengths]
 
     @property
     def n_features(self):
@@ -531,3 +538,14 @@ class Framer:
             return -(a//-b)
 
         return ceil(length - self.frame_length, self.hop_length) + 1
+
+
+class ConvTasNetDataset(AudioDataset):
+    def __init__(self, path):
+        super().__init__(path)
+
+    def __getitem__(self, index):
+        mix, components = super().__getitem__(index)
+        mix = mix.mean(axis=-2)
+        components = components.mean(axis=-2)
+        return mix, components
