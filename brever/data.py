@@ -318,11 +318,15 @@ class H5Dataset(torch.utils.data.Dataset):
         return self.n_samples
 
 
-class AudioDataset(torch.utils.data.Dataset):
+class BreverDataset(torch.utils.data.Dataset):
     """
-    Reads mixtures from a created dataset. Mixtures can be loaded as segments
-    of fixed length or entirely by setting segment_length=-1. When a fixed
-    segment is used, the last samples in each mixture are dropped.
+    Base dataset for all datasets. Reads mixtures from a created dataset.
+    Mixtures can be loaded as segments of fixed length or entirely by setting
+    segment_length=-1. When a fixed segment is used, the last samples in each
+    mixture are dropped.
+
+    Should be subclassed for post-processing by re-implementing the post_proc
+    method.
     """
     def __init__(self, path, segment_length=-1, overlap_length=0,
                  components=['foreground', 'background']):
@@ -332,6 +336,7 @@ class AudioDataset(torch.utils.data.Dataset):
         self.components = components
         self.segment_info = self.get_segments()
         self.preloaded_data = None
+        self.transform = None
 
     def build_paths(self, mix_idx):
         mix_dir = os.path.join(self.path, 'audio')
@@ -376,6 +381,19 @@ class AudioDataset(torch.utils.data.Dataset):
         return mix_lengths
 
     def __getitem__(self, index):
+        if self.preloaded_data is not None:
+            data, target = self.preloaded_data[index]
+        else:
+            data, target = self.load_segment(index)
+            data, target = self.post_proc(data, target)
+        if self.transform is not None:
+            data = self.transform(data)
+        return data, target
+
+    def post_proc(self, data, target):
+        return data, target
+
+    def load_segment(self, index):
         if not 0 <= index < len(self):
             raise IndexError
         mix_idx, (start, end) = self.segment_info[index]
@@ -397,7 +415,8 @@ class AudioDataset(torch.utils.data.Dataset):
         return [end-start for _, (start, end) in self.segment_info]
 
     def preload(self, cuda):
-        logging.info('Preloading data')
+        if self.transform is not None:
+            raise ValueError('transform attribute was set before preloading')
         preloaded_data = []
         for i in range(len(self)):
             data, target = self[i]
@@ -478,32 +497,42 @@ class BreverDataLoader(torch.utils.data.DataLoader):
         return torch.stack(batch_x), torch.stack(batch_y)
 
 
-class DNNDataset(AudioDataset):
+class DNNDataset(BreverDataset):
     def __init__(
         self,
         path,
         features,
+        stacks,
         framer_kwargs={},
         filterbank_kwargs={},
     ):
         super().__init__(path)
+        self.stacks = stacks
         self.feature_extractor = FeatureExtractor(features)
         self.framer = Framer(**framer_kwargs)
         self.filterbank = Filterbank(**filterbank_kwargs)
 
-    def __getitem__(self, index):
-        if self.preloaded_data is not None:
-            return self.preloaded_data[index]
-        mix, components = super().__getitem__(index)
-        data = torch.stack([mix, *components])  # (sources, channels, time)
+    def post_proc(self, data, target):
+        data = torch.stack([data, *target])  # (sources, channels, time)
         data = self.framer(data)  # (sources, channels, frames, samples)
         data = self.filterbank(data)  # (filters, sources, channels, ...)
         mix = data[:, 0, :, :, :]
         foreground = data[:, 1, :, :, :]
         background = data[:, 2, :, :, :]
+        # features
         data = self.feature_extractor(mix)  # (features, frames)
-        label = irm(foreground, background)  # (labels, frames)
-        return torch.from_numpy(data), torch.from_numpy(label)
+        data = torch.from_numpy(data)
+        data = self.stack(data)
+        # labels
+        target = irm(foreground, background)  # (labels, frames)
+        target = torch.from_numpy(target)
+        return data, target
+
+    def stack(self, data):
+        out = []
+        for i in range(self.stacks+1):
+            out.append(data.roll(i, -1)[:, self.stacks:])
+        return torch.cat(out)
 
     @property
     def item_lengths(self):
@@ -518,6 +547,18 @@ class DNNDataset(AudioDataset):
     def n_labels(self):
         _, label = self[0]
         return label.shape[0]
+
+    def get_statistics(self):
+        mean, pow_mean = 0, 0
+        for i in range(len(self)):
+            data, _ = self[i]
+            mean += data.mean(1, keepdim=True)
+            pow_mean += data.pow(2).mean(1, keepdim=True)
+        mean /= len(self)
+        pow_mean /= len(self)
+        var = pow_mean - mean.pow(2)
+        std = var.sqrt()
+        return mean, std
 
 
 class Framer:
@@ -540,12 +581,11 @@ class Framer:
         return ceil(length - self.frame_length, self.hop_length) + 1
 
 
-class ConvTasNetDataset(AudioDataset):
+class ConvTasNetDataset(BreverDataset):
     def __init__(self, path):
         super().__init__(path)
 
-    def __getitem__(self, index):
-        mix, components = super().__getitem__(index)
-        mix = mix.mean(axis=-2)
-        components = components.mean(axis=-2)
-        return mix, components
+    def post_proc(self, data, target):
+        data = data.mean(axis=-2)
+        target = target.mean(axis=-2)
+        return data, target

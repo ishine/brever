@@ -144,12 +144,18 @@ class cLN(nn.Module):
 
     def forward(self, x):
         batch_size, channels, length = x.shape
-        mean = x.new_empty(batch_size, 1, length)
-        var = x.new_empty(batch_size, 1, length)
-        for i in range(length):
-            mean[:, 0, i] = x[:, :, :i+1].mean(dim=(1, 2))
-            var[:, 0, i] = x[:, :, :i+1].var(dim=(1, 2), unbiased=False)
-        return (x - mean)/var*self.gain + self.bias
+        step_sum = x.sum(1)
+        step_pow_sum = x.pow(2).sum(1)
+        cum_sum = step_sum.cumsum(1)
+        cum_pow_sum = step_pow_sum.cumsum(1)
+        count = torch.arange(1, length+1, device=x.device)*channels
+        count = count.reshape(1, -1)
+        cum_mean = cum_sum/count
+        cum_var = cum_pow_sum/count - cum_mean.pow(2)
+        cum_std = (cum_var + self.eps).sqrt()
+        cum_mean = cum_mean.unsqueeze(1)
+        cum_std = cum_std.unsqueeze(1)
+        return (x - cum_mean)/cum_std*self.gain + self.bias
 
 
 class Conv1DBlock(nn.Module):

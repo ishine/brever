@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import time
+import random
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,7 +10,7 @@ import torch
 
 from brever.config import get_config
 from brever.data import (DNNDataset, BreverBatchSampler, BreverDataLoader,
-                         ConvTasNetDataset)
+                         ConvTasNetDataset, TensorStandardizer)
 from brever.logger import set_logger
 from brever.models import DNN, ConvTasNet
 from brever.training import (EarlyStopping, ConvergenceTracker, get_criterion,
@@ -63,6 +64,7 @@ def main():
 
     # seed for reproducibility
     torch.manual_seed(config.TRAINING.SEED)
+    random.seed(config.TRAINING.SEED)
 
     # initialize dataset
     logging.info('Initializing dataset')
@@ -70,6 +72,7 @@ def main():
         dataset = DNNDataset(
             path=config.TRAINING.PATH,
             features=config.MODEL.FEATURES,
+            stacks=config.MODEL.STACKS,
         )
     elif config.MODEL.ARCH == 'convtasnet':
         dataset = ConvTasNetDataset(
@@ -78,12 +81,24 @@ def main():
     else:
         raise ValueError(f'wrong model architecture, got {config.MODEL.ARCH}')
 
+    # preload data
+    if config.TRAINING.PRELOAD:
+        logging.info('Preloading data')
+        dataset.preload(cuda)
+
     # train val split
     val_length = int(len(dataset)*config.TRAINING.VAL_SPLIT)
     train_length = len(dataset) - val_length
     train_dataset, val_dataset = torch.utils.data.random_split(
         dataset, [train_length, val_length]
     )
+
+    # get training statistics
+    if config.MODEL.ARCH == 'dnn':
+        logging.info('Calculating training statistics')
+        mean, std = train_dataset.dataset.get_statistics()
+        train_dataset.dataset.transform = TensorStandardizer(mean, std)
+        val_dataset.dataset.transform = TensorStandardizer(mean, std)
 
     # initialize batch samplers
     logging.info('Initializing batch samplers')
@@ -158,11 +173,6 @@ def main():
         threshold=config.TRAINING.CONVERGENCE.THRESHOLD,
     )
 
-    # preload data right before loop after setting any transform
-    if config.TRAINING.PRELOAD:
-        train_dataset.dataset.preload(cuda)
-        val_dataset.dataset.preload(cuda)
-
     # training loop initialization
     checkpoint_path = os.path.join(args.input, 'checkpoint.pt')
     train_losses = []
@@ -235,6 +245,10 @@ def main():
 
     # plot training and validation error
     plot_losses(train_losses, val_losses, args.input)
+
+    # save checkpoint is does not exist
+    if not os.path.exists(checkpoint_path):
+        torch.save(model.state_dict(), checkpoint_path)
 
     # save errors
     np.savez(loss_path, train=train_losses, val=val_losses)
