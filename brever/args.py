@@ -130,6 +130,7 @@ class TrainingArgParser(argparse.ArgumentParser):
         'val_split': ['VAL_SPLIT'],
         'criterion': ['CRITERION'],
         'preload': ['PRELOAD'],
+        'mixed_precision': ['MIXED_PRECISION'],
     }
 
     def __init__(self, *args, **kwargs):
@@ -150,6 +151,7 @@ class TrainingArgParser(argparse.ArgumentParser):
         self.add_argument('--val-split', type=float)
         self.add_argument('--criterion')
         self.add_argument('--preload', type=arg_type_bool)
+        self.add_argument('--mixed-precision', type=arg_type_bool)
 
 
 class ModelArgParser(argparse.ArgumentParser):

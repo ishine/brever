@@ -1,48 +1,15 @@
 import argparse
 import logging
 import os
-import time
 import random
 
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 
 from brever.config import get_config
-from brever.data import (DNNDataset, BreverBatchSampler, BreverDataLoader,
-                         ConvTasNetDataset, TensorStandardizer)
+from brever.data import DNNDataset, ConvTasNetDataset, TensorStandardizer
 from brever.logger import set_logger
 from brever.models import DNN, ConvTasNet
-from brever.training import (EarlyStopping, ConvergenceTracker, get_criterion,
-                             evaluate)
-
-
-def train(model, criterion, optimizer, dataloader, cuda):
-    model.train()
-    for data, target in dataloader:
-        if cuda:
-            data, target = data.cuda(), target.cuda()
-        optimizer.zero_grad()
-        output = model(data)
-        loss = criterion(output, target)
-        loss.backward()
-        optimizer.step()
-
-
-def plot_losses(train_losses, val_losses, output_dir):
-    plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True)
-    plt.rc('grid', color='w', linestyle='solid')
-    fig, ax = plt.subplots()
-    ax.plot(train_losses)
-    ax.plot(val_losses)
-    ax.legend(['training loss', 'validation loss'])
-    ax.set_xlabel('epoch')
-    ax.set_ylabel('error')
-    ax.grid(True)
-    plot_output_path = os.path.join(output_dir, 'training.png')
-    fig.tight_layout()
-    fig.savefig(plot_output_path)
-    plt.close(fig)
+from brever.training import BreverTrainer
 
 
 def main():
@@ -100,30 +67,6 @@ def main():
         train_dataset.dataset.transform = TensorStandardizer(mean, std)
         val_dataset.dataset.transform = TensorStandardizer(mean, std)
 
-    # initialize batch samplers
-    logging.info('Initializing batch samplers')
-    train_batch_sampler = BreverBatchSampler(
-        dataset=train_dataset,
-        batch_size=config.TRAINING.BATCH_SIZE,
-    )
-    val_batch_sampler = BreverBatchSampler(
-        dataset=val_dataset,
-        batch_size=config.TRAINING.BATCH_SIZE,
-    )
-
-    # initialize dataloaders
-    logging.info('Initializing dataloaders')
-    train_dataloader = BreverDataLoader(
-        dataset=train_dataset,
-        batch_sampler=train_batch_sampler,
-        num_workers=config.TRAINING.WORKERS,
-    )
-    val_dataloader = BreverDataLoader(
-        dataset=val_dataset,
-        batch_sampler=val_batch_sampler,
-        num_workers=config.TRAINING.WORKERS,
-    )
-
     # initialize model
     logging.info('Initializing model')
     if config.MODEL.ARCH == 'dnn':
@@ -154,104 +97,33 @@ def main():
     if cuda:
         model = model.cuda()
 
-    # initialize criterion and optimizer
-    criterion = get_criterion(config.TRAINING.CRITERION)
-    optimizer = getattr(torch.optim, config.TRAINING.OPTIMIZER)(
-        params=model.parameters(),
-        lr=config.TRAINING.LEARNING_RATE,
+    # initialize trainer
+    logging.info('Initializing trainer')
+    trainer = BreverTrainer(
+        model=model,
+        train_dataset=train_dataset,
+        val_dataset=val_dataset,
+        dirpath=args.input,
+        batch_size=config.TRAINING.BATCH_SIZE,
+        workers=config.TRAINING.WORKERS,
+        epochs=config.TRAINING.EPOCHS,
+        learning_rate=config.TRAINING.LEARNING_RATE,
         weight_decay=config.TRAINING.WEIGHT_DECAY,
+        val_split=config.TRAINING.VAL_SPLIT,
+        cuda=config.TRAINING.CUDA,
+        mixed_precision=config.TRAINING.MIXED_PRECISION,
+        criterion=config.TRAINING.CRITERION,
+        optimizer=config.TRAINING.OPTIMIZER,
+        early_stop=config.TRAINING.EARLY_STOP.TOGGLE,
+        early_stop_patience=config.TRAINING.EARLY_STOP.PATIENCE,
+        convergence=config.TRAINING.CONVERGENCE.TOGGLE,
+        convergence_window=config.TRAINING.CONVERGENCE.WINDOW,
+        convergence_threshold=config.TRAINING.CONVERGENCE.THRESHOLD,
     )
 
-    # initialize early stopper
-    earlyStop = EarlyStopping(
-        patience=config.TRAINING.EARLY_STOP.PATIENCE,
-    )
-
-    # initialize convergence tracker
-    convergenceTracker = ConvergenceTracker(
-        window=config.TRAINING.CONVERGENCE.WINDOW,
-        threshold=config.TRAINING.CONVERGENCE.THRESHOLD,
-    )
-
-    # training loop initialization
-    checkpoint_path = os.path.join(args.input, 'checkpoint.pt')
-    train_losses = []
-    val_losses = []
-    total_time = 0
+    # run
     logging.info('Starting training loop')
-    start_time = time.time()
-
-    for epoch in range(config.TRAINING.EPOCHS):
-
-        # evaluate
-        train_loss = evaluate(
-            model=model,
-            criterion=criterion,
-            dataloader=train_dataloader,
-            cuda=cuda,
-        )
-        val_loss = evaluate(
-            model=model,
-            criterion=criterion,
-            dataloader=val_dataloader,
-            cuda=cuda,
-        )
-
-        # log and store errors
-        if epoch == 0:
-            logging.info(f'Epoch {epoch}: train loss: {train_loss:.6f}; '
-                         f'val loss: {val_loss:.6f}')
-        else:
-            time_per_epoch = total_time/epoch
-            logging.info(f'Epoch {epoch}: train loss: {train_loss:.6f}; '
-                         f'val loss: {val_loss:.6f}; '
-                         f'Time per epoch: {time_per_epoch:.2f} s')
-        train_losses.append(train_loss)
-        val_losses.append(val_loss)
-
-        # train
-        train(
-            model=model,
-            criterion=criterion,
-            optimizer=optimizer,
-            dataloader=train_dataloader,
-            cuda=cuda,
-        )
-
-        # check stop criterion
-        if (config.TRAINING.EARLY_STOP.TOGGLE
-                and config.TRAINING.CONVERGENCE.TOGGLE):
-            raise ValueError('cannot have both early stopping and progress '
-                             'criterion')
-        if config.TRAINING.EARLY_STOP.TOGGLE:
-            earlyStop(val_loss, model, checkpoint_path)
-            if earlyStop.stop:
-                logging.info('Early stopping now')
-                logging.info(f'Best validation loss: {earlyStop.min_loss}')
-                break
-        elif config.TRAINING.CONVERGENCE.TOGGLE:
-            convergenceTracker(train_loss, model, checkpoint_path)
-            if convergenceTracker.stop:
-                logging.info('Train loss has now converged')
-                break
-
-        # update time spent
-        total_time = time.time() - start_time
-
-    # display total time spent
-    total_time = time.time() - start_time
-    logging.info(f'Time spent: {int(total_time/3600)} h '
-                 f'{int(total_time%3600/60)} m {int(total_time%60)} s')
-
-    # plot training and validation error
-    plot_losses(train_losses, val_losses, args.input)
-
-    # save checkpoint is does not exist
-    if not os.path.exists(checkpoint_path):
-        torch.save(model.state_dict(), checkpoint_path)
-
-    # save errors
-    np.savez(loss_path, train=train_losses, val=val_losses)
+    trainer.run()
 
 
 if __name__ == '__main__':

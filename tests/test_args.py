@@ -70,6 +70,7 @@ def test_training_args():
         '--val-split', '0',
         '--criterion', 'foo',
         '--preload', '0',
+        '--mixed-precision', '0',
     ]
     args = parser.parse_args(arg_cmd)
 
@@ -106,6 +107,7 @@ def test_dnn_args():
         '--val-split', '0',
         '--criterion', 'foo',
         '--preload', '0',
+        '--mixed-precision', '0',
         'dnn',
         '--batch-norm', '0',
         '--dropout', '0',
@@ -143,6 +145,7 @@ def test_convtasnet_args():
         '--val-split', '0',
         '--criterion', 'foo',
         '--preload', '0',
+        '--mixed-precision', '0',
         'convtasnet',
         '--filters', '0',
         '--filter-length', '0',
