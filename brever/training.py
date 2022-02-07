@@ -331,7 +331,8 @@ class SISNR:
         snr_set = torch.einsum('bij,pij->bp', [si_snr, one_hot])
         max_snr, _ = torch.max(snr_set, dim=1, keepdim=True)
         max_snr /= S
-        return -max_snr
+        loss = 0 - torch.mean(max_snr)
+        return loss
 
 
 def get_criterion(name):
