@@ -114,75 +114,53 @@ class DatasetArgParser(argparse.ArgumentParser):
         group.add_argument('--room-files')
 
 
-class TrainingArgParser(argparse.ArgumentParser):
-
-    arg_map = {
-        'batch_size': ['BATCH_SIZE'],
-        'cuda': ['CUDA'],
-        'early_stop': ['EARLY_STOP', 'TOGGLE'],
-        'convergence': ['CONVERGENCE', 'TOGGLE'],
-        'epochs': ['EPOCHS'],
-        'learning_rate': ['LEARNING_RATE'],
-        'workers': ['WORKERS'],
-        'weight_decay': ['WEIGHT_DECAY'],
-        'train_path': ['PATH'],
-        'seed': ['SEED'],
-        'val_split': ['VAL_SPLIT'],
-        'criterion': ['CRITERION'],
-        'preload': ['PRELOAD'],
-        'mixed_precision': ['MIXED_PRECISION'],
-    }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.add_arguments()
-
-    def add_arguments(self):
-        self.add_argument('--batch-size', type=int)
-        self.add_argument('--cuda', type=arg_type_bool)
-        self.add_argument('--early-stop', type=arg_type_bool)
-        self.add_argument('--convergence', type=arg_type_bool)
-        self.add_argument('--epochs', type=int)
-        self.add_argument('--learning-rate', type=float)
-        self.add_argument('--workers', type=int)
-        self.add_argument('--weight-decay', type=float)
-        self.add_argument('--train-path', type=arg_type_path, required=True)
-        self.add_argument('--seed', type=int)
-        self.add_argument('--val-split', type=float)
-        self.add_argument('--criterion')
-        self.add_argument('--preload', type=arg_type_bool)
-        self.add_argument('--mixed-precision', type=arg_type_bool)
-
-
 class ModelArgParser(argparse.ArgumentParser):
 
-    model_arg_map = {
-        'dnn': {
-            'batch_norm': ['BATCH_NORM', 'TOGGLE'],
-            'dropout': ['DROPOUT'],
-            'hidden_layers': ['HIDDEN_LAYERS'],
-            'online_norm': ['NORMALIZATION', 'ONLINE'],
-            'group_norm': ['NORMALIZATION', 'GROUP'],
-            'features': ['FEATURES'],
-            'decimation': ['DECIMATION'],
-            'dct_coeff': ['DCT_COEFF'],
-            'stacks': ['STACKS'],
-            'scale_rms': ['SCALE_RMS'],
-        },
-        'convtasnet': {
-            'filters': ['ENCODER', 'FILTERS'],
-            'filter_length': ['ENCODER', 'FILTER_LENGTH'],
-            'bottleneck_channels': ['TCN', 'BOTTLENECK_CHANNELS'],
-            'hidden_channels': ['TCN', 'HIDDEN_CHANNELS'],
-            'skip_channels': ['TCN', 'SKIP_CHANNELS'],
-            'kernel_size': ['TCN', 'KERNEL_SIZE'],
-            'layers': ['TCN', 'LAYERS'],
-            'repeats': ['TCN', 'REPEATS'],
-            'sources': ['TCN', 'SOURCES'],
-        },
+    training_args = {
+        'batch_size': ['TRAINING', 'BATCH_SIZE'],
+        'cuda': ['TRAINING', 'CUDA'],
+        'early_stop': ['TRAINING', 'EARLY_STOP', 'TOGGLE'],
+        'convergence': ['TRAINING', 'CONVERGENCE', 'TOGGLE'],
+        'epochs': ['TRAINING', 'EPOCHS'],
+        'learning_rate': ['TRAINING', 'LEARNING_RATE'],
+        'workers': ['TRAINING', 'WORKERS'],
+        'weight_decay': ['TRAINING', 'WEIGHT_DECAY'],
+        'train_path': ['TRAINING', 'PATH'],
+        'seed': ['TRAINING', 'SEED'],
+        'val_size': ['TRAINING', 'VAL_SIZE'],
+        'criterion': ['TRAINING', 'CRITERION'],
+        'preload': ['TRAINING', 'PRELOAD'],
+        'mixed_precision': ['TRAINING', 'MIXED_PRECISION'],
+        'grad_clip': ['TRAINING', 'GRAD_CLIP'],
     }
 
-    training_arg_map = TrainingArgParser.arg_map
+    arg_map = {
+        'dnn': {
+            'batch_norm': ['MODEL', 'BATCH_NORM', 'TOGGLE'],
+            'dropout': ['MODEL', 'DROPOUT'],
+            'hidden_layers': ['MODEL', 'HIDDEN_LAYERS'],
+            'online_norm': ['MODEL', 'NORMALIZATION', 'ONLINE'],
+            'group_norm': ['MODEL', 'NORMALIZATION', 'GROUP'],
+            'features': ['MODEL', 'FEATURES'],
+            'decimation': ['MODEL', 'DECIMATION'],
+            'dct_coeff': ['MODEL', 'DCT_COEFF'],
+            'stacks': ['MODEL', 'STACKS'],
+            'scale_rms': ['MODEL', 'SCALE_RMS'],
+            **training_args,
+        },
+        'convtasnet': {
+            'filters': ['MODEL', 'ENCODER', 'FILTERS'],
+            'filter_length': ['MODEL', 'ENCODER', 'FILTER_LENGTH'],
+            'bottleneck_channels': ['MODEL', 'TCN', 'BOTTLENECK_CHANNELS'],
+            'hidden_channels': ['MODEL', 'TCN', 'HIDDEN_CHANNELS'],
+            'skip_channels': ['MODEL', 'TCN', 'SKIP_CHANNELS'],
+            'kernel_size': ['MODEL', 'TCN', 'KERNEL_SIZE'],
+            'layers': ['MODEL', 'TCN', 'LAYERS'],
+            'repeats': ['MODEL', 'TCN', 'REPEATS'],
+            'sources': ['MODEL', 'TCN', 'SOURCES'],
+            **training_args,
+        },
+    }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -205,6 +183,7 @@ class ModelArgParser(argparse.ArgumentParser):
         sub.add_argument('--dct-coeff', type=int)
         sub.add_argument('--stacks', type=int)
         sub.add_argument('--scale-rms', type=arg_type_bool)
+        self.add_training_args(sub)
 
         sub = subs.add_parser('convtasnet')
         sub.add_argument('--filters', type=int)
@@ -216,6 +195,21 @@ class ModelArgParser(argparse.ArgumentParser):
         sub.add_argument('--layers', type=int)
         sub.add_argument('--repeats', type=int)
         sub.add_argument('--sources', type=int)
+        self.add_training_args(sub)
 
-        group = self.add_argument_group('training options')
-        TrainingArgParser.add_arguments(group)
+    def add_training_args(self, sub):
+        sub.add_argument('--batch-size', type=int)
+        sub.add_argument('--cuda', type=arg_type_bool)
+        sub.add_argument('--early-stop', type=arg_type_bool)
+        sub.add_argument('--convergence', type=arg_type_bool)
+        sub.add_argument('--epochs', type=int)
+        sub.add_argument('--learning-rate', type=float)
+        sub.add_argument('--workers', type=int)
+        sub.add_argument('--weight-decay', type=float)
+        sub.add_argument('--train-path', type=arg_type_path, required=True)
+        sub.add_argument('--seed', type=int)
+        sub.add_argument('--val-size', type=float)
+        sub.add_argument('--criterion')
+        sub.add_argument('--preload', type=arg_type_bool)
+        sub.add_argument('--mixed-precision', type=arg_type_bool)
+        sub.add_argument('--grad-clip', type=float)

@@ -2,22 +2,14 @@ import os
 import yaml
 
 from brever.args import ModelArgParser
-from brever.config import get_config, BreverConfig
+from brever.config import get_config
 
 
 def main():
     paths = get_config('config/paths.yaml')
 
-    model_config = get_config(f'config/models/{args.arch}.yaml')
-    model_config.update_from_args(args, parser.model_arg_map[args.arch])
-
-    train_config = get_config('config/training.yaml')
-    train_config.update_from_args(args, parser.training_arg_map)
-
-    config = BreverConfig({
-        'MODEL': model_config.to_dict(),
-        'TRAINING': train_config.to_dict(),
-    })
+    config = get_config(f'config/models/{args.arch}.yaml')
+    config.update_from_args(args, parser.arg_map[args.arch])
     model_id = config.get_hash()
 
     model_dir = os.path.join(paths.MODELS, model_id)

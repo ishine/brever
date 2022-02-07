@@ -1,33 +1,56 @@
 ARCH: dnn
-BATCH_NORM:
-  MOMENTUM: 0.1
-  TOGGLE: false
-DROPOUT: 0.2  # 0.0 to disable
-HIDDEN_LAYERS: [1024, 1024]
-NORMALIZATION:
-  ONLINE: false
-  GROUP: false 
-FEATURES: !!set
-  # ild: null
-  # itd_ic: null
-  # logpdf: null
-  # logmfcc: null
-  # cubicmfcc: null
-  # pdf: null
-  # pdfcc: null
-  logfbe: null
-FILTERBANK:
-  FMIN: 50
-  FMAX: 8000
-  KIND: mel
-  FILTERS: 64
-  ORDER: 4
-FRAMER:
-  CENTER: false
-  FRAME_LENGTH: 512
-  HOP_LENGTH: 256
-  WINDOW: hann
-DECIMATION: 2
-DCT_COEFF: 0
-STACKS: 0
-SCALE_RMS: false
+TRAINING:
+  BATCH_SIZE: 1
+  CRITERION: MSELoss
+  CUDA: true
+  EARLY_STOP:
+    PATIENCE: 10
+    TOGGLE: false
+  CONVERGENCE:
+    WINDOW: 10
+    THRESHOLD: 1.0e-6
+    TOGGLE: false
+  EPOCHS: 100
+  LEARNING_RATE: 1.0e-3
+  WORKERS: 0
+  OPTIMIZER: Adam
+  WEIGHT_DECAY: 0.0
+  PATH: data/processed/train/foo/
+  SEED: 0
+  VAL_SIZE: 0.1
+  PRELOAD: true
+  MIXED_PRECISION: false
+  GRAD_CLIP: 0.0  # 0.0 to disable
+MODEL:
+  BATCH_NORM:
+    MOMENTUM: 0.1
+    TOGGLE: false
+  DROPOUT: 0.2  # 0.0 to disable
+  HIDDEN_LAYERS: [1024, 1024]
+  NORMALIZATION:
+    ONLINE: false
+    GROUP: false
+  FEATURES: !!set
+    # ild: null
+    # itd_ic: null
+    # logpdf: null
+    # logmfcc: null
+    # cubicmfcc: null
+    # pdf: null
+    # pdfcc: null
+    logfbe: null
+  FILTERBANK:
+    FMIN: 50
+    FMAX: 8000
+    KIND: mel
+    FILTERS: 64
+    ORDER: 4
+  FRAMER:
+    CENTER: false
+    FRAME_LENGTH: 512
+    HOP_LENGTH: 256
+    WINDOW: hann
+  DECIMATION: 2
+  DCT_COEFF: 0
+  STACKS: 5
+  SCALE_RMS: false

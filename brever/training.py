@@ -29,7 +29,8 @@ class TrainingTimer:
     def log(self):
         etl = self.estimated_time_left
         h, m, s = int(etl//3600), int((etl % 3600)//60), int(etl % 60)
-        log = f'Time /epoch: {self.time_per_step}; ETA: {h} h {m} m {s} s'
+        tps = int(self.time_per_step)
+        log = f'Time /epoch: {tps}; ETA: {h} h {m} m {s} s'
         logging.info(log)
 
     def final_log(self):
@@ -68,8 +69,8 @@ class LossLogger:
         train_loss = self.train_loss[-1]
         val_loss = self.val_loss[-1]
         logging.info(f'Epoch {epoch}: '
-                     f'train loss: {train_loss:.2f}, '
-                     f'val loss: {val_loss:.2f}')
+                     f'train loss: {train_loss:.4f}, '
+                     f'val loss: {val_loss:.4f}')
 
     def plot(self):
         plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True)
@@ -97,7 +98,8 @@ class BreverTrainer:
                  weight_decay=0.0, val_split=0.1, cuda=True,
                  mixed_precision=True, criterion='MSELoss', optimizer='Adam',
                  early_stop=False, early_stop_patience=10, convergence=False,
-                 convergence_window=10, convergence_threshold=1.0e-6):
+                 convergence_window=10, convergence_threshold=1.0e-6,
+                 grad_clip=0.0):
 
         if early_stop and convergence:
             raise ValueError('cannot toggle both early_stop and convergence')
@@ -109,6 +111,7 @@ class BreverTrainer:
         self.checkpoint_path = os.path.join(dirpath, 'checkpoint.pt')
         self.early_stop = early_stop
         self.convergence = convergence
+        self.grad_clip = grad_clip
 
         # batch samplers
         self.train_batch_sampler = BreverBatchSampler(
@@ -200,6 +203,11 @@ class BreverTrainer:
                 loss = self.criterion(output, target)
             # compute gradients on a scaled loss
             self.scaler.scale(loss).backward()
+            # gradient clipping
+            if self.grad_clip != 0:
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(),
+                                               self.grad_clip)
             # update parameters
             self.scaler.step(self.optimizer)
             # update the scale
