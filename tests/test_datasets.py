@@ -1,9 +1,9 @@
-from brever.data import (AudioDataset, BreverBatchSampler, BreverDataLoader,
+from brever.data import (BreverDataset, BreverBatchSampler, BreverDataLoader,
                          DNNDataset)
 
 
 def test_audio_dataset():
-    dataset = AudioDataset('tests/test_dataset')
+    dataset = BreverDataset('tests/test_dataset')
     assert len(dataset) == 10
 
     batch_sampler = BreverBatchSampler(dataset, 3)
@@ -18,7 +18,7 @@ def test_audio_dataset():
     for data, target in dataloader:
         pass
 
-    dataset = AudioDataset('tests/test_dataset', segment_length=4000)
+    dataset = BreverDataset('tests/test_dataset', segment_length=4000)
     assert len(dataset) == 121
 
     batch_sampler = BreverBatchSampler(dataset, 3)
@@ -44,7 +44,7 @@ def test_dnn_dataset():
     for data, target in dataloader:
         pass
 
-    dataset = AudioDataset('tests/test_dataset', segment_length=4000)
+    dataset = BreverDataset('tests/test_dataset', segment_length=4000)
     assert len(dataset) == 121
 
     batch_sampler = BreverBatchSampler(dataset, 3, drop_last=True)

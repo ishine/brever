@@ -501,8 +501,8 @@ class DNNDataset(BreverDataset):
     def __init__(
         self,
         path,
-        features,
-        stacks,
+        features={'logfbe'},
+        stacks=0,
         framer_kwargs={},
         filterbank_kwargs={},
     ):
