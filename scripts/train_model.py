@@ -119,6 +119,7 @@ def main():
         convergence=config.TRAINING.CONVERGENCE.TOGGLE,
         convergence_window=config.TRAINING.CONVERGENCE.WINDOW,
         convergence_threshold=config.TRAINING.CONVERGENCE.THRESHOLD,
+        grad_clip=config.TRAINING.GRAD_CLIP,
     )
 
     # run
