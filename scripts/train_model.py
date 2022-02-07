@@ -35,18 +35,18 @@ def main():
 
     # initialize dataset
     logging.info('Initializing dataset')
-    if config.MODEL.ARCH == 'dnn':
+    if config.ARCH == 'dnn':
         dataset = DNNDataset(
             path=config.TRAINING.PATH,
             features=config.MODEL.FEATURES,
             stacks=config.MODEL.STACKS,
         )
-    elif config.MODEL.ARCH == 'convtasnet':
+    elif config.ARCH == 'convtasnet':
         dataset = ConvTasNetDataset(
             path=config.TRAINING.PATH,
         )
     else:
-        raise ValueError(f'wrong model architecture, got {config.MODEL.ARCH}')
+        raise ValueError(f'wrong model architecture, got {config.ARCH}')
 
     # preload data
     if config.TRAINING.PRELOAD:
@@ -61,7 +61,7 @@ def main():
     )
 
     # get training statistics
-    if config.MODEL.ARCH == 'dnn':
+    if config.ARCH == 'dnn':
         logging.info('Calculating training statistics')
         mean, std = train_dataset.dataset.get_statistics()
         train_dataset.dataset.transform = TensorStandardizer(mean, std)
@@ -69,7 +69,7 @@ def main():
 
     # initialize model
     logging.info('Initializing model')
-    if config.MODEL.ARCH == 'dnn':
+    if config.ARCH == 'dnn':
         model = DNN(
             input_size=dataset.n_features,
             output_size=dataset.n_labels,
@@ -78,7 +78,7 @@ def main():
             batchnorm=config.MODEL.BATCH_NORM.TOGGLE,
             batchnorm_momentum=config.MODEL.BATCH_NORM.MOMENTUM,
         )
-    elif config.MODEL.ARCH == 'convtasnet':
+    elif config.ARCH == 'convtasnet':
         model = ConvTasNet(
             filters=config.MODEL.ENCODER.FILTERS,
             filter_length=config.MODEL.ENCODER.FILTER_LENGTH,
@@ -91,7 +91,7 @@ def main():
             sources=config.MODEL.TCN.SOURCES,
         )
     else:
-        raise ValueError(f'wrong model architecture, got {config.MODEL.ARCH}')
+        raise ValueError(f'wrong model architecture, got {config.ARCH}')
 
     # cast to cuda
     if cuda:
