@@ -95,9 +95,9 @@ class LossLogger:
 class BreverTrainer:
     def __init__(self, model, train_dataset, val_dataset, dirpath,
                  batch_size=1, workers=0, epochs=100, learning_rate=1e-3,
-                 weight_decay=0.0, val_split=0.1, cuda=True,
-                 mixed_precision=True, criterion='MSELoss', optimizer='Adam',
-                 early_stop=False, early_stop_patience=10, convergence=False,
+                 weight_decay=0.0, cuda=True, mixed_precision=True,
+                 criterion='MSELoss', optimizer='Adam', early_stop=False,
+                 early_stop_patience=10, convergence=False,
                  convergence_window=10, convergence_threshold=1.0e-6,
                  grad_clip=0.0):
 

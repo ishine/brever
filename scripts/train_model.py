@@ -54,7 +54,7 @@ def main():
         dataset.preload(cuda)
 
     # train val split
-    val_length = int(len(dataset)*config.TRAINING.VAL_SPLIT)
+    val_length = int(len(dataset)*config.TRAINING.VAL_SIZE)
     train_length = len(dataset) - val_length
     train_dataset, val_dataset = torch.utils.data.random_split(
         dataset, [train_length, val_length]
@@ -109,7 +109,6 @@ def main():
         epochs=config.TRAINING.EPOCHS,
         learning_rate=config.TRAINING.LEARNING_RATE,
         weight_decay=config.TRAINING.WEIGHT_DECAY,
-        val_split=config.TRAINING.VAL_SPLIT,
         cuda=config.TRAINING.CUDA,
         mixed_precision=config.TRAINING.MIXED_PRECISION,
         criterion=config.TRAINING.CRITERION,
