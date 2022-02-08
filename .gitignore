@@ -4,4 +4,5 @@ __pycache__/
 /models
 brever.egg-info/
 /jobs/logs/
-tests/test_dataset/
+/jobs/job.sh
+/tests/test_dataset/
