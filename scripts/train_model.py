@@ -45,6 +45,7 @@ def main():
     elif config.ARCH == 'convtasnet':
         dataset = ConvTasNetDataset(
             path=config.TRAINING.PATH,
+            components=config.MODEL.SOURCES,
         )
     else:
         raise ValueError(f'wrong model architecture, got {config.ARCH}')
@@ -89,7 +90,7 @@ def main():
             kernel_size=config.MODEL.TCN.KERNEL_SIZE,
             layers=config.MODEL.TCN.LAYERS,
             repeats=config.MODEL.TCN.REPEATS,
-            sources=config.MODEL.TCN.SOURCES,
+            sources=len(config.MODEL.SOURCES),
         )
     else:
         raise ValueError(f'wrong model architecture, got {config.ARCH}')

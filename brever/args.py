@@ -157,7 +157,7 @@ class ModelArgParser(argparse.ArgumentParser):
             'kernel_size': ['MODEL', 'TCN', 'KERNEL_SIZE'],
             'layers': ['MODEL', 'TCN', 'LAYERS'],
             'repeats': ['MODEL', 'TCN', 'REPEATS'],
-            'sources': ['MODEL', 'TCN', 'SOURCES'],
+            'sources': ['MODEL', 'SOURCES'],
             **training_args,
         },
     }
@@ -194,7 +194,7 @@ class ModelArgParser(argparse.ArgumentParser):
         sub.add_argument('--kernel-size', type=int)
         sub.add_argument('--layers', type=int)
         sub.add_argument('--repeats', type=int)
-        sub.add_argument('--sources', type=int)
+        sub.add_argument('--sources', nargs='+', action=SetAction)
         self.add_training_args(sub)
 
     def add_training_args(self, sub):

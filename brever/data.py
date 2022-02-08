@@ -334,7 +334,7 @@ class BreverDataset(torch.utils.data.Dataset):
         self.segment_length = segment_length
         self.overlap_length = overlap_length
         self.components = components
-        self.segment_info = self.get_segments()
+        self.segment_info = self.get_segment_info()
         self.preloaded_data = None
         self.transform = None
 
@@ -347,7 +347,7 @@ class BreverDataset(torch.utils.data.Dataset):
             comp_paths.append(comp_path)
         return mix_path, comp_paths
 
-    def get_segments(self):
+    def get_segment_info(self):
         mix_lengths = self.get_mix_lengths()
         segment_info = []
         if self.segment_length == -1:
@@ -508,7 +508,7 @@ class DNNDataset(BreverDataset):
         framer_kwargs={},
         filterbank_kwargs={},
     ):
-        super().__init__(path)
+        super().__init__(path, components=['foreground', 'background'])
         self.stacks = stacks
         self.decimation = decimation
         self.feature_extractor = FeatureExtractor(features)
@@ -591,8 +591,8 @@ class Framer:
 
 
 class ConvTasNetDataset(BreverDataset):
-    def __init__(self, path):
-        super().__init__(path)
+    def __init__(self, path, components=['foreground', 'background']):
+        super().__init__(path, components=components)
 
     def post_proc(self, data, target):
         data = data.mean(axis=-2)

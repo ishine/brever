@@ -120,7 +120,7 @@ def test_convtasnet_args():
         '--kernel-size', '0',
         '--layers', '0',
         '--repeats', '0',
-        '--sources', '0',
+        '--sources', 'foo', 'bar',
     ]
     args = parser.parse_args(arg_cmd)
 
