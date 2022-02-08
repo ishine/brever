@@ -110,7 +110,7 @@ def main():
         epochs=config.TRAINING.EPOCHS,
         learning_rate=config.TRAINING.LEARNING_RATE,
         weight_decay=config.TRAINING.WEIGHT_DECAY,
-        cuda=config.TRAINING.CUDA,
+        cuda=cuda,
         mixed_precision=config.TRAINING.MIXED_PRECISION,
         criterion=config.TRAINING.CRITERION,
         optimizer=config.TRAINING.OPTIMIZER,

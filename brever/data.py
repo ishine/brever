@@ -492,6 +492,7 @@ class BreverDataLoader(torch.utils.data.DataLoader):
         max_length = max(x.shape[-1] for x, _ in batch)
         batch_x, batch_y = [], []
         for x, y in batch:
+            assert x.shape[-1] == y.shape[-1]
             batch_x.append(F.pad(x, (0, max_length - x.shape[-1])))
             batch_y.append(F.pad(y, (0, max_length - y.shape[-1])))
         return torch.stack(batch_x), torch.stack(batch_y)
@@ -529,6 +530,8 @@ class DNNDataset(BreverDataset):
         # labels
         target = irm(foreground, background)  # (labels, frames)
         target = torch.from_numpy(target)
+        target = target[:, self.stacks:]  # update shape due to decimation
+        target = self.decimate(target)
         return data, target
 
     def stack(self, data):
@@ -538,7 +541,7 @@ class DNNDataset(BreverDataset):
         return torch.cat(out)
 
     def decimate(self, data):
-        return data[..., ::self.decimation]
+        return data[:, ::self.decimation]
 
     @property
     def item_lengths(self):
