@@ -503,11 +503,13 @@ class DNNDataset(BreverDataset):
         path,
         features={'logfbe'},
         stacks=0,
+        decimation=1,
         framer_kwargs={},
         filterbank_kwargs={},
     ):
         super().__init__(path)
         self.stacks = stacks
+        self.decimation = decimation
         self.feature_extractor = FeatureExtractor(features)
         self.framer = Framer(**framer_kwargs)
         self.filterbank = Filterbank(**filterbank_kwargs)
@@ -523,6 +525,7 @@ class DNNDataset(BreverDataset):
         data = self.feature_extractor(mix)  # (features, frames)
         data = torch.from_numpy(data)
         data = self.stack(data)
+        data = self.decimate(data)
         # labels
         target = irm(foreground, background)  # (labels, frames)
         target = torch.from_numpy(target)
@@ -533,6 +536,9 @@ class DNNDataset(BreverDataset):
         for i in range(self.stacks+1):
             out.append(data.roll(i, -1)[:, self.stacks:])
         return torch.cat(out)
+
+    def decimate(self, data):
+        return data[..., ::self.decimation]
 
     @property
     def item_lengths(self):

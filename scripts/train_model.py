@@ -40,6 +40,7 @@ def main():
             path=config.TRAINING.PATH,
             features=config.MODEL.FEATURES,
             stacks=config.MODEL.STACKS,
+            decimation=config.MODEL.DECIMATION,
         )
     elif config.ARCH == 'convtasnet':
         dataset = ConvTasNetDataset(
