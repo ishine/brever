@@ -72,7 +72,7 @@ do
         echo "model already trained: ${INPUT}"
         continue
     fi
-    COMMAND="python scripts/train.py ${INPUT}"
+    COMMAND="python scripts/train_model.py ${INPUT}"
     if [ ${FORCE} = true ]
     then
         COMMAND="${COMMAND} -f"
