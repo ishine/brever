@@ -130,7 +130,6 @@ class ModelArgParser(argparse.ArgumentParser):
         'val_size': ['TRAINING', 'VAL_SIZE'],
         'criterion': ['TRAINING', 'CRITERION'],
         'preload': ['TRAINING', 'PRELOAD'],
-        'mixed_precision': ['TRAINING', 'MIXED_PRECISION'],
         'grad_clip': ['TRAINING', 'GRAD_CLIP'],
     }
 
@@ -211,5 +210,4 @@ class ModelArgParser(argparse.ArgumentParser):
         sub.add_argument('--val-size', type=float)
         sub.add_argument('--criterion')
         sub.add_argument('--preload', type=arg_type_bool)
-        sub.add_argument('--mixed-precision', type=arg_type_bool)
         sub.add_argument('--grad-clip', type=float)

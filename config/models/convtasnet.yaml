@@ -19,7 +19,6 @@ TRAINING:
   SEED: 0
   VAL_SIZE: 0.1
   PRELOAD: false
-  MIXED_PRECISION: false
   GRAD_CLIP: 5.0  # 0.0 to disable
 MODEL:
   ENCODER:

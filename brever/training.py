@@ -95,11 +95,10 @@ class LossLogger:
 class BreverTrainer:
     def __init__(self, model, train_dataset, val_dataset, dirpath,
                  batch_size=1, workers=0, epochs=100, learning_rate=1e-3,
-                 weight_decay=0.0, cuda=True, mixed_precision=True,
-                 criterion='MSELoss', optimizer='Adam', early_stop=False,
-                 early_stop_patience=10, convergence=False,
-                 convergence_window=10, convergence_threshold=1.0e-6,
-                 grad_clip=0.0):
+                 weight_decay=0.0, cuda=True, criterion='MSELoss',
+                 optimizer='Adam', early_stop=False, early_stop_patience=10,
+                 convergence=False, convergence_window=10,
+                 convergence_threshold=1.0e-6, grad_clip=0.0):
 
         if early_stop and convergence:
             raise ValueError('cannot toggle both early_stop and convergence')
@@ -107,7 +106,6 @@ class BreverTrainer:
         self.model = model
         self.epochs = epochs
         self.cuda = cuda
-        self.mixed_precision = mixed_precision
         self.checkpoint_path = os.path.join(dirpath, 'checkpoint.pt')
         self.early_stop = early_stop
         self.convergence = convergence
@@ -144,9 +142,6 @@ class BreverTrainer:
             lr=learning_rate,
             weight_decay=weight_decay,
         )
-
-        # autocast scaler
-        self.scaler = torch.cuda.amp.GradScaler(enabled=mixed_precision)
 
         # loss logger
         self.lossLogger = LossLogger(dirpath)
@@ -192,26 +187,17 @@ class BreverTrainer:
     def train(self):
         self.model.train()
         for data, target in self.train_dataloader:
-            # cast to cuda if requested
             if self.cuda:
                 data, target = data.cuda(), target.cuda()
-            # zero the parameter gradients
             self.optimizer.zero_grad()
-            # run the forward past with autocasting
-            with torch.cuda.amp.autocast(enabled=self.mixed_precision):
-                output = self.model(data)
-                loss = self.criterion(output, target)
-            # compute gradients on a scaled loss
-            self.scaler.scale(loss).backward()
-            # gradient clipping
+            output = self.model(data)
+            loss = self.criterion(output, target)
+            loss.backward()
             if self.grad_clip != 0:
-                self.scaler.unscale_(self.optimizer)
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(),
-                                               self.grad_clip)
-            # update parameters
-            self.scaler.step(self.optimizer)
-            # update the scale
-            self.scaler.update()
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(), self.grad_clip,
+                )
+            self.optimizer.step()
 
     def evaluate(self):
         self.model.eval()
