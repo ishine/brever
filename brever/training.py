@@ -309,6 +309,9 @@ class SISNR:
             SI-SNR.
         """
         # (B, S, L) = (batch_size, sources, lenght)
+        data = data - data.mean(dim=2, keepdim=True)
+        target = target - target.mean(dim=2, keepdim=True)
+
         s_hat = torch.unsqueeze(data, dim=1)  # (B, 1, S, L)
         s = torch.unsqueeze(target, dim=2)  # (B, S, 1, L)
         s_target = torch.sum(s_hat*s, dim=3, keepdim=True)*s \
