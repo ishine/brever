@@ -6,22 +6,22 @@ UNIFORM_TMR: false
 REFLECTION_BOUNDARY: 0.05
 SPEAKERS: !!set
   timit_.*: null
-  libri_.*: null
-  ieee: null
-  arctic: null
-  hint: null
+  # libri_.*: null
+  # ieee: null
+  # arctic: null
+  # hint: null
 NOISES: !!set
   dcase_.*: null
-  noisex_.*: null
-  icra_.*: null
-  demand: null
-  arte: null
+  # noisex_.*: null
+  # icra_.*: null
+  # demand: null
+  # arte: null
 ROOMS: !!set
   surrey_.*: null
-  ash_.*: null
-  bras_.*: null
-  catt_.*: null
-  avil_.*: null
+  # ash_.*: null
+  # bras_.*: null
+  # catt_.*: null
+  # avil_.*: null
 TARGET:
   SNR:
     # DIST_NAME: logistic
