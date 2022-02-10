@@ -31,8 +31,8 @@ MODEL:
     KERNEL_SIZE: 3
     LAYERS: 8
     REPEATS: 3
-  SOURCES: !!set
-    foreground: null
-    background: null
-    # target: null
-    # noise: null
+  SOURCES:
+    - foreground
+    - background
+    # target
+    # noise

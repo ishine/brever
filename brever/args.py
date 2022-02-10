@@ -193,7 +193,7 @@ class ModelArgParser(argparse.ArgumentParser):
         sub.add_argument('--kernel-size', type=int)
         sub.add_argument('--layers', type=int)
         sub.add_argument('--repeats', type=int)
-        sub.add_argument('--sources', nargs='+', action=SetAction)
+        sub.add_argument('--sources', nargs='+')
         self.add_training_args(sub)
 
     def add_training_args(self, sub):
