@@ -11,9 +11,10 @@ import torchaudio
 import h5py
 
 from .features import FeatureExtractor
-from .labels import irm
 from .utils import dct
 from .filters import Filterbank
+
+eps = np.finfo(float).eps
 
 
 def get_mean_and_std(dataset, dataloader, uniform_stats_features):
@@ -518,7 +519,8 @@ class DNNDataset(BreverDataset):
     def post_proc(self, data, target):
         data = torch.stack([data, *target])  # (sources, channels, time)
         data = self.framer(data)  # (sources, channels, frames, samples)
-        data = self.filterbank(data)  # (filters, sources, channels, ...)
+        data = self.filterbank(data)
+        # (filters, sources, channels, frames, samples)
         mix = data[:, 0, :, :, :]
         foreground = data[:, 1, :, :, :]
         background = data[:, 2, :, :, :]
@@ -528,11 +530,17 @@ class DNNDataset(BreverDataset):
         data = self.stack(data)
         data = self.decimate(data)
         # labels
-        target = irm(foreground, background)  # (labels, frames)
+        target = self.irm(foreground, background)  # (labels, frames)
         target = torch.from_numpy(target)
         target = target[:, self.stacks:]  # update shape due to decimation
         target = self.decimate(target)
         return data, target
+
+    def irm(self, target, masker):
+        # (filters, channels, frames, samples)
+        target = torch.mean(target**2, dim=(1, 3))  # (filters, frames)
+        masker = torch.mean(masker**2, dim=(1, 3))  # (filters, frames)
+        return (1 + masker/(target+eps))**-0.5
 
     def stack(self, data):
         out = []
