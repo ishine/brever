@@ -532,14 +532,14 @@ class DNNDataset(BreverDataset):
         # labels
         target = self.irm(foreground, background)  # (labels, frames)
         target = torch.from_numpy(target)
-        target = target[:, self.stacks:]  # update shape due to decimation
+        target = target[:, self.stacks:]  # update shape due to stacking
         target = self.decimate(target)
         return data, target
 
     def irm(self, target, masker):
         # (filters, channels, frames, samples)
-        target = torch.mean(target**2, dim=(1, 3))  # (filters, frames)
-        masker = torch.mean(masker**2, dim=(1, 3))  # (filters, frames)
+        target = np.mean(target**2, axis=(1, 3))  # (filters, frames)
+        masker = np.mean(masker**2, axis=(1, 3))  # (filters, frames)
         return (1 + masker/(target+eps))**-0.5
 
     def stack(self, data):
