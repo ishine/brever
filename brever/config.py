@@ -99,7 +99,7 @@ class ModelFinder:
         self.models = None
         self.configs = None
 
-    def find(self, **kwargs):
+    def find(self, arch=None, **kwargs):
         if self.models is None:
             self.models = []
             paths = get_config('config/paths.yaml')
@@ -108,7 +108,7 @@ class ModelFinder:
                 self.models.append(os.path.join(models_dir, model_id))
 
         if self.configs is None:
-            self.configs = None
+            self.configs = []
             for model in self.models:
                 config_file = os.path.join(model, 'config.yaml')
                 config = get_config(config_file)
@@ -117,17 +117,34 @@ class ModelFinder:
         assert len(self.models) == len(self.configs)
 
         models = []
-        for model, config in zip(self.models):
+        configs = []
+        for model, config in zip(self.models, self.configs):
             valid = True
-            for key, values in kwargs.items():
-                key_list = ModelArgParser.arg_map['arch'][key]
-                if config.get_field(key_list) not in values:
-                    valid = False
-                    break
+            if arch is not None and config.ARCH != arch:
+                valid = False
+            else:
+                for key, values in kwargs.items():
+                    key_list = ModelArgParser.arg_map[config.ARCH][key]
+                    if config.get_field(key_list) != values:
+                        valid = False
+                        break
             if valid:
                 models.append(model)
+                configs.append(config)
 
-        return models
+        return models, configs
+
+    def find_from_args(self, args):
+        if args.arch is None:
+            arg_map = ModelArgParser.training_args
+        else:
+            arg_map = ModelArgParser.arg_map[args.arch]
+        kwargs = {}
+        for key in arg_map.keys():
+            val = getattr(args, key)
+            if val is not None:
+                kwargs[key] = val
+        return self.find(args.arch, **kwargs)
 
 
 class DatasetFinder:
@@ -153,9 +170,10 @@ class DatasetFinder:
                 config = get_config(config_file)
                 self.configs.append(config)
 
-        assert len(self.models) == len(self.configs)
+        assert len(self.dsets) == len(self.configs)
 
         dsets = []
+        configs = []
         for dset, config in zip(self.dsets, self.configs):
             valid = True
             for key, values in kwargs.items():
@@ -164,6 +182,7 @@ class DatasetFinder:
                     valid = False
                     break
             if valid:
-                dsets.append(dset.replace('\\', '/'))
+                dsets.append(dset)
+                configs.append(config)
 
-        return dsets
+        return dsets, configs

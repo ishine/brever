@@ -53,7 +53,6 @@ def test_dnn_args():
     parser = ModelArgParser()
 
     arg_cmd = [
-        'dnn',
         # training args
         '--batch-size', '0',
         '--cuda', '0',
@@ -70,6 +69,7 @@ def test_dnn_args():
         '--preload', '0',
         '--grad-clip', '0',
         # model args
+        'dnn',
         '--batch-norm', '0',
         '--dropout', '0',
         '--hidden-layers', '0', '0',
@@ -93,7 +93,6 @@ def test_convtasnet_args():
     parser = ModelArgParser()
 
     arg_cmd = [
-        'convtasnet',
         # training args
         '--batch-size', '0',
         '--cuda', '0',
@@ -110,6 +109,7 @@ def test_convtasnet_args():
         '--preload', '0',
         '--grad-clip', '0',
         # model args
+        'convtasnet',
         '--filters', '0',
         '--filter-length', '0',
         '--bottleneck-channels', '0',

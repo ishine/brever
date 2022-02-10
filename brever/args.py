@@ -168,7 +168,6 @@ class ModelArgParser(argparse.ArgumentParser):
             help='architecture selection',
             dest='arch',
             parser_class=argparse.ArgumentParser,
-            required=True,
         )
 
         sub = subs.add_parser('dnn')
@@ -182,7 +181,6 @@ class ModelArgParser(argparse.ArgumentParser):
         sub.add_argument('--dct-coeff', type=int)
         sub.add_argument('--stacks', type=int)
         sub.add_argument('--scale-rms', type=arg_type_bool)
-        self.add_training_args(sub)
 
         sub = subs.add_parser('convtasnet')
         sub.add_argument('--filters', type=int)
@@ -194,20 +192,18 @@ class ModelArgParser(argparse.ArgumentParser):
         sub.add_argument('--layers', type=int)
         sub.add_argument('--repeats', type=int)
         sub.add_argument('--sources', nargs='+')
-        self.add_training_args(sub)
 
-    def add_training_args(self, sub):
-        sub.add_argument('--batch-size', type=int)
-        sub.add_argument('--cuda', type=arg_type_bool)
-        sub.add_argument('--early-stop', type=arg_type_bool)
-        sub.add_argument('--convergence', type=arg_type_bool)
-        sub.add_argument('--epochs', type=int)
-        sub.add_argument('--learning-rate', type=float)
-        sub.add_argument('--workers', type=int)
-        sub.add_argument('--weight-decay', type=float)
-        sub.add_argument('--train-path', type=arg_type_path, required=True)
-        sub.add_argument('--seed', type=int)
-        sub.add_argument('--val-size', type=float)
-        sub.add_argument('--criterion')
-        sub.add_argument('--preload', type=arg_type_bool)
-        sub.add_argument('--grad-clip', type=float)
+        self.add_argument('--batch-size', type=int)
+        self.add_argument('--cuda', type=arg_type_bool)
+        self.add_argument('--early-stop', type=arg_type_bool)
+        self.add_argument('--convergence', type=arg_type_bool)
+        self.add_argument('--epochs', type=int)
+        self.add_argument('--learning-rate', type=float)
+        self.add_argument('--workers', type=int)
+        self.add_argument('--weight-decay', type=float)
+        self.add_argument('--train-path', type=arg_type_path)
+        self.add_argument('--seed', type=int)
+        self.add_argument('--val-size', type=float)
+        self.add_argument('--criterion')
+        self.add_argument('--preload', type=arg_type_bool)
+        self.add_argument('--grad-clip', type=float)

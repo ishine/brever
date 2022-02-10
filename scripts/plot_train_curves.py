@@ -1,23 +1,17 @@
+import argparse
 import os
-from glob import glob
 
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import numpy as np
 
-import brever.management as bm
 
-
-def main(models, args, **kwargs):
+def main():
     plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True)
     plt.rc('grid', color='w', linestyle='solid')
 
-    models = bm.find_model(models=models, **kwargs)
-    for model in models:
-        print(model)
-
     fig, ax = plt.subplots()
-    for model in models:
+    for model in args.inputs:
         path = os.path.join(model, 'losses.npz')
         data = np.load(path)
         l, = ax.plot(data['train'], label=model)
@@ -40,17 +34,10 @@ def main(models, args, **kwargs):
 
 
 if __name__ == '__main__':
-    parser = bm.ModelFilterArgParser(description='plot training curves')
-    parser.add_argument('input', nargs='+',
-                        help='list of models whose curves to plot')
+    parser = argparse.ArgumentParser(description='plot training curves')
+    parser.add_argument('inputs', nargs='+',
+                        help='paths to model directories')
     parser.add_argument('--ymin', type=float)
     parser.add_argument('--ymax', type=float)
-    filter_args, args = parser.parse_args()
-
-    model_dirs = []
-    for input_ in args.input:
-        if not glob(input_):
-            print(f'Model not found: {input_}')
-        model_dirs += glob(input_)
-
-    main(model_dirs, args, **vars(filter_args))
+    args = parser.parse_args()
+    main()

@@ -1,22 +1,21 @@
 import os
 import shutil
 
-import brever.management as bm
+from brever.args import ModelArgParser
+from brever.config import ModelFinder
 
 
-def main(args, **kwargs):
+def main():
     if args.trained and args.untrained:
         raise ValueError('cannot use both --trained and --untrained')
     if args.tested and args.untested:
         raise ValueError('cannot use both --tested and --untested')
 
-    # first filtering of models
-    pre_models = bm.find_model(**kwargs)
+    finder = ModelFinder()
+    matching_models, _ = finder.find_from_args(args)
 
-    # second filtering of models based on extra argumgents
     models = []
-
-    for model in pre_models:
+    for model in matching_models:
         loss_file = os.path.join(model, 'losses.npz')
         score_file = os.path.join(model, 'scores.json')
 
@@ -32,7 +31,7 @@ def main(args, **kwargs):
         models.append(model)
 
     if args.pipe:
-        print(' '.join(models))
+        print(' '.join(models), end='')
     else:
         for model in models:
             print(model)
@@ -49,8 +48,8 @@ def main(args, **kwargs):
 
 
 if __name__ == '__main__':
-    parser = bm.ModelFilterArgParser(description='find models')
-    parser.add_argument('-d', '--delete', action='store_true',
+    parser = ModelArgParser(description='find models')
+    parser.add_argument('--delete', action='store_true',
                         help='delete found models')
     parser.add_argument('--trained', action='store_true',
                         help='only show trained models')
@@ -62,5 +61,5 @@ if __name__ == '__main__':
                         help='only show untested models')
     parser.add_argument('--pipe', action='store_true',
                         help='output as one line to pipe to another command')
-    filter_args, extra_args = parser.parse_args()
-    main(extra_args, **vars(filter_args))
+    args = parser.parse_args()
+    main()
