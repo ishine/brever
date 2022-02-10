@@ -1,6 +1,16 @@
 import hashlib
+import os
 
 import yaml
+
+from .args import ModelArgParser, DatasetArgParser
+
+
+def get_config(path):
+    with open(path) as f:
+        config_dict = yaml.safe_load(f)
+    config = BreverConfig(config_dict)
+    return config
 
 
 class BreverConfig:
@@ -84,8 +94,76 @@ class BreverConfig:
             self.set_field(key_list, value)
 
 
-def get_config(path):
-    with open(path) as f:
-        config_dict = yaml.safe_load(f)
-    config = BreverConfig(config_dict)
-    return config
+class ModelFinder:
+    def __init__(self):
+        self.models = None
+        self.configs = None
+
+    def find(self, **kwargs):
+        if self.models is None:
+            self.models = []
+            paths = get_config('config/paths.yaml')
+            models_dir = paths.MODELS
+            for model_id in os.listdir(models_dir):
+                self.models.append(os.path.join(models_dir, model_id))
+
+        if self.configs is None:
+            self.configs = None
+            for model in self.models:
+                config_file = os.path.join(model, 'config.yaml')
+                config = get_config(config_file)
+                self.configs.append(config)
+
+        assert len(self.models) == len(self.configs)
+
+        models = []
+        for model, config in zip(self.models):
+            valid = True
+            for key, values in kwargs.items():
+                key_list = ModelArgParser.arg_map['arch'][key]
+                if config.get_field(key_list) not in values:
+                    valid = False
+                    break
+            if valid:
+                models.append(model)
+
+        return models
+
+
+class DatasetFinder:
+    def __init__(self):
+        self.dsets = None
+        self.configs = None
+
+    def find(self, kind=None, **kwargs):
+        if self.dsets is None:
+            self.dsets = []
+            paths = get_config('config/paths.yaml')
+            dsets_dir = paths.DATASETS
+            if kind is not None:
+                directory = os.path.join(dsets_dir, kind)
+            for root, folder, files in os.walk(directory):
+                if 'config.yaml' in files:
+                    self.dsets.append(root)
+
+        if self.configs is None:
+            self.configs = []
+            for dset in self.dsets:
+                config_file = os.path.join(dset, 'config.yaml')
+                config = get_config(config_file)
+                self.configs.append(config)
+
+        assert len(self.models) == len(self.configs)
+
+        dsets = []
+        for dset, config in zip(self.dsets, self.configs):
+            valid = True
+            for key, values in kwargs.items():
+                key_list = DatasetArgParser.arg_map[key]
+                if config.get_field(config, key_list) not in values:
+                    valid = False
+                    break
+            if valid:
+                dsets.append(dset.replace('\\', '/'))
+
+        return dsets
