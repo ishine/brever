@@ -167,9 +167,9 @@ class BreverTrainer:
         self.timer.start()
         for epoch in range(self.epochs):
             # train
-            self.train()
+            train_loss = self.train()
             # evaluate
-            train_loss, val_loss = self.evaluate()
+            val_loss = self.evaluate()
             # log losses
             self.lossLogger.add(train_loss, val_loss)
             self.lossLogger.log(epoch)
@@ -186,6 +186,7 @@ class BreverTrainer:
 
     def train(self):
         self.model.train()
+        train_loss = 0
         for data, target in self.train_dataloader:
             if self.cuda:
                 data, target = data.cuda(), target.cuda()
@@ -198,22 +199,21 @@ class BreverTrainer:
                     self.model.parameters(), self.grad_clip,
                 )
             self.optimizer.step()
+            train_loss += loss.item()
+        train_loss /= len(self.train_dataloader)
+        return train_loss
 
     def evaluate(self):
         self.model.eval()
-
-        def eval(dataloader):
-            with torch.no_grad():
-                loss = 0
-                for data, target in dataloader:
-                    if self.cuda:
-                        data, target = data.cuda(), target.cuda()
-                    output = self.model(data)
-                    loss += self.criterion(output, target).item()
-                loss /= len(dataloader)
-            return loss
-
-        return eval(self.train_dataloader), eval(self.val_dataloader)
+        with torch.no_grad():
+            val_loss = 0
+            for data, target in self.val_dataloader:
+                if self.cuda:
+                    data, target = data.cuda(), target.cuda()
+                output = self.model(data)
+                val_loss += self.criterion(output, target).item()
+            val_loss /= len(self.val_dataloader)
+        return val_loss
 
     def stop_criterion(self, train_loss, val_loss):
         if self.early_stop:
