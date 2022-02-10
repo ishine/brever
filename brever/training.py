@@ -367,7 +367,7 @@ class SNR:
 def get_criterion(name):
     if name == 'SISNR':
         return SISNR()
-    elif name == 'SISNR':
+    elif name == 'SNR':
         return SNR()
     else:
         return getattr(torch.nn, name)()
