@@ -22,10 +22,11 @@ class ConvTasNet(nn.Module):
         )
 
     def forward(self, x):
-        x, padding = self.encoder(x)
+        length = x.shape[-1]
+        x = self.encoder(x)
         masks = self.tcn(x)
         x = self.decoder(x, masks)
-        x = x[:, :, padding:]
+        x = x[:, :, :length]
         return x
 
 
@@ -48,14 +49,14 @@ class Encoder(nn.Module):
         batch_size, length = x.shape
         # pad to obtain integer number of frames
         padding = (self.filter_length - length) % self.stride
-        x = F.pad(x, (padding, 0))  # pad left to ensure causality
-        return x, padding
+        x = F.pad(x, (0, padding))  # pad left or right matters little here
+        return x
 
     def forward(self, x):
-        x, padding = self.pad(x)
+        x = self.pad(x)
         x = x.unsqueeze(1)
         x = self.conv(x)
-        return x, padding
+        return x
 
 
 class Decoder(nn.Module):
