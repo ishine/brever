@@ -335,7 +335,7 @@ class SISNR:
 class SNR:
     def __call__(self, data, target):
         """
-        Calculate SNR.
+        Calculate SNR without PIT.
 
         Parameters
         ----------
@@ -348,19 +348,12 @@ class SNR:
         -------
         snr : float
             SNR.
-
-        Notes
-        -----
-        Only the first source in `data` and `target` are used. They must
-        correspond to the foregroud/clean speech.
         """
         # (B, S, L) = (batch_size, sources, lenght)
-        s_hat = data[:, 0, :]  # (B, L)
-        s = target[:, 0, :]  # (B, L)
-        e = s - s_hat
-        snr = torch.sum(s**2, dim=-1)/(torch.sum(e**2, dim=-1) + eps)  # (B,)
-        snr = 10*torch.log10(snr + eps)  # (B,)
-        loss = 0 - torch.mean(snr)
+        snr = torch.sum(data**2, dim=-1) \
+            / (torch.sum((data-target)**2, dim=-1) + eps)  # (B, S)
+        snr = 10*torch.log10(snr + eps)  # (B, S)
+        loss = -torch.mean(snr)
         return loss
 
 
