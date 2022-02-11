@@ -68,6 +68,7 @@ def test_dnn_args():
         '--criterion', 'foo',
         '--preload', '0',
         '--grad-clip', '0',
+        '--optimizer', 'foo',
         # model args
         'dnn',
         '--batch-norm', '0',
@@ -108,6 +109,7 @@ def test_convtasnet_args():
         '--criterion', 'foo',
         '--preload', '0',
         '--grad-clip', '0',
+        '--optimizer', 'foo',
         # model args
         'convtasnet',
         '--filters', '0',

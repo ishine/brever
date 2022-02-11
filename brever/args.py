@@ -131,6 +131,7 @@ class ModelArgParser(argparse.ArgumentParser):
         'criterion': ['TRAINING', 'CRITERION'],
         'preload': ['TRAINING', 'PRELOAD'],
         'grad_clip': ['TRAINING', 'GRAD_CLIP'],
+        'optimizer': ['TRAINING', 'OPTIMIZER'],
     }
 
     arg_map = {
@@ -208,3 +209,4 @@ class ModelArgParser(argparse.ArgumentParser):
         self.add_argument('--criterion')
         self.add_argument('--preload', type=arg_type_bool)
         self.add_argument('--grad-clip', type=float)
+        self.add_argument('--optimizer', type=str)
