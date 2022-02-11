@@ -1,71 +1,133 @@
 import argparse
-from glob import glob
 import logging
 import os
 import pickle
-import sys
 import time
+import random
+import json
 
 import h5py
 import numpy as np
-from pesq import pesq
+# from pesq import pesq
 from pystoi import stoi
 import soundfile as sf
 import torch
 
-from brever.config import defaults
-import brever.data as bdata
-import brever.management as bm
-from brever.models import DNN
-# from brever.utils import segmental_scores
+from brever.config import get_config
+from brever.data import DNNDataset, ConvTasNetDataset
+from brever.models import DNN, ConvTasNet
 from brever.utils import wola
+from brever.logger import set_logger
 
 
-def main(model_dir, args):
-    logging.info(f'Processing {model_dir}')
-
+def main():
     # check if model is trained
-    loss_path = os.path.join(model_dir, 'losses.npz')
+    loss_path = os.path.join(args.input, 'losses.npz')
     if not os.path.exists(loss_path):
-        logging.info('Model is not trained!')
-        return
+        raise FileNotFoundError('model is not trained')
 
-    # load config file
-    config = defaults()
-    config_file = os.path.join(model_dir, 'config.yaml')
-    config.update(bm.read_yaml(config_file))
+    # load model config
+    config_path = os.path.join(args.input, 'config.yaml')
+    config = get_config(config_path)
 
-    # seed for reproducibility
-    torch.manual_seed(0)
+    # initialize logger
+    log_file = os.path.join(args.input, 'log.log')
+    set_logger(log_file)
+    logging.info(f'Testing {args.input}')
+    logging.info(config.to_dict())
 
-    # get mean and std
-    if config.POST.NORMALIZATION.TYPE in ['global', 'recursive']:
-        stat_path = os.path.join(model_dir, 'statistics.npy')
-        logging.info('Loading mean and std...')
-        mean, std = np.load(stat_path)
-    elif config.POST.NORMALIZATION.TYPE != 'filebased':
-        raise ValueError('Unrecognized normalization strategy: '
-                         f'{config.POST.NORMALIZATION.TYPE}')
+    # initialize dataset
+    logging.info('Initializing dataset')
+    if config.ARCH == 'dnn':
+        dataset = DNNDataset(
+            path=args.test_path,
+            features=config.MODEL.FEATURES,
+            stacks=config.MODEL.STACKS,
+            decimation=1,
+        )
+    elif config.ARCH == 'convtasnet':
+        dataset = ConvTasNetDataset(
+            path=args.test_path,
+            components=config.MODEL.SOURCES,
+        )
+    else:
+        raise ValueError(f'wrong model architecture, got {config.ARCH}')
 
-    # initialize and load network
-    logging.info('Loading model...')
-    model_args_path = os.path.join(model_dir, 'model_args.yaml')
-    model_args = bm.read_yaml(model_args_path)
-    model = DNN(**model_args)
-    state_file = os.path.join(model_dir, 'checkpoint.pt')
-    model.load_state_dict(torch.load(state_file, map_location='cpu'))
-    if config.MODEL.CUDA and not args.no_cuda:
-        model = model.cuda()
+    # initialize model
+    logging.info('Initializing model')
+    if config.ARCH == 'dnn':
+        model = DNN(
+            input_size=dataset.n_features,
+            output_size=dataset.n_labels,
+            hidden_layers=config.MODEL.HIDDEN_LAYERS,
+            dropout=config.MODEL.DROPOUT,
+            batchnorm=config.MODEL.BATCH_NORM.TOGGLE,
+            batchnorm_momentum=config.MODEL.BATCH_NORM.MOMENTUM,
+        )
+    elif config.ARCH == 'convtasnet':
+        model = ConvTasNet(
+            filters=config.MODEL.ENCODER.FILTERS,
+            filter_length=config.MODEL.ENCODER.FILTER_LENGTH,
+            bottleneck_channels=config.MODEL.TCN.BOTTLENECK_CHANNELS,
+            hidden_channels=config.MODEL.TCN.HIDDEN_CHANNELS,
+            skip_channels=config.MODEL.TCN.SKIP_CHANNELS,
+            kernel_size=config.MODEL.TCN.KERNEL_SIZE,
+            layers=config.MODEL.TCN.LAYERS,
+            repeats=config.MODEL.TCN.REPEATS,
+            sources=len(config.MODEL.SOURCES),
+        )
+    else:
+        raise ValueError(f'wrong model architecture, got {config.ARCH}')
 
-    # initialize criterion
-    criterion = getattr(torch.nn, config.MODEL.CRITERION)()
+    # load checkpoint
+    checkpoint = os.path.join(args.input, 'checkpoint.pt')
+    model.load_state_dict(torch.load(checkpoint, map_location='cpu'))
 
     # init scores dict
-    scores_path = os.path.join(model_dir, 'scores.json')
+    scores_path = os.path.join(args.input, 'scores.json')
     if os.path.exists(scores_path):
-        scores = bm.read_json(scores_path)
+        with open(scores_path) as f:
+            scores = json.load(f)
     else:
         scores = {}
+
+    # check if already tested
+    if args.test_path in scores.keys() and not args.force:
+        raise FileExistsError('model already tested on this dataset')
+
+    # disable gradients and set model to eval
+    torch.set_grad_enabled(False)
+    model.eval()
+
+    # main loop
+    for i in range(len(dataset)):
+
+        if config.ARCH == 'dnn':
+            data, target = dataset.load_segment(i)
+            data, target, mix = dataset.post_proc(data, target, return_mix=True)
+            data = data.unsqueeze(0)
+            output = model(data)
+            output = output.squeeze(0)
+            prm = output.numpy().T
+            output = wola(prm)[:mix.shape[-1], :].T
+            output = output[:, np.newaxis, :]
+            mix = mix.numpy()
+            output = mix*output
+            output = dataset.filterbank.rfilt(output)
+            import matplotlib.pyplot as plt
+            plt.figure()
+            plt.imshow(target)
+            plt.figure()
+            plt.imshow(prm)
+            plt.figure()
+            plt.plot(output.T)
+            plt.figure()
+            plt.plot(dataset.filterbank.rfilt(mix).T)
+            plt.show()
+            import pdb; pdb.set_trace()
+            sf.write('temp.wav', output.T, 16000)
+
+
 
     # main loop
     for test_dir in bm.globbed(config.POST.PATH.TEST):
@@ -373,28 +435,15 @@ def main(model_dir, args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='test a model')
-    parser.add_argument('input', nargs='+',
-                        help='input model directories')
+    parser.add_argument('input',
+                        help='model directory')
+    parser.add_argument('test_path',
+                        help='test dataset path')
     parser.add_argument('-f', '--force', action='store_true',
                         help='test even if already tested')
-    parser.add_argument('--no-cuda', action='store_true',
+    parser.add_argument('--cpu', action='store_true',
                         help='force testing on cpu')
     parser.add_argument('--save', action='store_true',
                         help='write enhanced signals')
-    parser.add_argument('--save-oracle', action='store_true',
-                        help='write oracle signals')
     args = parser.parse_args()
-
-    logging.basicConfig(
-        level=logging.INFO,
-        stream=sys.stdout,
-        format='%(asctime)s [%(levelname)s] %(message)s',
-    )
-
-    model_dirs = []
-    for input_ in args.input:
-        if not glob(input_):
-            logging.info(f'Model not found: {input_}')
-        model_dirs += glob(input_)
-    for model_dir in model_dirs:
-        main(model_dir, args)
+    main()
