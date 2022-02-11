@@ -227,8 +227,8 @@ def mel_filterbank(n_filters=64, f_min=50, f_max=8000, fs=16e3, order=4):
     fc = f_all[1:-1]
     f_low = np.sqrt(f_all[:-2]*fc)
     f_high = np.sqrt(fc*f_all[2:])
-    b = np.zeros((n_filters, order+1), dtype='float32')
-    a = np.zeros((n_filters, order+1), dtype='float32')
+    b = np.zeros((n_filters, order+1))
+    a = np.zeros((n_filters, order+1))
     for i in range(n_filters):
         b[i], a[i] = mel_iir(f_low[i], f_high[i], fs, order)
     return b, a, fc

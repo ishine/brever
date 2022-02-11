@@ -19,8 +19,11 @@ class DNN(nn.Module):
             start_size = end_size
         self.operations.append(nn.Linear(start_size, output_size))
         self.operations.append(nn.Sigmoid())
+        self.transform = None
 
     def forward(self, x):
+        if self.transform is not None:
+            x = self.transform(x)
         x = x.transpose(1, 2)
         for operation in self.operations:
             x = operation(x)

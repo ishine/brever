@@ -337,7 +337,6 @@ class BreverDataset(torch.utils.data.Dataset):
         self.components = components
         self.segment_info = self.get_segment_info()
         self.preloaded_data = None
-        self.transform = None
 
     def build_paths(self, mix_idx):
         mix_dir = os.path.join(self.path, 'audio')
@@ -387,8 +386,6 @@ class BreverDataset(torch.utils.data.Dataset):
         else:
             data, target = self.load_segment(index)
             data, target = self.post_proc(data, target)
-        if self.transform is not None:
-            data = self.transform(data)
         return data, target
 
     def post_proc(self, data, target):
@@ -416,8 +413,6 @@ class BreverDataset(torch.utils.data.Dataset):
         return [end-start for _, (start, end) in self.segment_info]
 
     def preload(self, cuda):
-        if self.transform is not None:
-            raise ValueError('transform attribute was set before preloading')
         preloaded_data = []
         for i in range(len(self)):
             data, target = self[i]
@@ -516,11 +511,13 @@ class DNNDataset(BreverDataset):
         self.framer = Framer(**framer_kwargs)
         self.filterbank = Filterbank(**filterbank_kwargs)
 
-    def post_proc(self, data, target):
+    def post_proc(self, data, target, return_mix=False):
         data = torch.stack([data, *target])  # (sources, channels, time)
-        data = self.framer(data)  # (sources, channels, frames, samples)
-        data = self.filterbank(data)
-        # (filters, sources, channels, frames, samples)
+        data = self.filterbank(data)  # (filts, sources, channels, time)
+        filt = torch.from_numpy(data)
+        filt = filt.float()
+        data = self.framer(filt)  # (filts, sources, channels, frames, samples)
+        data = data.numpy()
         mix = data[:, 0, :, :, :]
         foreground = data[:, 1, :, :, :]
         background = data[:, 2, :, :, :]
@@ -532,9 +529,11 @@ class DNNDataset(BreverDataset):
         # labels
         target = self.irm(foreground, background)  # (labels, frames)
         target = torch.from_numpy(target)
-        target = target[:, self.stacks:]  # update shape due to stacking
         target = self.decimate(target)
-        return data, target
+        if return_mix:
+            return data, target, filt[:, 0, :, :]
+        else:
+            return data, target
 
     def irm(self, target, masker):
         # (filters, channels, frames, samples)
@@ -543,9 +542,11 @@ class DNNDataset(BreverDataset):
         return (1 + masker/(target+eps))**-0.5
 
     def stack(self, data):
-        out = []
-        for i in range(self.stacks+1):
-            out.append(data.roll(i, -1)[:, self.stacks:])
+        out = [data]
+        for i in range(self.stacks):
+            rolled = data.roll(i+1, -1)
+            rolled[:, :i+1] = data[:, :1]
+            out.append(rolled)
         return torch.cat(out)
 
     def decimate(self, data):

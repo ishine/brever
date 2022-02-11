@@ -3,6 +3,7 @@ import logging
 import os
 import random
 
+import numpy as np
 import torch
 
 from brever.config import get_config
@@ -30,8 +31,9 @@ def main():
     logging.info(config.to_dict())
 
     # seed for reproducibility
-    torch.manual_seed(config.TRAINING.SEED)
     random.seed(config.TRAINING.SEED)
+    np.random.seed(config.TRAINING.SEED)
+    torch.manual_seed(config.TRAINING.SEED)
 
     # initialize dataset
     logging.info('Initializing dataset')
@@ -62,13 +64,6 @@ def main():
         dataset, [train_length, val_length]
     )
 
-    # get training statistics
-    if config.ARCH == 'dnn':
-        logging.info('Calculating training statistics')
-        mean, std = train_dataset.dataset.get_statistics()
-        train_dataset.dataset.transform = TensorStandardizer(mean, std)
-        val_dataset.dataset.transform = TensorStandardizer(mean, std)
-
     # initialize model
     logging.info('Initializing model')
     if config.ARCH == 'dnn':
@@ -80,6 +75,10 @@ def main():
             batchnorm=config.MODEL.BATCH_NORM.TOGGLE,
             batchnorm_momentum=config.MODEL.BATCH_NORM.MOMENTUM,
         )
+        # get training statistics
+        logging.info('Calculating training statistics')
+        mean, std = train_dataset.dataset.get_statistics()
+        model.transform = TensorStandardizer(mean, std)
     elif config.ARCH == 'convtasnet':
         model = ConvTasNet(
             filters=config.MODEL.ENCODER.FILTERS,
