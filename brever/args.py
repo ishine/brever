@@ -161,13 +161,14 @@ class ModelArgParser(argparse.ArgumentParser):
         },
     }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, req=True, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         subs = self.add_subparsers(
             help='architecture selection',
             dest='arch',
             parser_class=argparse.ArgumentParser,
+            required=req,
         )
 
         sub = subs.add_parser('dnn')
@@ -201,7 +202,7 @@ class ModelArgParser(argparse.ArgumentParser):
         self.add_argument('--learning-rate', type=float)
         self.add_argument('--workers', type=int)
         self.add_argument('--weight-decay', type=float)
-        self.add_argument('--train-path', type=arg_type_path)
+        self.add_argument('--train-path', type=arg_type_path, required=req)
         self.add_argument('--seed', type=int)
         self.add_argument('--val-size', type=float)
         self.add_argument('--criterion')

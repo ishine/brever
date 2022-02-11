@@ -48,7 +48,7 @@ def main():
 
 
 if __name__ == '__main__':
-    parser = ModelArgParser(description='find models')
+    parser = ModelArgParser(req=False, description='find models')
     parser.add_argument('--delete', action='store_true',
                         help='delete found models')
     parser.add_argument('--trained', action='store_true',
