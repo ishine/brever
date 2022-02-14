@@ -44,16 +44,16 @@ def main():
             stacks=config.MODEL.STACKS,
             decimation=config.MODEL.DECIMATION,
             framer_kwargs={
-                'frame_length': config.FRAMER.FRAME_LENGTH,
-                'hop_length': config.FRAMER.HOP_LENGTH,
+                'frame_length': config.MODEL.FRAMER.FRAME_LENGTH,
+                'hop_length': config.MODEL.FRAMER.HOP_LENGTH,
             },
             filterbank_kwargs={
-                'kind': config.FILTERBANK.KIND,
-                'n_filters': config.FILTERBANK.FILTERS,
-                'f_min': config.FILTERBANK.FMIN,
-                'f_max': config.FILTERBANK.FMAX,
-                'fs': config.FILTERBANK.FS,
-                'order': config.FILTERBANK.ORDER,
+                'kind': config.MODEL.FILTERBANK.KIND,
+                'n_filters': config.MODEL.FILTERBANK.FILTERS,
+                'f_min': config.MODEL.FILTERBANK.FMIN,
+                'f_max': config.MODEL.FILTERBANK.FMAX,
+                'fs': config.MODEL.FILTERBANK.FS,
+                'order': config.MODEL.FILTERBANK.ORDER,
             }
         )
     elif config.ARCH == 'convtasnet':
