@@ -350,8 +350,8 @@ class SNR:
             SNR.
         """
         # (B, S, L) = (batch_size, sources, lenght)
-        snr = torch.sum(data**2, dim=-1) \
-            / (torch.sum((data-target)**2, dim=-1) + eps)  # (B, S)
+        snr = torch.sum(target**2, dim=-1) \
+            / (torch.sum((target-data)**2, dim=-1) + eps)  # (B, S)
         snr = 10*torch.log10(snr + eps)  # (B, S)
         loss = -torch.mean(snr)
         return loss
