@@ -44,6 +44,7 @@ MODEL:
     KIND: mel
     FILTERS: 64
     ORDER: 4
+    FS: 16000
   FRAMER:
     CENTER: false
     FRAME_LENGTH: 512

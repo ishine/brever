@@ -511,12 +511,12 @@ class DNNDataset(BreverDataset):
         self.framer = Framer(**framer_kwargs)
         self.filterbank = Filterbank(**filterbank_kwargs)
 
-    def post_proc(self, data, target, return_mix=False):
+    def post_proc(self, data, target, return_filter_output=False):
         data = torch.stack([data, *target])  # (sources, channels, time)
-        data = self.filterbank(data)  # (filts, sources, channels, time)
-        filt = torch.from_numpy(data)
-        filt = filt.float()
-        data = self.framer(filt)  # (filts, sources, channels, frames, samples)
+        filt = self.filterbank(data)  # (filts, sources, channels, time)
+        data = torch.from_numpy(filt)
+        data = data.float()
+        data = self.framer(data)  # (filts, sources, channels, frames, samples)
         data = data.numpy()
         mix = data[:, 0, :, :, :]
         foreground = data[:, 1, :, :, :]
@@ -530,8 +530,8 @@ class DNNDataset(BreverDataset):
         target = self.irm(foreground, background)  # (labels, frames)
         target = torch.from_numpy(target)
         target = self.decimate(target)
-        if return_mix:
-            return data, target, filt[:, 0, :, :]
+        if return_filter_output:
+            return data, target, filt
         else:
             return data, target
 
@@ -580,7 +580,7 @@ class DNNDataset(BreverDataset):
 
 
 class Framer:
-    def __init__(self, frame_length=120, hop_length=120, pad=True):
+    def __init__(self, frame_length=512, hop_length=256, pad=True):
         self.frame_length = frame_length
         self.hop_length = hop_length
         self.pad = pad
