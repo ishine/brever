@@ -580,15 +580,14 @@ class DNNDataset(BreverDataset):
 
 
 class Framer:
-    def __init__(self, frame_length=512, hop_length=256, pad=True):
+    def __init__(self, frame_length=512, hop_length=256):
         self.frame_length = frame_length
         self.hop_length = hop_length
-        self.pad = pad
 
     def __call__(self, x):
-        if self.pad:
-            padding = (self.frame_length - len(x)) % self.hop_length
-            x = F.pad(x, (0, padding))
+        frames = self.count(x.shape[-1])
+        padding = (frames - 1)*self.hop_length + self.frame_length - len(x)
+        x = F.pad(x, (0, padding))
         return x.unfold(-1, size=self.frame_length, step=self.hop_length)
 
     def count(self, length):
