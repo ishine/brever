@@ -80,7 +80,7 @@ def main():
         mean, std = train_dataset.dataset.get_statistics()
         model.transform = TensorStandardizer(mean, std)
         stat_path = os.path.join(args.input, 'statistics.npz')
-        np.savez(stat_path, mean=mean, std=std)
+        np.savez(stat_path, mean=mean.cpu().numpy(), std=std.cpu().numpy())
     elif config.ARCH == 'convtasnet':
         model = ConvTasNet(
             filters=config.MODEL.ENCODER.FILTERS,
