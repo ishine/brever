@@ -14,6 +14,7 @@ from brever.data import DNNDataset, ConvTasNetDataset, TensorStandardizer
 from brever.models import DNN, ConvTasNet
 from brever.utils import wola
 from brever.logger import set_logger
+from brever.training import SNR
 
 
 def significant_figures(x, n):
@@ -212,8 +213,14 @@ def main():
         )
         scores[args.test_path]['ref']['STOI'].append(stoi_ref)
 
+        score_snr = -SNR()(torch.from_numpy(output.copy()),
+                           torch.from_numpy(target.copy()))
+        snr_ref = -SNR()(torch.from_numpy(data.copy()),
+                         torch.from_numpy(target.copy()))
+
         print(f'PESQi: {pesq_score - pesq_ref}')
         print(f'STOIi: {stoi_score - stoi_ref}')
+        print(f'SNRi: {score_snr - snr_ref}')
 
         if args.output_dir is not None:
             output_path = os.path.join(args.output_dir, f'{i:05d}_output.wav')
