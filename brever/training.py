@@ -299,16 +299,16 @@ class SISNR:
         Parameters
         ----------
         data: tensor
-            Estimated sources. Shape `(batch_size, sources, lenght)`
+            Estimated sources. Shape `(batch_size, sources, length)`
         target: tensor
-            True sources. Shape `(batch_size, sources, lenght)`
+            True sources. Shape `(batch_size, sources, length)`
 
         Returns
         -------
         si_snr : float
             SI-SNR.
         """
-        # (B, S, L) = (batch_size, sources, lenght)
+        # (B, S, L) = (batch_size, sources, length)
         data = data - data.mean(dim=2, keepdim=True)
         target = target - target.mean(dim=2, keepdim=True)
 
@@ -340,16 +340,16 @@ class SNR:
         Parameters
         ----------
         data: tensor
-            Estimated sources. Shape `(batch_size, sources, lenght)`.
+            Estimated sources. Shape `(batch_size, sources, length)`.
         target: tensor
-            True sources. Shape `(batch_size, sources, lenght)`
+            True sources. Shape `(batch_size, sources, length)`
 
         Returns
         -------
         snr : float
             SNR.
         """
-        # (B, S, L) = (batch_size, sources, lenght)
+        # (B, S, L) = (batch_size, sources, length)
         snr = torch.sum(target**2, dim=-1) \
             / (torch.sum((target-data)**2, dim=-1) + eps)  # (B, S)
         snr = 10*torch.log10(snr + eps)  # (B, S)
