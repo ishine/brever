@@ -514,8 +514,7 @@ class DNNDataset(BreverDataset):
     def post_proc(self, data, target, return_filter_output=False):
         data = torch.stack([data, *target])  # (sources, channels, time)
         filt = self.filterbank(data)  # (filts, sources, channels, time)
-        data = torch.from_numpy(filt)
-        data = data.float()
+        data = torch.from_numpy(filt).float()
         data = self.framer(data)  # (filts, sources, channels, frames, samples)
         data = data.numpy()
         mix = data[:, 0, :, :, :]
@@ -523,7 +522,7 @@ class DNNDataset(BreverDataset):
         background = data[:, 2, :, :, :]
         # features
         data = self.feature_extractor(mix)  # (features, frames)
-        data = torch.from_numpy(data)
+        data = torch.from_numpy(data).float()
         data = self.stack(data)
         data = self.decimate(data)
         # labels
