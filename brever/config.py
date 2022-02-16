@@ -123,9 +123,9 @@ class ModelFinder:
             if arch is not None and config.ARCH != arch:
                 valid = False
             else:
-                for key, values in kwargs.items():
+                for key, value in kwargs.items():
                     key_list = ModelArgParser.arg_map[config.ARCH][key]
-                    if config.get_field(key_list) != values:
+                    if config.get_field(key_list) != value:
                         valid = False
                         break
             if valid:
@@ -158,8 +158,8 @@ class DatasetFinder:
             paths = get_config('config/paths.yaml')
             dsets_dir = paths.DATASETS
             if kind is not None:
-                directory = os.path.join(dsets_dir, kind)
-            for root, folder, files in os.walk(directory):
+                dsets_dir = os.path.join(dsets_dir, kind)
+            for root, folder, files in os.walk(dsets_dir):
                 if 'config.yaml' in files:
                     self.dsets.append(root)
 
@@ -176,9 +176,9 @@ class DatasetFinder:
         configs = []
         for dset, config in zip(self.dsets, self.configs):
             valid = True
-            for key, values in kwargs.items():
+            for key, value in kwargs.items():
                 key_list = DatasetArgParser.arg_map[key]
-                if config.get_field(config, key_list) not in values:
+                if config.get_field(key_list) != value:
                     valid = False
                     break
             if valid:

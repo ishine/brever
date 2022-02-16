@@ -1,54 +1,33 @@
 import os
 import shutil
 
-from brever.config import defaults
-import brever.management as bm
+from brever.args import DatasetArgParser
+from brever.config import DatasetFinder
 
 
-def main(args, **kwargs):
-    processed_dir = defaults().PATH.PROCESSED
+def main():
+    if args.created and args.uncreated:
+        raise ValueError('cannot use both --created and --uncreated')
 
-    if sum((args.train, args.val, args.test)) > 1:
-        raise ValueError('can only provide one of --train, --val and --test')
-
-    if args.train:
-        processed_dir = os.path.join(processed_dir, 'train')
-    elif args.val:
-        processed_dir = os.path.join(processed_dir, 'val')
-    elif args.test:
-        processed_dir = os.path.join(processed_dir, 'test')
+    finder = DatasetFinder()
+    matching_dsets, _ = finder.find(kind=args.kind)
 
     dsets = []
-    for root, folder, files in os.walk(processed_dir):
-        if 'config.yaml' in files:
-            config_file = os.path.join(root, 'config_full.yaml')
-            if not os.path.exists(config_file):
-                config_file = os.path.join(root, 'config.yaml')
-            config = bm.read_yaml(config_file)
-            valid = True
-            for key, value in kwargs.items():
-                keys = bm.DatasetInitArgParser.arg_to_keys_map[key]
-                if value is not None:
-                    if bm.get_dict_field(config, keys) != value:
-                        valid = False
-                        break
-            if not valid:
-                continue
+    for dset in matching_dsets:
+        mix_info_file = os.path.join(dset, 'mixture_info.json')
 
-            to_check = ['mixture_info.json', 'dataset.hdf5']
-            paths = [os.path.join(root, file) for file in to_check]
-            all_exist = all(os.path.exists(path) for path in paths)
-            if args.created:
-                if not all_exist:
-                    continue
-            if args.uncreated:
-                if all_exist:
-                    continue
+        if args.uncreated and os.path.exists(mix_info_file):
+            continue
+        if args.created and not os.path.exists(mix_info_file):
+            continue
 
-            dsets.append(root)
+        dsets.append(dset)
 
-    for dset in dsets:
-        print(dset)
+    if args.pipe:
+        print(' '.join(dsets), end='')
+    else:
+        for dset in dsets:
+            print(dset)
 
     if dsets and args.delete:
         print(f'{len(dsets)} datasets will be deleted.')
@@ -62,18 +41,16 @@ def main(args, **kwargs):
 
 
 if __name__ == '__main__':
-    parser = bm.DatasetInitArgParser(description='find datasets')
+    parser = DatasetArgParser(description='find datasets')
     parser.add_argument('-d', '--delete', action='store_true',
                         help='delete found datasets')
-    parser.add_argument('--train', action='store_true',
-                        help='only scan train subdir')
-    parser.add_argument('--val', action='store_true',
-                        help='only scan val subdir')
-    parser.add_argument('--test', action='store_true',
-                        help='only scan test subdir')
     parser.add_argument('--created', action='store_true',
                         help='only show created datasets')
     parser.add_argument('--uncreated', action='store_true',
                         help='only show created datasets')
-    filter_args, extra_args = parser.parse_args()
-    main(extra_args, **vars(filter_args))
+    parser.add_argument('--pipe', action='store_true',
+                        help='output as one line to pipe to another command')
+    parser.add_argument('--kind', choices=['train', 'test'],
+                        help='scan train or test subdir')
+    args = parser.parse_args()
+    main()
