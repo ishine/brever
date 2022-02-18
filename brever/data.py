@@ -12,7 +12,7 @@ import h5py
 
 from .features import FeatureExtractor
 from .utils import dct
-from .filters import Filterbank
+from .filters import STFT
 
 eps = np.finfo(float).eps
 
@@ -389,7 +389,7 @@ class BreverDataset(torch.utils.data.Dataset):
         return data, target
 
     def post_proc(self, data, target):
-        return data, target
+        raise NotImplementedError
 
     def load_segment(self, index):
         if not 0 <= index < len(self):
@@ -502,43 +502,39 @@ class DNNDataset(BreverDataset):
         stacks=0,
         decimation=1,
         framer_kwargs={},
-        filterbank_kwargs={},
+        stft_kwargs={},
     ):
         super().__init__(path, components=['foreground', 'background'])
         self.stacks = stacks
         self.decimation = decimation
         self.feature_extractor = FeatureExtractor(features)
         self.framer = Framer(**framer_kwargs)
-        self.filterbank = Filterbank(**filterbank_kwargs)
+        self.stft = STFT(**stft_kwargs)
 
-    def post_proc(self, data, target, return_filter_output=False):
-        data = torch.stack([data, *target])  # (sources, channels, time)
-        filt = self.filterbank(data)  # (filts, sources, channels, time)
-        data = torch.from_numpy(filt).float()
-        data = self.framer(data)  # (filts, sources, channels, frames, samples)
-        data = data.numpy()
-        mix = data[:, 0, :, :, :]
-        foreground = data[:, 1, :, :, :]
-        background = data[:, 2, :, :, :]
+    def post_proc(self, data, target, return_stft_output=False):
+        x = torch.stack([data, *target])  # (sources, channels, samples)
+        mag, phase = self.stft.analyze(x)  # (sources, channels, bins, frames)
+        mix_mag = mag[0, :, :, :]  # (channels, bins, frames)
+        mix_phase = phase[0, :, :, :]  # (channels, bins, frames)
+        foreground_mag = mag[1, :, :, :]  # (channels, bins, frames)
+        background_mag = mag[2, :, :, :]  # (channels, bins, frames)
         # features
-        data = self.feature_extractor(mix)  # (features, frames)
-        data = torch.from_numpy(data).float()
+        data = self.feature_extractor((mix_mag, mix_phase))  # (feats, frames)
         data = self.stack(data)
         data = self.decimate(data)
         # labels
-        target = self.irm(foreground, background)  # (labels, frames)
-        target = torch.from_numpy(target)
+        target = self.irm(foreground_mag, background_mag)  # (labels, frames)
         target = self.decimate(target)
-        if return_filter_output:
-            return data, target, filt
+        if return_stft_output:
+            return data, target, mix_mag, mix_phase
         else:
             return data, target
 
     def irm(self, target, masker):
         # (filters, channels, frames, samples)
-        target = np.mean(target**2, axis=(1, 3))  # (filters, frames)
-        masker = np.mean(masker**2, axis=(1, 3))  # (filters, frames)
-        return (1 + masker/(target+eps))**-0.5
+        target = target.pow(2).mean(0)  # (bins, frames)
+        masker = masker.pow(2).mean(0)  # (bins, frames)
+        return (1 + masker/(target+eps)).pow(-0.5)
 
     def stack(self, data):
         out = [data]

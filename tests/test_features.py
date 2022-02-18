@@ -1,10 +1,24 @@
-import numpy as np
+import torch
 
 from brever.features import FeatureExtractor
 
 
 def test_feature_extractor():
-    x = np.random.randn(64, 3, 2, 60, 512)
-    features = set(FeatureExtractor.feature_map.keys())
+    mag = torch.randn(2, 514, 30)
+    phase = torch.randn(2, 514, 30)
+    features = [
+        'ild',
+        'ipd',
+        'ic',
+        'fbe',
+        'logfbe',
+        'cubicfbe',
+        'pdf',
+        'logpdf',
+        'cubicpdf',
+        'mfcc',
+        'cubicmfcc',
+        'pdfcc',
+    ]
     extractor = FeatureExtractor(features=features)
-    extractor(x)
+    extractor((mag, phase))

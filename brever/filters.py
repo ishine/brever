@@ -1,5 +1,10 @@
+import math
+
 import numpy as np
 import scipy.signal
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 
 def freq_to_erb(f):
@@ -288,3 +293,66 @@ class Filterbank:
         output = np.sum(output, axis=0)
         output = np.flip(output, axis=axis)
         return output
+
+
+class STFT(nn.Module):
+    def __init__(self, frame_length=512, hop_length=256, window='hann'):
+        super().__init__()
+        self.frame_length = frame_length
+        self.hop_length = hop_length
+
+        if isinstance(window, str):
+            window = scipy.signal.get_window('hann', frame_length)**0.5
+        if isinstance(window, np.ndarray):
+            window = torch.from_numpy(window)
+        self.window = window
+
+        filters = torch.fft.fft(torch.eye(frame_length))
+        filters = filters[:frame_length//2+1]
+        filters[0, :] /= 2**0.5
+        filters /= 0.5*frame_length/hop_length**0.5
+        filters *= window
+        filters = torch.cat([filters.real, filters.imag])
+
+        filters = filters.unsqueeze(1).float()
+        self.register_buffer("filters", filters)
+
+    def analyze(self, x, return_type='realimag'):
+        x = self.pad(x)
+        sources, channels, samples = x.shape
+        x = x.view(sources*channels, 1, samples)
+        output = F.conv1d(x, self.filters, stride=self.hop_length)
+        dim = self.frame_length//2 + 1
+        real = output[:, :dim, :].view(sources, channels, dim, -1)
+        imag = output[:, dim:, :].view(sources, channels, dim, -1)
+        if return_type == 'realimag':
+            return real, imag
+        elif return_type == 'magphase':
+            mag = (real.pow(2) + imag.pow(2)).pow(0.5)
+            phase = torch.atan2(imag, real)
+            return mag, phase
+        else:
+            raise ValueError("return_type must be 'realimag' or 'magphase', "
+                             f", got '{return_type}'")
+
+    def synthesize(self, x, input_type='realimag'):
+        if input_type == 'realimag':
+            real, imag = x
+        elif input_type == 'magphase':
+            mag, phase = x
+            real = mag*torch.cos(phase)
+            imag = mag*torch.sin(phase)
+        else:
+            raise ValueError("input_type must be 'realimag', 'complex' or "
+                             f"'magphase', got '{input_type}'")
+        x = torch.cat([real, imag], dim=2)
+        sources, channels, dim, samples = x.shape
+        x = x.view(sources*channels, dim, samples)
+        x = F.conv_transpose1d(x, self.filters, stride=self.hop_length)
+        return x.view(sources, channels, -1)
+
+    def pad(self, x):
+        samples = x.shape[-1]
+        frames = math.ceil((samples - self.frame_length)/self.hop_length) + 1
+        padding = (frames - 1)*self.hop_length + self.frame_length - samples
+        return F.pad(x, (0, padding))
