@@ -317,7 +317,7 @@ class STFT(nn.Module):
         filters = filters.unsqueeze(1).float()
         self.register_buffer("filters", filters)
 
-    def analyze(self, x, return_type='realimag'):
+    def analyze(self, x, return_type='magphase'):
         x = self.pad(x)
         sources, channels, samples = x.shape
         x = x.view(sources*channels, 1, samples)
@@ -335,7 +335,7 @@ class STFT(nn.Module):
             raise ValueError("return_type must be 'realimag' or 'magphase', "
                              f", got '{return_type}'")
 
-    def synthesize(self, x, input_type='realimag'):
+    def synthesize(self, x, input_type='magphase'):
         if input_type == 'realimag':
             real, imag = x
         elif input_type == 'magphase':
@@ -353,6 +353,9 @@ class STFT(nn.Module):
 
     def pad(self, x):
         samples = x.shape[-1]
-        frames = math.ceil((samples - self.frame_length)/self.hop_length) + 1
+        frames = self.frame_count(samples)
         padding = (frames - 1)*self.hop_length + self.frame_length - samples
         return F.pad(x, (0, padding))
+
+    def frame_count(self, samples):
+        return math.ceil((samples - self.frame_length)/self.hop_length) + 1

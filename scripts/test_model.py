@@ -12,7 +12,6 @@ import torch
 from brever.config import get_config
 from brever.data import DNNDataset, ConvTasNetDataset, TensorStandardizer
 from brever.models import DNN, ConvTasNet
-from brever.utils import wola
 from brever.logger import set_logger
 from brever.training import SNR
 
@@ -66,17 +65,10 @@ def main():
             features=config.MODEL.FEATURES,
             stacks=config.MODEL.STACKS,
             decimation=1,
-            framer_kwargs={
-                'frame_length': config.MODEL.FRAMER.FRAME_LENGTH,
-                'hop_length': config.MODEL.FRAMER.HOP_LENGTH,
-            },
-            filterbank_kwargs={
-                'kind': config.MODEL.FILTERBANK.KIND,
-                'n_filters': config.MODEL.FILTERBANK.FILTERS,
-                'f_min': config.MODEL.FILTERBANK.FMIN,
-                'f_max': config.MODEL.FILTERBANK.FMAX,
-                'fs': config.MODEL.FILTERBANK.FS,
-                'order': config.MODEL.FILTERBANK.ORDER,
+            stft_kwargs={
+                'frame_length': config.MODEL.STFT.FRAME_LENGTH,
+                'hop_length': config.MODEL.STFT.HOP_LENGTH,
+                'window': config.MODEL.STFT.WINDOW,
             }
         )
     elif config.ARCH == 'convtasnet':
@@ -162,25 +154,30 @@ def main():
 
         if config.ARCH == 'dnn':
             data, target = dataset.load_segment(i)
-            features, labels, filt = dataset.post_proc(
-                data, target, return_filter_output=True,
+            features, labels, mix_mag, mix_phase = dataset.post_proc(
+                data, target, return_stft_output=True,
             )
             features = features.unsqueeze(0)
 
-            prm = model(features).squeeze(0).numpy().T
-            print(f'MSE: {np.mean((prm.T-labels.numpy())**2)}')
+            prm = model(features)
+            print(f'MSE: {(prm-labels).pow(2).mean()}')
 
-            prm_extra = wola(prm).T[:, np.newaxis, :data.shape[-1]]
-            output = dataset.filterbank.rfilt(prm_extra*filt[:, 0, :, :])
-            target = dataset.filterbank.rfilt(filt[:, 1, :, :])
+            out_mag = mix_mag*prm
+            out_mag, mix_mag = out_mag.unsqueeze(0), mix_mag.unsqueeze(0)
+            output = dataset.stft.synthesize((out_mag, mix_mag))
+            output = output[..., :data.shape[-1]]
+            output = output.squeeze()
+            target = target[0]
         elif config.ARCH == 'convtasnet':
             data, target = dataset[i]
             output = model(data.unsqueeze(0))
-            output = output.squeeze(0).numpy()
+            output = output.squeeze(0)
             data = data.unsqueeze(0)
-            target = target[:1].numpy()
+            target = target[:1]
         else:
             raise ValueError(f'wrong model architecture, got {config.ARCH}')
+        output = output.numpy()
+        target = target.numpy()
         data = data.numpy()
 
         pesq_score = pesq(
@@ -214,9 +211,11 @@ def main():
         scores[args.test_path]['ref']['STOI'].append(stoi_ref)
 
         score_snr = -SNR()(torch.from_numpy(output.copy()),
-                           torch.from_numpy(target.copy()))
+                           torch.from_numpy(target.copy())).item()
         snr_ref = -SNR()(torch.from_numpy(data.copy()),
-                         torch.from_numpy(target.copy()))
+                         torch.from_numpy(target.copy())).item()
+        scores[args.test_path]['model']['SNR'].append(score_snr)
+        scores[args.test_path]['ref']['SNR'].append(snr_ref)
 
         print(f'PESQi: {pesq_score - pesq_ref}')
         print(f'STOIi: {stoi_score - stoi_ref}')

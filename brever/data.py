@@ -389,7 +389,7 @@ class BreverDataset(torch.utils.data.Dataset):
         return data, target
 
     def post_proc(self, data, target):
-        raise NotImplementedError
+        return data, target
 
     def load_segment(self, index):
         if not 0 <= index < len(self):
@@ -501,14 +501,12 @@ class DNNDataset(BreverDataset):
         features={'logfbe'},
         stacks=0,
         decimation=1,
-        framer_kwargs={},
         stft_kwargs={},
     ):
         super().__init__(path, components=['foreground', 'background'])
         self.stacks = stacks
         self.decimation = decimation
         self.feature_extractor = FeatureExtractor(features)
-        self.framer = Framer(**framer_kwargs)
         self.stft = STFT(**stft_kwargs)
 
     def post_proc(self, data, target, return_stft_output=False):
@@ -549,7 +547,7 @@ class DNNDataset(BreverDataset):
 
     @property
     def item_lengths(self):
-        return [self.framer.count(x) for x in super().item_lengths]
+        return [self.stft.frame_count(n) for n in super().item_lengths]
 
     @property
     def n_features(self):
@@ -572,25 +570,6 @@ class DNNDataset(BreverDataset):
         var = pow_mean - mean.pow(2)
         std = var.sqrt()
         return mean, std
-
-
-class Framer:
-    def __init__(self, frame_length=512, hop_length=256):
-        self.frame_length = frame_length
-        self.hop_length = hop_length
-
-    def __call__(self, x):
-        frames = self.count(x.shape[-1])
-        padding = (frames - 1)*self.hop_length + self.frame_length - len(x)
-        x = F.pad(x, (0, padding))
-        return x.unfold(-1, size=self.frame_length, step=self.hop_length)
-
-    def count(self, length):
-
-        def ceil(a, b):
-            return -(a//-b)
-
-        return ceil(length - self.frame_length, self.hop_length) + 1
 
 
 class ConvTasNetDataset(BreverDataset):

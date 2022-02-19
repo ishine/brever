@@ -7,13 +7,13 @@ from torchaudio.functional import lfilter
 
 from .utils import pad
 
-eps = np.finfo(float).eps
+eps = torch.finfo().eps
 
 
 class FeatureExtractor:
 
     def __init__(self, features, hop_length=256, fs=16e3):
-        self.features = features
+        self.features = sorted(features)
         self.hop_length = hop_length
         self.fs = fs
         self.indices = None
@@ -154,7 +154,7 @@ class FeatureExtractor:
         """
         mag, phase = x
         assert mag.shape[0] == phase.shape[0] == 2
-        return 20*torch.log10(mag[1]/mag[0])
+        return 20*torch.log10((mag[1]+eps)/(mag[0]+eps))
 
     def ipd(self, x):
         """
@@ -203,6 +203,9 @@ class FeatureExtractor:
         x_lr = mag[0]*mag[1]*torch.exp(1j*(phase[0]-phase[1]))
         phi_ll, phi_rr, phi_lr_real, phi_lr_imag = lfilter(
             torch.stack([x_ll, x_rr, x_lr.real, x_lr.imag]),
-            a_coeffs=torch.tensor([1, alpha]),
+            a_coeffs=torch.tensor([1, -alpha]),
             b_coeffs=torch.tensor([1-alpha, 0]),
         )
+        phi_lr_mag = (phi_lr_real.pow(2) + phi_lr_imag.pow(2)).sqrt()
+        output = (phi_lr_mag/(phi_ll*phi_rr).sqrt()).sqrt()
+        return output

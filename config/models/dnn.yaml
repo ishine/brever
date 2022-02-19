@@ -38,15 +38,7 @@ MODEL:
     # pdf: null
     # pdfcc: null
     logfbe: null
-  FILTERBANK:
-    FMIN: 50
-    FMAX: 8000
-    KIND: mel
-    FILTERS: 64
-    ORDER: 4
-    FS: 16000
-  FRAMER:
-    CENTER: false
+  STFT:
     FRAME_LENGTH: 512
     HOP_LENGTH: 256
     WINDOW: hann

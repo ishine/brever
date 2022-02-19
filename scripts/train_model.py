@@ -43,17 +43,10 @@ def main():
             features=config.MODEL.FEATURES,
             stacks=config.MODEL.STACKS,
             decimation=config.MODEL.DECIMATION,
-            framer_kwargs={
-                'frame_length': config.MODEL.FRAMER.FRAME_LENGTH,
-                'hop_length': config.MODEL.FRAMER.HOP_LENGTH,
-            },
-            filterbank_kwargs={
-                'kind': config.MODEL.FILTERBANK.KIND,
-                'n_filters': config.MODEL.FILTERBANK.FILTERS,
-                'f_min': config.MODEL.FILTERBANK.FMIN,
-                'f_max': config.MODEL.FILTERBANK.FMAX,
-                'fs': config.MODEL.FILTERBANK.FS,
-                'order': config.MODEL.FILTERBANK.ORDER,
+            stft_kwargs={
+                'frame_length': config.MODEL.STFT.FRAME_LENGTH,
+                'hop_length': config.MODEL.STFT.HOP_LENGTH,
+                'window': config.MODEL.STFT.WINDOW,
             }
         )
     elif config.ARCH == 'convtasnet':
