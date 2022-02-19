@@ -69,7 +69,7 @@ for INPUT in "$@"
 do
     if [ -f "${INPUT}/mixture_info.json" ] && [ ${FORCE} = false ]
     then
-        echo "model already trained: ${INPUT}"
+        echo "dataset already created: ${INPUT}"
         continue
     fi
     COMMAND="python scripts/create_dataset.py ${INPUT}"
