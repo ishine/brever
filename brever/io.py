@@ -597,12 +597,12 @@ class AudioFileLoader:
             'ash_r14',
             'ash_r15',
             'ash_r16',
-            'ash_r17',
+            # 'ash_r17',  # few angles between -90 and 90
             'ash_r18',
             'ash_r19',
             # 'ash_r20',  # only 5 angles available
             'ash_r21',
-            'ash_r22',
+            # 'ash_r22',  # few angles between -90 and 90
             'ash_r23',
             'ash_r24',
             'ash_r25',
@@ -612,7 +612,7 @@ class AudioFileLoader:
             'ash_r29',
             'ash_r30',
             'ash_r31',
-            'ash_r32',
+            # 'ash_r32',  # few angles between -90 and 90
             'ash_r33',
             'ash_r34',
             'ash_r35',
