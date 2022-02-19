@@ -186,3 +186,69 @@ class DatasetFinder:
                 configs.append(config)
 
         return dsets, configs
+
+
+class ModelInitializer:
+    def __init__(self):
+        self.dir_ = get_config('config/paths.yaml').MODELS
+
+    def init_from_args(self, args):
+        config = get_config(f'config/models/{args.arch}.yaml')
+        config.update_from_args(args, ModelArgParser.arg_map[args.arch])
+        return self.write_config(config, args.force)
+
+    def init_from_kwargs(self, arch, force=False, **kwargs):
+        config = get_config(f'config/models/{arch}.yaml')
+        for key, val in kwargs.items():
+            config.set_field(ModelArgParser.arg_map[arch][key], val)
+        return self.write_config(config, force=force)
+
+    def write_config(self, config, force=False):
+        model_id = config.get_hash()
+
+        model_dir = os.path.join(self.dir_, model_id)
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
+
+        config_path = os.path.join(model_dir, 'config.yaml')
+        if os.path.exists(config_path) and not force:
+            raise FileExistsError(f'model already exists: {config_path} ')
+        else:
+            with open(config_path, 'w') as f:
+                yaml.dump(config.to_dict(), f)
+            print(f'Initialized {config_path}')
+
+        return model_dir
+
+
+class DatasetInitializer:
+    def __init__(self):
+        self.dir_ = get_config('config/paths.yaml').DATASETS
+
+    def init_from_args(self, args):
+        config = get_config('config/dataset.yaml')
+        config.update_from_args(args, DatasetArgParser.arg_map)
+        return self.write_config(args.kind, config, args.force)
+
+    def init_from_kwargs(self, kind, force=False, **kwargs):
+        config = get_config('config/dataset.yaml')
+        for key, val in kwargs.items():
+            config.set_field(DatasetArgParser.arg_map[key], val)
+        return self.write_config(kind, config, force=force)
+
+    def write_config(self, kind, config, force=False):
+        dataset_id = config.get_hash()
+
+        dataset_dir = os.path.join(self.dir_, kind, dataset_id)
+        if not os.path.exists(dataset_dir):
+            os.makedirs(dataset_dir)
+
+        config_path = os.path.join(dataset_dir, 'config.yaml')
+        if os.path.exists(config_path) and not force:
+            raise FileExistsError(f'dataset already exists: {config_path} ')
+        else:
+            with open(config_path, 'w') as f:
+                yaml.dump(config.to_dict(), f)
+            print(f'Initialized {config_path}')
+
+        return dataset_dir
