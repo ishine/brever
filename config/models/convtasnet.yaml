@@ -1,7 +1,7 @@
 ARCH: convtasnet
 TRAINING:
   BATCH_SIZE: 1
-  CRITERION: SISNR
+  CRITERION: SNR
   CUDA: true
   EARLY_STOP:
     PATIENCE: 10
@@ -22,17 +22,15 @@ TRAINING:
   GRAD_CLIP: 5.0  # 0.0 to disable
 MODEL:
   ENCODER:
-    FILTERS: 512
-    FILTER_LENGTH: 16
+    FILTERS: 128  # 512
+    FILTER_LENGTH: 32  # 16
   TCN:
     BOTTLENECK_CHANNELS: 128
-    HIDDEN_CHANNELS: 512
+    HIDDEN_CHANNELS: 256  # 512
     SKIP_CHANNELS: 128
     KERNEL_SIZE: 3
-    LAYERS: 8
-    REPEATS: 3
+    LAYERS: 7  # 8
+    REPEATS: 2  # 3
   SOURCES:
     - foreground
-    - background
-    # target
-    # noise
+    # - background
