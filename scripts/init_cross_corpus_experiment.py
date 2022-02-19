@@ -43,6 +43,7 @@ def init_train_dset(
         speech_files=[0.0, 0.8],
         noise_files=[0.0, 0.8],
         room_files='even',
+        duration=36000,
         seed=0,
         force=True,
     )
@@ -61,6 +62,7 @@ def init_test_dset(
         speech_files=[0.8, 1.0],
         noise_files=[0.8, 1.0],
         room_files='odd',
+        duration=1800,
         seed=42,
         force=True,
     )
