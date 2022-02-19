@@ -600,14 +600,14 @@ class AudioFileLoader:
             'ash_r17',
             'ash_r18',
             'ash_r19',
-            'ash_r20',
+            # 'ash_r20',  # only 5 angles available
             'ash_r21',
             'ash_r22',
             'ash_r23',
             'ash_r24',
             'ash_r25',
             'ash_r26',
-            'ash_r27',
+            # 'ash_r27',  # only 5 angles available
             'ash_r28',
             'ash_r29',
             'ash_r30',
