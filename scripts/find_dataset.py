@@ -10,7 +10,7 @@ def main():
         raise ValueError('cannot use both --created and --uncreated')
 
     finder = DatasetFinder()
-    matching_dsets, _ = finder.find(kind=args.kind)
+    matching_dsets, _ = finder.find_from_args(args)
 
     dsets = []
     for dset in matching_dsets:

@@ -187,6 +187,15 @@ class DatasetFinder:
 
         return dsets, configs
 
+    def find_from_args(self, args):
+        arg_map = DatasetArgParser.arg_map
+        kwargs = {}
+        for key in arg_map.keys():
+            val = getattr(args, key)
+            if val is not None:
+                kwargs[key] = val
+        return self.find(args.kind, **kwargs)
+
 
 class ModelInitializer:
     def __init__(self):
