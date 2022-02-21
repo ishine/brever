@@ -10,7 +10,7 @@ import soundfile as sf
 import torch
 
 from brever.config import get_config
-from brever.data import DNNDataset, ConvTasNetDataset, TensorStandardizer
+from brever.data import DNNDataset, ConvTasNetDataset
 from brever.models import DNN, ConvTasNet
 from brever.logger import set_logger
 from brever.training import SNR
@@ -38,6 +38,10 @@ def format_scores(x, figures=4):
 
 
 def main():
+    # check if model exists
+    if not os.path.exists(args.input):
+        raise FileNotFoundError(f'model does not exist: {args.input}')
+
     # check if model is trained
     loss_path = os.path.join(args.input, 'losses.npz')
     if not os.path.exists(loss_path):
@@ -64,7 +68,7 @@ def main():
             path=args.test_path,
             features=config.MODEL.FEATURES,
             stacks=config.MODEL.STACKS,
-            decimation=1,
+            decimation=config.MODEL.DECIMATION,
             stft_kwargs={
                 'frame_length': config.MODEL.STFT.FRAME_LENGTH,
                 'hop_length': config.MODEL.STFT.HOP_LENGTH,
@@ -89,11 +93,8 @@ def main():
             dropout=config.MODEL.DROPOUT,
             batchnorm=config.MODEL.BATCH_NORM.TOGGLE,
             batchnorm_momentum=config.MODEL.BATCH_NORM.MOMENTUM,
+            normalization=config.MODEL.NORMALIZATION.TYPE,
         )
-        stat_path = os.path.join(args.input, 'statistics.npz')
-        stats = np.load(stat_path)
-        mean, std = stats['mean'], stats['std']
-        model.transform = TensorStandardizer(mean, std)
     elif config.ARCH == 'convtasnet':
         model = ConvTasNet(
             filters=config.MODEL.ENCODER.FILTERS,
@@ -127,11 +128,6 @@ def main():
 
     scores[args.test_path] = {
         'model': {
-            # 'MSE': [],
-            # 'segSSNR': [],
-            # 'segBR': [],
-            # 'segNR': [],
-            # 'segRR': [],
             'PESQ': [],
             'STOI': [],
             'SNR': [],
@@ -154,19 +150,7 @@ def main():
 
         if config.ARCH == 'dnn':
             data, target = dataset.load_segment(i)
-            features, labels, mix_mag, mix_phase = dataset.post_proc(
-                data, target, return_stft_output=True,
-            )
-            features = features.unsqueeze(0)
-
-            prm = model(features)
-            print(f'MSE: {(prm-labels).pow(2).mean()}')
-
-            out_mag = mix_mag*prm
-            out_mag, mix_mag = out_mag.unsqueeze(0), mix_mag.unsqueeze(0)
-            output = dataset.stft.synthesize((out_mag, mix_mag))
-            output = output[..., :data.shape[-1]]
-            output = output.squeeze()
+            output = model.enhance(data, dataset)
             target = target[0]
         elif config.ARCH == 'convtasnet':
             data, target = dataset[i]
@@ -180,46 +164,51 @@ def main():
         target = target.numpy()
         data = data.numpy()
 
-        pesq_score = pesq(
+        # pesq
+        pesq_model = pesq(
             dset_config.FS,
             target.mean(axis=0),
             output.mean(axis=0),
             'wb',
         )
-        scores[args.test_path]['model']['PESQ'].append(pesq_score)
-
-        stoi_score = stoi(
-            target.mean(axis=0),
-            output.mean(axis=0),
-            dset_config.FS,
-        )
-        scores[args.test_path]['model']['STOI'].append(stoi_score)
-
         pesq_ref = pesq(
             dset_config.FS,
             target.mean(axis=0),
             data.mean(axis=0),
             'wb',
         )
+        scores[args.test_path]['model']['PESQ'].append(pesq_model)
         scores[args.test_path]['ref']['PESQ'].append(pesq_ref)
 
+        # stoi
+        stoi_model = stoi(
+            target.mean(axis=0),
+            output.mean(axis=0),
+            dset_config.FS,
+        )
         stoi_ref = stoi(
             target.mean(axis=0),
             data.mean(axis=0),
             dset_config.FS,
         )
+        scores[args.test_path]['model']['STOI'].append(stoi_model)
         scores[args.test_path]['ref']['STOI'].append(stoi_ref)
 
-        score_snr = -SNR()(torch.from_numpy(output.copy()),
-                           torch.from_numpy(target.copy())).item()
-        snr_ref = -SNR()(torch.from_numpy(data.copy()),
-                         torch.from_numpy(target.copy())).item()
-        scores[args.test_path]['model']['SNR'].append(score_snr)
+        # snr
+        snr_model = -SNR()(
+            torch.from_numpy(output.copy()),
+            torch.from_numpy(target.copy()),
+        ).item()
+        snr_ref = -SNR()(
+            torch.from_numpy(data.copy()),
+            torch.from_numpy(target.copy()),
+        ).item()
+        scores[args.test_path]['model']['SNR'].append(snr_model)
         scores[args.test_path]['ref']['SNR'].append(snr_ref)
 
-        print(f'PESQi: {pesq_score - pesq_ref}')
-        print(f'STOIi: {stoi_score - stoi_ref}')
-        print(f'SNRi: {score_snr - snr_ref}')
+        print(f'PESQi: {pesq_model - pesq_ref}')
+        print(f'STOIi: {stoi_model - stoi_ref}')
+        print(f'SNRi: {snr_model - snr_ref}')
 
         if args.output_dir is not None:
             output_path = os.path.join(args.output_dir, f'{i:05d}_output.wav')

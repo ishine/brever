@@ -139,7 +139,7 @@ class ModelArgParser(argparse.ArgumentParser):
             'batch_norm': ['MODEL', 'BATCH_NORM', 'TOGGLE'],
             'dropout': ['MODEL', 'DROPOUT'],
             'hidden_layers': ['MODEL', 'HIDDEN_LAYERS'],
-            'online_norm': ['MODEL', 'NORMALIZATION', 'ONLINE'],
+            'norm_type': ['MODEL', 'NORMALIZATION', 'TYPE'],
             'group_norm': ['MODEL', 'NORMALIZATION', 'GROUP'],
             'features': ['MODEL', 'FEATURES'],
             'decimation': ['MODEL', 'DECIMATION'],
@@ -176,7 +176,7 @@ class ModelArgParser(argparse.ArgumentParser):
         sub.add_argument('--batch-norm', type=arg_type_bool)
         sub.add_argument('--dropout', type=float)
         sub.add_argument('--hidden-layers', type=int, nargs='+')
-        sub.add_argument('--online-norm', type=arg_type_bool)
+        sub.add_argument('--norm-type')
         sub.add_argument('--group-norm', type=arg_type_bool)
         sub.add_argument('--features', nargs='+', action=SetAction)
         sub.add_argument('--decimation', type=int)
@@ -209,4 +209,4 @@ class ModelArgParser(argparse.ArgumentParser):
         self.add_argument('--criterion')
         self.add_argument('--preload', type=arg_type_bool)
         self.add_argument('--grad-clip', type=float)
-        self.add_argument('--optimizer', type=str)
+        self.add_argument('--optimizer')

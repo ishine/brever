@@ -27,7 +27,7 @@ MODEL:
   DROPOUT: 0.2  # 0.0 to disable
   HIDDEN_LAYERS: [1024, 1024]
   NORMALIZATION:
-    ONLINE: false
+    TYPE: static
     GROUP: false
   FEATURES: !!set
     # ild: null

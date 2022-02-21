@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from brever.config import get_config
-from brever.data import DNNDataset, ConvTasNetDataset, TensorStandardizer
+from brever.data import DNNDataset, ConvTasNetDataset
 from brever.logger import set_logger
 from brever.models import DNN, ConvTasNet
 from brever.training import BreverTrainer
@@ -79,13 +79,12 @@ def main():
             dropout=config.MODEL.DROPOUT,
             batchnorm=config.MODEL.BATCH_NORM.TOGGLE,
             batchnorm_momentum=config.MODEL.BATCH_NORM.MOMENTUM,
+            normalization=config.MODEL.NORMALIZATION.TYPE,
         )
-        # get training statistics
-        logging.info('Calculating training statistics')
-        mean, std = train_dataset.dataset.get_statistics()
-        model.transform = TensorStandardizer(mean, std)
-        stat_path = os.path.join(args.input, 'statistics.npz')
-        np.savez(stat_path, mean=mean.cpu().numpy(), std=std.cpu().numpy())
+        if config.MODEL.NORMALIZATION.TYPE == 'static':
+            logging.info('Calculating training statistics')
+            mean, std = train_dataset.dataset.get_statistics()
+            model.normalization.set_statistics(mean, std)
     elif config.ARCH == 'convtasnet':
         model = ConvTasNet(
             filters=config.MODEL.ENCODER.FILTERS,

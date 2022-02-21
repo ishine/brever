@@ -74,7 +74,7 @@ def test_dnn_args():
         '--batch-norm', '0',
         '--dropout', '0',
         '--hidden-layers', '0', '0',
-        '--online-norm', '0',
+        '--norm-type', 'foo',
         '--group-norm', '0',
         '--features', 'foo', 'bar',
         '--decimation', '0',
