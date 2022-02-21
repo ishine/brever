@@ -36,14 +36,18 @@ class DNN(nn.Module):
             x = operation(x)
         return x.transpose(1, 2)
 
-    def enhance(self, x, dset):
+    def enhance(self, x, dset, return_mask=False):
         mag, phase = dset.stft.analyze(x.unsqueeze(0))
         features = dset.feature_extractor((mag.squeeze(0), phase.squeeze(0)))
         features = dset.stack(features)
         mask = self.forward(features.unsqueeze(0))
-        mag *= mask
+        mask_extra = dset.mel_fb.extrapolate(mask)
+        mag *= mask_extra
         x = dset.stft.synthesize((mag, phase))[..., :x.shape[-1]]
-        return x.squeeze(0)
+        if return_mask:
+            return x.squeeze(0), mask.squeeze(0)
+        else:
+            x.squeeze(0)
 
 
 class StaticNormalizer(nn.Module):

@@ -16,7 +16,7 @@ from brever.logger import set_logger
 from brever.training import SNR
 
 
-def significant_figures(x, n):
+def significant_figures(x, n=4):
     if x == 0:
         return x
     else:
@@ -51,10 +51,6 @@ def main():
     config_path = os.path.join(args.input, 'config.yaml')
     config = get_config(config_path)
 
-    # load datasaet config
-    dset_config_path = os.path.join(args.test_path, 'config.yaml')
-    dset_config = get_config(dset_config_path)
-
     # initialize logger
     log_file = os.path.join(args.input, 'log.log')
     set_logger(log_file)
@@ -65,15 +61,15 @@ def main():
     logging.info('Initializing dataset')
     if config.ARCH == 'dnn':
         dataset = DNNDataset(
-            path=args.test_path,
+            path=config.TRAINING.PATH,
             features=config.MODEL.FEATURES,
             stacks=config.MODEL.STACKS,
-            decimation=config.MODEL.DECIMATION,
-            stft_kwargs={
-                'frame_length': config.MODEL.STFT.FRAME_LENGTH,
-                'hop_length': config.MODEL.STFT.HOP_LENGTH,
-                'window': config.MODEL.STFT.WINDOW,
-            }
+            decimation=1,
+            stft_frame_length=config.MODEL.STFT.FRAME_LENGTH,
+            stft_hop_length=config.MODEL.STFT.HOP_LENGTH,
+            stft_window=config.MODEL.STFT.WINDOW,
+            mel_filters=config.MODEL.MEL_FILTERS,
+            fs=config.FS,
         )
     elif config.ARCH == 'convtasnet':
         dataset = ConvTasNetDataset(
@@ -150,7 +146,8 @@ def main():
 
         if config.ARCH == 'dnn':
             data, target = dataset.load_segment(i)
-            output = model.enhance(data, dataset)
+            features, irm = dataset[i]
+            output, mask = model.enhance(data, dataset, True)
             target = target[0]
         elif config.ARCH == 'convtasnet':
             data, target = dataset[i]
@@ -166,13 +163,13 @@ def main():
 
         # pesq
         pesq_model = pesq(
-            dset_config.FS,
+            config.FS,
             target.mean(axis=0),
             output.mean(axis=0),
             'wb',
         )
         pesq_ref = pesq(
-            dset_config.FS,
+            config.FS,
             target.mean(axis=0),
             data.mean(axis=0),
             'wb',
@@ -184,12 +181,12 @@ def main():
         stoi_model = stoi(
             target.mean(axis=0),
             output.mean(axis=0),
-            dset_config.FS,
+            config.FS,
         )
         stoi_ref = stoi(
             target.mean(axis=0),
             data.mean(axis=0),
-            dset_config.FS,
+            config.FS,
         )
         scores[args.test_path]['model']['STOI'].append(stoi_model)
         scores[args.test_path]['ref']['STOI'].append(stoi_ref)
@@ -206,13 +203,13 @@ def main():
         scores[args.test_path]['model']['SNR'].append(snr_model)
         scores[args.test_path]['ref']['SNR'].append(snr_ref)
 
-        print(f'PESQi: {pesq_model - pesq_ref}')
-        print(f'STOIi: {stoi_model - stoi_ref}')
-        print(f'SNRi: {snr_model - snr_ref}')
+        logging.info(f'PESQi: {significant_figures(pesq_model - pesq_ref)}')
+        logging.info(f'STOIi: {significant_figures(stoi_model - stoi_ref)}')
+        logging.info(f'SNRi: {significant_figures(snr_model - snr_ref)}')
 
         if args.output_dir is not None:
             output_path = os.path.join(args.output_dir, f'{i:05d}_output.wav')
-            sf.write(output_path, output.T, dset_config.FS)
+            sf.write(output_path, output.T, config.FS)
 
     # update scores file
     with open(scores_path, 'w') as f:

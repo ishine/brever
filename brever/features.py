@@ -12,8 +12,9 @@ eps = torch.finfo().eps
 
 class FeatureExtractor:
 
-    def __init__(self, features, hop_length=256, fs=16e3):
+    def __init__(self, features, mel_fb, hop_length=256, fs=16e3):
         self.features = sorted(features)
+        self.mel_fb = mel_fb
         self.hop_length = hop_length
         self.fs = fs
         self.indices = None
@@ -31,6 +32,8 @@ class FeatureExtractor:
         return torch.cat(output)
 
     def calc_feature(self, x, feature):
+        mag, phase = x
+        assert mag.shape[0] == phase.shape[0] == 2
         if feature == 'ild':
             return self.ild(x)
         elif feature == 'ipd':
@@ -69,8 +72,8 @@ class FeatureExtractor:
 
         Parameters
         ----------
-        x : array_like
-            Input signal. Shape `(channels, bins, frames)`.
+        x : tuple of array_like
+            Magnitude and phase. Each of shape `(channels, bins, frames)`.
         normalize : bool, optional
             Whether to normalize along frequency axis. Default is `False`.
         compression : {'log', 'cubic', 'none'}, optional
@@ -102,9 +105,10 @@ class FeatureExtractor:
             Filterbank energies.
         """
         mag, phase = x
-        assert mag.shape[0] == phase.shape[0] == 2
         # calculate energy
-        out = mag.pow(2).mean(0)  # (bins, frames).
+        out = mag.pow(2).mean(0)  # (bins, frames)
+        # gather by filters
+        out = self.mel_fb(out)
         # normalize
         if normalize:
             out /= out.sum(0, keepdims=True) + eps
@@ -144,8 +148,8 @@ class FeatureExtractor:
 
         Parameters
         ----------
-        x : array_like
-            Input signal. Shape `(channels, bins, frames)`.
+        x : tuple of array_like
+            Magnitude and phase. Each of shape `(channels, bins, frames)`.
 
         Returns
         -------
@@ -153,8 +157,8 @@ class FeatureExtractor:
             Interaural level difference.
         """
         mag, phase = x
-        assert mag.shape[0] == phase.shape[0] == 2
-        return 20*torch.log10((mag[1]+eps)/(mag[0]+eps))
+        ild = 20*torch.log10((mag[1]+eps)/(mag[0]+eps))
+        return self.mel_fb(ild)
 
     def ipd(self, x):
         """
@@ -164,8 +168,8 @@ class FeatureExtractor:
 
         Parameters
         ----------
-        x : array_like
-            Input signal. Shape `(channels, bins, frames)`.
+        x : tuple of array_like
+            Magnitude and phase. Each of shape `(channels, bins, frames)`.
 
         Returns
         -------
@@ -173,8 +177,8 @@ class FeatureExtractor:
             Interaural phase difference.
         """
         mag, phase = x
-        assert mag.shape[0] == phase.shape[0] == 2
-        return phase[1] - phase[0]
+        ipd = phase[1] - phase[0]
+        return self.mel_fb(ipd)
 
     def ic(self, x, tau=10e-3):
         """
@@ -184,8 +188,8 @@ class FeatureExtractor:
 
         Parameters
         ----------
-        x : array_like
-            Input signal. Shape `(channels, bins, frames)`.
+        x : tuple of array_like
+            Magnitude and phase. Each of shape `(channels, bins, frames)`.
         tau : float
             Time constant for the exponentially-weighted auto- and cross-power
             spectra in seconds.
@@ -196,7 +200,6 @@ class FeatureExtractor:
             Interaural coherence.
         """
         mag, phase = x
-        assert mag.shape[0] == phase.shape[0] == 2
         alpha = math.exp(-self.hop_length/(tau*self.fs))
         x_ll = mag[0].pow(2)
         x_rr = mag[1].pow(2)
@@ -207,5 +210,5 @@ class FeatureExtractor:
             b_coeffs=torch.tensor([1-alpha, 0]),
         )
         phi_lr_mag = (phi_lr_real.pow(2) + phi_lr_imag.pow(2)).sqrt()
-        output = (phi_lr_mag/(phi_ll*phi_rr).sqrt()).sqrt()
-        return output
+        ic = phi_lr_mag.pow(2)/(phi_ll*phi_rr)
+        return self.mel_fb(ic).sqrt()

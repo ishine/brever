@@ -1,4 +1,5 @@
 ARCH: convtasnet
+FS: 16000
 TRAINING:
   BATCH_SIZE: 1
   CRITERION: SNR

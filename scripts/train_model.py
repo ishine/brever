@@ -43,11 +43,11 @@ def main():
             features=config.MODEL.FEATURES,
             stacks=config.MODEL.STACKS,
             decimation=config.MODEL.DECIMATION,
-            stft_kwargs={
-                'frame_length': config.MODEL.STFT.FRAME_LENGTH,
-                'hop_length': config.MODEL.STFT.HOP_LENGTH,
-                'window': config.MODEL.STFT.WINDOW,
-            }
+            stft_frame_length=config.MODEL.STFT.FRAME_LENGTH,
+            stft_hop_length=config.MODEL.STFT.HOP_LENGTH,
+            stft_window=config.MODEL.STFT.WINDOW,
+            mel_filters=config.MODEL.MEL_FILTERS,
+            fs=config.FS,
         )
     elif config.ARCH == 'convtasnet':
         dataset = ConvTasNetDataset(

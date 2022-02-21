@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import torchaudio
 
 from .features import FeatureExtractor
-from .filters import STFT
+from .filters import STFT, MelFB
 
 eps = np.finfo(float).eps
 
@@ -195,38 +195,55 @@ class DNNDataset(BreverDataset):
         features={'logfbe'},
         stacks=0,
         decimation=1,
-        stft_kwargs={},
+        stft_frame_length=512,
+        stft_hop_length=256,
+        stft_window='hann',
+        mel_filters=64,
+        fs=16e3,
     ):
         super().__init__(path, components=['foreground', 'background'])
         self.stacks = stacks
         self.decimation = decimation
-        self.feature_extractor = FeatureExtractor(features)
-        self.stft = STFT(**stft_kwargs)
+        self.stft = STFT(
+            frame_length=stft_frame_length,
+            hop_length=stft_hop_length,
+            window=stft_window,
+        )
+        self.mel_fb = MelFB(
+            n_filters=mel_filters,
+            n_fft=stft_frame_length,
+            fs=fs,
+        )
+        self.feature_extractor = FeatureExtractor(
+            features=features,
+            mel_fb=self.mel_fb,
+            hop_length=stft_hop_length,
+            fs=fs,
+        )
 
     def post_proc(self, data, target, return_stft_output=False):
         x = torch.stack([data, *target])  # (sources, channels, samples)
         mag, phase = self.stft.analyze(x)  # (sources, channels, bins, frames)
         mix_mag = mag[0, :, :, :]  # (channels, bins, frames)
         mix_phase = phase[0, :, :, :]  # (channels, bins, frames)
-        foreground_mag = mag[1, :, :, :]  # (channels, bins, frames)
-        background_mag = mag[2, :, :, :]  # (channels, bins, frames)
+        components_mag = mag[1:, :, :, :]  # (sources, channels, bins, frames)
         # features
         data = self.feature_extractor((mix_mag, mix_phase))  # (feats, frames)
         data = self.stack(data)
         data = self.decimate(data)
         # labels
-        target = self.irm(foreground_mag, background_mag)  # (labels, frames)
+        target = self.irm(components_mag)  # (labels, frames)
         target = self.decimate(target)
         if return_stft_output:
             return data, target, mix_mag, mix_phase
         else:
             return data, target
 
-    def irm(self, target, masker):
-        # (filters, channels, frames, samples)
-        target = target.pow(2).mean(0)  # (bins, frames)
-        masker = masker.pow(2).mean(0)  # (bins, frames)
-        return (1 + masker/(target+eps)).pow(-0.5)
+    def irm(self, components_mag):
+        # (sources, channels, bins, frames)
+        energy = components_mag.pow(2).mean(0)  # (sources, bins, frames)
+        energy = self.mel_fb(energy)
+        return (1 + energy[1]/(energy[0]+eps)).pow(-0.5)
 
     def stack(self, data):
         out = [data]

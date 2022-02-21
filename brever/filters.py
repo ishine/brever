@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .utils import fft_freqs
+
 
 def freq_to_erb(f):
     """
@@ -359,3 +361,34 @@ class STFT(nn.Module):
 
     def frame_count(self, samples):
         return math.ceil((samples - self.frame_length)/self.hop_length) + 1
+
+
+class MelFB:
+    def __init__(self, n_filters=64, n_fft=512, fs=16e3):
+        self.n_filters = n_filters
+        self.n_fft = n_fft
+        self.fs = fs
+        self.filters, self.fc = self.calc_filterbank()
+
+    def calc_filterbank(self):
+        mel_min, mel_max = freq_to_mel([0, self.fs/2])
+        mel = np.linspace(mel_min, mel_max, self.n_filters)
+        fc = mel_to_freq(mel)
+        f = fft_freqs(self.fs, self.n_fft)
+        filters = np.zeros((self.n_filters, len(f)))
+        for i in range(self.n_filters):
+            if i != 0:
+                mask = (fc[i-1] <= f) & (f <= fc[i])
+                filters[i, mask] = (f[mask]-fc[i-1])/(fc[i]-fc[i-1])
+            if i != self.n_filters - 1:
+                mask = (fc[i] <= f) & (f <= fc[i+1])
+                filters[i, mask] = (fc[i+1]-f[mask])/(fc[i+1]-fc[i])
+        filters = torch.from_numpy(filters).float()
+        fc = torch.from_numpy(fc).float()
+        return filters, fc
+
+    def __call__(self, x):
+        return torch.matmul(self.filters, x)
+
+    def extrapolate(self, x):
+        return torch.matmul(self.filters.T, x)
