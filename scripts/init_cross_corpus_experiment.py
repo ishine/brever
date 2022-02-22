@@ -76,13 +76,14 @@ def init_model(arch, train_path):
     )
 
 
-for dim, vals in dict_.items():
-    p = init_train_dset(**{dim: set(vals)})
-    init_model('convtasnet', p)
-    for val in vals:
-        p = init_train_dset(**{dim: {val}})
-        init_model('convtasnet', p)
-        p = init_train_dset(**{dim: {v for v in vals if v != val}})
-        init_model('convtasnet', p)
-        init_test_dset(**{dim: {val}})
-        init_test_dset(**{dim: {v for v in vals if v != val}})
+for arch in ['convtasnet', 'dnn']:
+    for dim, vals in dict_.items():
+        p = init_train_dset(**{dim: set(vals)})
+        init_model(arch, p)
+        for val in vals:
+            p = init_train_dset(**{dim: {val}})
+            init_model(arch, p)
+            p = init_train_dset(**{dim: {v for v in vals if v != val}})
+            init_model(arch, p)
+            init_test_dset(**{dim: {val}})
+            init_test_dset(**{dim: {v for v in vals if v != val}})
