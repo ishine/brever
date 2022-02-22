@@ -1,43 +1,20 @@
 import argparse
 import os
 
-from brever.config import defaults
-import brever.management as bm
+from brever.config import get_config
 
 
 def main():
-    models_dir = defaults().PATH.MODELS
+    models_dir = get_config('config/paths.yaml').MODELS
     yes_to_all = False
 
     for model_id in os.listdir(models_dir):
 
         model_dir = os.path.join(models_dir, model_id)
-        config_filepath = os.path.join(model_dir, 'config.yaml')
-        config = bm.read_yaml(config_filepath)
+        config_path = os.path.join(model_dir, 'config.yaml')
+        config = get_config(config_path)
+        new_id = config.get_hash()
 
-        train_path = bm.get_config_field(config, 'train_path')
-        val_path = bm.get_config_field(config, 'val_path')
-
-        if train_path is not None and val_path is not None:
-            if not os.path.dirname(train_path).endswith('train'):
-                print(f'Model {model_id} train path does not point to the '
-                      f'train dir! Got {train_path}')
-            if not os.path.dirname(val_path).endswith('val'):
-                print(f'Model {model_id} val path does not point to the '
-                      f'val dir! Got {val_path}')
-            if os.path.basename(train_path) != os.path.basename(val_path):
-                print(f'Model {model_id} train and val paths are not '
-                      f'consistent! Got {train_path} and {val_path}')
-            if not os.path.exists(train_path):
-                print(f'Model {model_id} train path does not exist!')
-            if not os.path.exists(val_path):
-                print(f'Model {model_id} val path does not exist!')
-        elif train_path is not None:
-            print(f'Model {model_id} has a train path but no val path!')
-        elif val_path is not None:
-            print(f'Model {model_id} has a val path but no train path!')
-
-        new_id = bm.get_unique_id(config)
         if new_id != model_id:
             print(f'Model {model_id} has wrong ID!')
             while True:
