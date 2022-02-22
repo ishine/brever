@@ -198,8 +198,9 @@ class DatasetFinder:
 
 
 class ModelInitializer:
-    def __init__(self):
+    def __init__(self, batch_mode=False):
         self.dir_ = get_config('config/paths.yaml').MODELS
+        self.batch_mode = batch_mode
 
     def init_from_args(self, args):
         config = get_config(f'config/models/{args.arch}.yaml')
@@ -221,7 +222,11 @@ class ModelInitializer:
 
         config_path = os.path.join(model_dir, 'config.yaml')
         if os.path.exists(config_path) and not force:
-            raise FileExistsError(f'model already exists: {config_path} ')
+            msg = f'model already exists: {config_path}'
+            if self.batch_mode:
+                print(msg)
+            else:
+                raise FileExistsError(msg)
         else:
             with open(config_path, 'w') as f:
                 yaml.dump(config.to_dict(), f)
@@ -231,8 +236,9 @@ class ModelInitializer:
 
 
 class DatasetInitializer:
-    def __init__(self):
+    def __init__(self, batch_mode=False):
         self.dir_ = get_config('config/paths.yaml').DATASETS
+        self.batch_mode = batch_mode
 
     def init_from_args(self, args):
         config = get_config('config/dataset.yaml')
@@ -254,7 +260,11 @@ class DatasetInitializer:
 
         config_path = os.path.join(dataset_dir, 'config.yaml')
         if os.path.exists(config_path) and not force:
-            raise FileExistsError(f'dataset already exists: {config_path} ')
+            msg = f'dataset already exists: {config_path}'
+            if self.batch_mode:
+                print(msg)
+            else:
+                raise FileExistsError(msg)
         else:
             with open(config_path, 'w') as f:
                 yaml.dump(config.to_dict(), f)
