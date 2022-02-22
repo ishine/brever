@@ -226,24 +226,28 @@ class DNNDataset(BreverDataset):
         mag, phase = self.stft.analyze(x)  # (sources, channels, bins, frames)
         mix_mag = mag[0, :, :, :]  # (channels, bins, frames)
         mix_phase = phase[0, :, :, :]  # (channels, bins, frames)
-        components_mag = mag[1:, :, :, :]  # (sources, channels, bins, frames)
+        fg_mag = mag[1, :, :, :]  # (channels, bins, frames)
+        bg_mag = mag[2, :, :, :]  # (channels, bins, frames)
         # features
         data = self.feature_extractor((mix_mag, mix_phase))  # (feats, frames)
         data = self.stack(data)
         data = self.decimate(data)
         # labels
-        target = self.irm(components_mag)  # (labels, frames)
+        target = self.irm(fg_mag, bg_mag)  # (labels, frames)
         target = self.decimate(target)
         if return_stft_output:
             return data, target, mix_mag, mix_phase
         else:
             return data, target
 
-    def irm(self, components_mag):
+    def irm(self, fg_mag, bg_mag):
         # (sources, channels, bins, frames)
-        energy = components_mag.pow(2).mean(0)  # (sources, bins, frames)
-        energy = self.mel_fb(energy)
-        return (1 + energy[1]/(energy[0]+eps)).pow(-0.5)
+        fg_energy = fg_mag.pow(2).mean(0)  # (bins, frames)
+        bg_energy = bg_mag.pow(2).mean(0)  # (bins, frames)
+        fg_energy = self.mel_fb(fg_energy)
+        bg_energy = self.mel_fb(bg_energy)
+        irm = (1 + bg_energy/(fg_energy+eps)).pow(-0.5)
+        return irm
 
     def stack(self, data):
         out = [data]
