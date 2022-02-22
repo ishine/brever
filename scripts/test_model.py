@@ -62,7 +62,7 @@ def main():
     logging.info('Initializing dataset')
     if config.ARCH == 'dnn':
         dataset = DNNDataset(
-            path=config.TRAINING.PATH,
+            path=args.test_path,
             features=config.MODEL.FEATURES,
             stacks=config.MODEL.STACKS,
             decimation=1,
@@ -111,19 +111,15 @@ def main():
     checkpoint = os.path.join(args.input, 'checkpoint.pt')
     model.load_state_dict(torch.load(checkpoint, map_location='cpu'))
 
-    # init scores dict
+    # check if already tested
     scores_path = os.path.join(args.input, 'scores.json')
     if os.path.exists(scores_path):
         with open(scores_path) as f:
-            scores = json.load(f)
-    else:
-        scores = {}
+            saved_scores = json.load(f)
+        if args.test_path in saved_scores.keys() and not args.force:
+            raise FileExistsError('model already tested on this dataset')
 
-    # check if already tested
-    if args.test_path in scores.keys() and not args.force:
-        raise FileExistsError('model already tested on this dataset')
-
-    scores[args.test_path] = {
+    scores = {
         'model': {
             'PESQ': [],
             'STOI': [],
@@ -175,8 +171,8 @@ def main():
             data.mean(axis=0),
             'wb',
         )
-        scores[args.test_path]['model']['PESQ'].append(pesq_model)
-        scores[args.test_path]['ref']['PESQ'].append(pesq_ref)
+        scores['model']['PESQ'].append(pesq_model)
+        scores['ref']['PESQ'].append(pesq_ref)
 
         # stoi
         stoi_model = stoi(
@@ -189,8 +185,8 @@ def main():
             data.mean(axis=0),
             config.FS,
         )
-        scores[args.test_path]['model']['STOI'].append(stoi_model)
-        scores[args.test_path]['ref']['STOI'].append(stoi_ref)
+        scores['model']['STOI'].append(stoi_model)
+        scores['ref']['STOI'].append(stoi_ref)
 
         # snr
         snr_model = -SNR()(
@@ -201,8 +197,8 @@ def main():
             torch.from_numpy(data.copy()),
             torch.from_numpy(target.copy()),
         ).item()
-        scores[args.test_path]['model']['SNR'].append(snr_model)
-        scores[args.test_path]['ref']['SNR'].append(snr_ref)
+        scores['model']['SNR'].append(snr_model)
+        scores['ref']['SNR'].append(snr_ref)
 
         logging.info(f'PESQi: {significant_figures(pesq_model - pesq_ref)}')
         logging.info(f'STOIi: {significant_figures(stoi_model - stoi_ref)}')
@@ -213,8 +209,14 @@ def main():
             sf.write(output_path, output.T, config.FS)
 
     # update scores file
+    if os.path.exists(scores_path):
+        with open(scores_path) as f:
+            saved_scores = json.load(f)
+    else:
+        saved_scores = {}
+    saved_scores[args.test_path] = format_scores(scores)
     with open(scores_path, 'w') as f:
-        json.dump(format_scores(scores), f)
+        json.dump(saved_scores, f)
 
 
 if __name__ == '__main__':
