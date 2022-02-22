@@ -9,6 +9,7 @@ from pystoi import stoi
 import soundfile as sf
 import torch
 
+from brever.args import arg_type_path
 from brever.config import get_config
 from brever.data import DNNDataset, ConvTasNetDataset
 from brever.models import DNN, ConvTasNet
@@ -220,7 +221,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='test a model')
     parser.add_argument('input',
                         help='model directory')
-    parser.add_argument('test_path',
+    parser.add_argument('test_path', type=arg_type_path,
                         help='test dataset path')
     parser.add_argument('-f', '--force', action='store_true',
                         help='test even if already tested')

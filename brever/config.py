@@ -227,7 +227,7 @@ class ModelInitializer:
                 yaml.dump(config.to_dict(), f)
             print(f'Initialized {config_path}')
 
-        return model_dir
+        return model_dir.replace('\\', '/')
 
 
 class DatasetInitializer:
@@ -260,4 +260,4 @@ class DatasetInitializer:
                 yaml.dump(config.to_dict(), f)
             print(f'Initialized {config_path}')
 
-        return dataset_dir
+        return dataset_dir.replace('\\', '/')
