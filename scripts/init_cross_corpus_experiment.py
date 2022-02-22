@@ -47,7 +47,6 @@ def main():
             seed=0,
         )
 
-
     def init_test_dset(
         speakers={'timit_.*'},
         noises={'dcase_.*'},
@@ -65,13 +64,11 @@ def main():
             seed=42,
         )
 
-
     def init_model(arch, train_path):
         return model_init.init_from_kwargs(
             arch=arch,
             train_path=arg_type_path(train_path),
         )
-
 
     archs = ['convtasnet', 'dnn']
     evaluations = []
