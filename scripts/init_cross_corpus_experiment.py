@@ -78,16 +78,7 @@ def init_model(arch, train_path):
     )
 
 
-eval_script = 'cross_corpus_eval.sh'
-if os.path.exists(eval_script):
-    os.remove(eval_script)
-
-
-def init_evaluation(model, test_path):
-    with open(eval_script, 'a') as f:
-        f.write(f'bash jobs/test_model.sh {model} {test_path}\n')
-
-
+evaluations = []
 for arch in ['convtasnet', 'dnn']:
     for dim, vals in dict_.items():
         p0 = init_train_dset(**{dim: set(vals)})
@@ -99,7 +90,11 @@ for arch in ['convtasnet', 'dnn']:
             m2 = init_model(arch, p2)
             p3 = init_test_dset(**{dim: {val}})
             p4 = init_test_dset(**{dim: {v for v in vals if v != val}})
-            init_evaluation(m1, p3)
-            init_evaluation(m2, p3)
-            init_evaluation(m1, p4)
-            init_evaluation(m2, p4)
+            evaluations.append(f'bash jobs/test_model.sh {m1} {p3}\n')
+            evaluations.append(f'bash jobs/test_model.sh {m2} {p3}\n')
+            evaluations.append(f'bash jobs/test_model.sh {m1} {p4}\n')
+            evaluations.append(f'bash jobs/test_model.sh {m2} {p4}\n')
+
+eval_script = 'cross_corpus_eval.sh'
+with open(eval_script, 'w') as f:
+    f.writelines(set(evaluations))
