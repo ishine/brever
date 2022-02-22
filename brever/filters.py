@@ -383,6 +383,7 @@ class MelFB:
             if i != self.n_filters - 1:
                 mask = (fc[i] <= f) & (f <= fc[i+1])
                 filters[i, mask] = (fc[i+1]-f[mask])/(fc[i+1]-fc[i])
+        filters /= filters.sum(axis=1, keepdims=True)
         filters = torch.from_numpy(filters).float()
         fc = torch.from_numpy(fc).float()
         return filters, fc
@@ -390,5 +391,11 @@ class MelFB:
     def __call__(self, x):
         return torch.matmul(self.filters, x)
 
+    @property
+    def inverse_filters(self):
+        filters = self.filters.T.clone()
+        filters /= filters.sum(axis=1, keepdims=True)
+        return filters
+
     def extrapolate(self, x):
-        return torch.matmul(self.filters.T, x)
+        return torch.matmul(self.inverse_filters, x)
