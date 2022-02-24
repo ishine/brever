@@ -1,3 +1,4 @@
+import argparse
 import os
 
 from brever.args import arg_type_path
@@ -47,6 +48,7 @@ def main():
             room_files='even',
             duration=36000,
             seed=0,
+            force=args.force,
         )
 
     def init_test_dset(
@@ -64,12 +66,14 @@ def main():
             room_files='odd',
             duration=1800,
             seed=42,
+            force=args.force,
         )
 
     def init_model(arch, train_path):
         return model_init.init_from_kwargs(
             arch=arch,
             train_path=arg_type_path(train_path),
+            force=args.force,
         )
 
     archs = ['convtasnet', 'dnn']
@@ -115,4 +119,7 @@ def main():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser('initialize cross-corpus experiment')
+    parser.add_argument('-f', '--force', action='store_true')
+    args = parser.parse_args()
     main()
