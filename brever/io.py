@@ -130,7 +130,7 @@ class AudioFileLoader:
         elif prefix in ['ieee', 'arctic', 'hint', 'vctk']:
             for root, dirs, files in os.walk(dirpath):
                 for file in files:
-                    if file.lower().endswith(['.wav', '.flac']):
+                    if file.lower().endswith(('.wav', '.flac')):
                         output.append(os.path.join(root, file))
         else:
             raise ValueError(f'wrong speaker, got {speaker}')
