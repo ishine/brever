@@ -15,7 +15,7 @@ def main():
             'libri_.*',
             'ieee',
             'arctic',
-            'hint',
+            'vctk',
         ],
         'noises': [
             'dcase_.*',
