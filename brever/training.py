@@ -106,6 +106,8 @@ class BreverTrainer:
 
         self.model = model
         self.epochs = epochs
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
         self.cuda = cuda
         self.checkpoint_path = os.path.join(dirpath, 'checkpoint.pt')
         self.early_stop = early_stop
