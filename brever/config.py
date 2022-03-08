@@ -213,6 +213,14 @@ class ModelInitializer:
             config.set_field(ModelArgParser.arg_map[arch][key], val)
         return self.write_config(config, force=force)
 
+    def get_path_from_kwargs(self, arch, **kwargs):
+        config = get_config(f'config/models/{arch}.yaml')
+        for key, val in kwargs.items():
+            config.set_field(ModelArgParser.arg_map[arch][key], val)
+        model_id = config.get_hash()
+        model_dir = os.path.join(self.dir_, model_id)
+        return model_dir.replace('\\', '/')
+
     def write_config(self, config, force=False):
         model_id = config.get_hash()
 
@@ -250,6 +258,14 @@ class DatasetInitializer:
         for key, val in kwargs.items():
             config.set_field(DatasetArgParser.arg_map[key], val)
         return self.write_config(kind, config, force=force)
+
+    def get_path_from_kwargs(self, kind, **kwargs):
+        config = get_config('config/dataset.yaml')
+        for key, val in kwargs.items():
+            config.set_field(DatasetArgParser.arg_map[key], val)
+        dataset_id = config.get_hash()
+        dataset_dir = os.path.join(self.dir_, kind, dataset_id)
+        return dataset_dir.replace('\\', '/')
 
     def write_config(self, kind, config, force=False):
         dataset_id = config.get_hash()
