@@ -98,18 +98,23 @@ class BreverTrainer:
                  weight_decay=0.0, cuda=True, criterion='MSELoss',
                  optimizer='Adam', early_stop=False, early_stop_patience=10,
                  convergence=False, convergence_window=10,
-                 convergence_threshold=1.0e-6, grad_clip=0.0):
+                 convergence_threshold=1.0e-6, grad_clip=0.0,
+                 ignore_checkpoint=False):
 
         if early_stop and convergence:
             raise ValueError('cannot toggle both early_stop and convergence')
 
         self.model = model
         self.epochs = epochs
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
         self.cuda = cuda
         self.checkpoint_path = os.path.join(dirpath, 'checkpoint.pt')
         self.early_stop = early_stop
         self.convergence = convergence
         self.grad_clip = grad_clip
+        self.ignore_checkpoint = ignore_checkpoint
+        self.epochs_ran = 0
 
         # batch samplers
         self.train_batch_sampler = BreverBatchSampler(
@@ -144,17 +149,17 @@ class BreverTrainer:
         )
 
         # loss logger
-        self.lossLogger = LossLogger(dirpath)
+        self.loss_logger = LossLogger(dirpath)
 
         # early stopper
-        self.earlyStop = EarlyStopping(
+        self.early_stopper = EarlyStopping(
             model=model,
             checkpoint_path=self.checkpoint_path,
             patience=early_stop_patience,
         )
 
         # convergence tracker
-        self.convergenceTracker = ConvergenceTracker(
+        self.convergence_tracker = ConvergenceTracker(
             window=convergence_window,
             threshold=convergence_threshold,
         )
@@ -163,26 +168,40 @@ class BreverTrainer:
         self.timer = TrainingTimer(epochs)
 
     def run(self):
+        # check for a checkpoint
+        if not self.ignore_checkpoint and os.path.exists(self.checkpoint_path):
+            logging.info('Checkpoint found')
+            self.load_checkpoint()
+            # if training was interrupted then resume training
+            if self.epochs_ran < self.epochs:
+                logging.info(f'Resuming training at epoch {self.epochs_ran}')
+            else:
+                logging.info('Model is already trained')
+                return
+
         # initialize timer
         self.timer.start()
-        for epoch in range(self.epochs):
+        for epoch in range(self.epochs_ran, self.epochs):
             # train
             train_loss = self.train()
             # evaluate
             val_loss = self.evaluate()
             # log losses
-            self.lossLogger.add(train_loss, val_loss)
-            self.lossLogger.log(epoch)
+            self.loss_logger.add(train_loss, val_loss)
+            self.loss_logger.log(epoch)
             # check stop criterion
             if self.stop_criterion(train_loss, val_loss):
                 break
+            # save checkpoint
+            self.epochs_ran += 1
+            self.save_checkpoint()
             # update time spent
             self.timer.step()
             self.timer.log()
         # plot and save losses
         self.timer.final_log()
-        self.lossLogger.plot()
-        self.lossLogger.save()
+        self.loss_logger.plot()
+        self.loss_logger.save()
 
     def train(self):
         self.model.train()
@@ -217,21 +236,48 @@ class BreverTrainer:
 
     def stop_criterion(self, train_loss, val_loss):
         if self.early_stop:
-            self.earlyStop(val_loss)
-            if self.earlyStop.stop:
+            self.early_stopper(val_loss)
+            if self.early_stopper.stop:
                 logging.info('Early stopping now')
-                logging.info(f'Best val loss: {self.earlyStop.min_loss}')
+                logging.info(f'Best val loss: {self.early_stopper.min_loss}')
                 return False
         else:
             self.save_checkpoint()
             if self.convergence:
-                self.convergenceTracker(train_loss)
-                if self.convergenceTracker.stop:
+                self.convergence_tracker(train_loss)
+                if self.convergence_tracker.stop:
                     logging.info('Train loss has converged')
                     return False
 
     def save_checkpoint(self):
-        torch.save(self.model.state_dict(), self.checkpoint_path)
+        state = {
+            'epochs': self.epochs_ran,
+            'model': self.model.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'losses': {
+                'train': self.loss_logger.train_loss,
+                'val': self.loss_logger.val_loss,
+            }
+        }
+        torch.save(state, self.checkpoint_path)
+
+    def load_checkpoint(self):
+        state = torch.load(self.checkpoint_path)
+        self.model.load_state_dict(state['model'])
+        if self.cuda:
+            self.model.cuda()
+            # if the model was moved to cuda then the optimizer needs to be
+            # reinitialized before loading the optimizer state dictionary
+            # see https://github.com/pytorch/pytorch/issues/2830
+            self.optimizer.__init__(
+                params=self.model.parameters(),
+                lr=self.learning_rate,
+                weight_decay=self.weight_decay,
+            )
+        self.optimizer.load_state_dict(state['optimizer'])
+        self.loss_logger.train_loss = state['losses']['train']
+        self.loss_logger.val_loss = state['losses']['val']
+        self.epochs_ran = state['epochs']
 
 
 class EarlyStopping:
