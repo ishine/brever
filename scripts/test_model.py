@@ -109,7 +109,8 @@ def main():
 
     # load checkpoint
     checkpoint = os.path.join(args.input, 'checkpoint.pt')
-    model.load_state_dict(torch.load(checkpoint, map_location='cpu'))
+    state = torch.load(checkpoint, map_location='cpu')
+    model.load_state_dict(state['model'])
 
     # check if already tested
     scores_path = os.path.join(args.input, 'scores.json')
