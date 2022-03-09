@@ -159,9 +159,8 @@ class DatasetFinder:
             dsets_dir = paths.DATASETS
             if kind is not None:
                 dsets_dir = os.path.join(dsets_dir, kind)
-            for root, folder, files in os.walk(dsets_dir):
-                if 'config.yaml' in files:
-                    self.dsets.append(root)
+            for dset_id in os.listdir(dsets_dir):
+                self.dsets.append(os.path.join(dsets_dir, dset_id))
 
         if self.configs is None:
             self.configs = []
