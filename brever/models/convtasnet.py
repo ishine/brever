@@ -20,14 +20,27 @@ class ConvTasNet(nn.Module):
             repeats=repeats,
             sources=sources,
         )
+        self.masks = None
 
-    def forward(self, x):
+    def forward(self, x, return_masks=False):
         length = x.shape[-1]
         x = self.encoder(x)
         masks = self.tcn(x)
         x = self.decoder(x, masks)
         x = x[:, :, :length]
-        return x
+        if return_masks:
+            return x, masks
+        else:
+            return x
+
+    def apply_masks(self, x, masks):
+        self.eval()
+        with torch.no_grad():
+            length = x.shape[-1]
+            x = self.encoder(x)
+            x = self.decoder(x, masks)
+            x = x[:, :, :length]
+            return x
 
 
 class Encoder(nn.Module):
