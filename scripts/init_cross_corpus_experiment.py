@@ -81,24 +81,28 @@ def main():
     models = []
     evaluations = []
     for dim, vals in dict_.items():
+        # test paths
+        p0s = []
+        for val in vals:
+            p0 = init_test_dset(**{dim: {val}})
+            dsets.append(p0)
+            p0s.append(p0)
+        # train paths
         for val in vals:
             p1 = init_train_dset(**{dim: {val}})
             p2 = init_train_dset(**{dim: {v for v in vals if v != val}})
-            p3 = init_test_dset(**{dim: {val}})
-            p4 = init_test_dset(**{dim: {v for v in vals if v != val}})
             dsets.append(p1)
             dsets.append(p2)
-            dsets.append(p3)
-            dsets.append(p4)
+            # models
             for arch in archs:
                 m1 = init_model(arch, p1)
                 m2 = init_model(arch, p2)
                 models.append(m1)
                 models.append(m2)
-                evaluations.append(f'bash jobs/test_model.sh {m1} {p3}\n')
-                evaluations.append(f'bash jobs/test_model.sh {m2} {p3}\n')
-                evaluations.append(f'bash jobs/test_model.sh {m1} {p4}\n')
-                evaluations.append(f'bash jobs/test_model.sh {m2} {p4}\n')
+                # evaluations
+                for p0 in p0s:
+                    evaluations.append(f'bash jobs/test_model.sh {m1} {p0}\n')
+                    evaluations.append(f'bash jobs/test_model.sh {m2} {p0}\n')
 
     eval_script = 'cross_corpus_eval.sh'
     with open(eval_script, 'w') as f:
