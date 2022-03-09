@@ -156,11 +156,11 @@ class DatasetFinder:
         if self.dsets is None:
             self.dsets = []
             paths = get_config('config/paths.yaml')
-            dsets_dir = paths.DATASETS
-            if kind is not None:
-                dsets_dir = os.path.join(dsets_dir, kind)
-            for dset_id in os.listdir(dsets_dir):
-                self.dsets.append(os.path.join(dsets_dir, dset_id))
+            kinds = ['train', 'test'] if kind is None else [kind]
+            for kind in kinds:
+                dsets_dir = os.path.join(paths.DATASETS, kind)
+                for dset_id in os.listdir(dsets_dir):
+                    self.dsets.append(os.path.join(dsets_dir, dset_id))
 
         if self.configs is None:
             self.configs = []
