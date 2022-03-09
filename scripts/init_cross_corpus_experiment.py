@@ -116,7 +116,7 @@ def main():
     for kind in ['test', 'train']:
         subdir = os.path.join(dset_init.dir_, kind)
         for dset_id in os.listdir(subdir):
-            dset_path = os.path.join(subdir, dset_id)
+            dset_path = os.path.join(subdir, dset_id).replace('\\', '/')
             if dset_path not in dsets:
                 print('the following dataset was found in the system and was '
                       f'not attempted to be initialized: {dset_path}')
