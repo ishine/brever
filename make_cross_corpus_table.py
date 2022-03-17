@@ -1,8 +1,8 @@
-import argparse
 import os
 import json
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from brever.args import arg_type_path
 from brever.config import DatasetInitializer, ModelInitializer
@@ -18,7 +18,7 @@ def main():
             'libri_.*',
             'ieee',
             'arctic',
-            'hint',
+            'vctk',
         ],
         'noises': [
             'dcase_.*',
@@ -77,6 +77,11 @@ def main():
         )
 
     def get_scores(model, test_path):
+        if isinstance(test_path, list):
+            out = []
+            for p in test_path:
+                out.append(get_scores(model, p))
+            return np.mean(out, axis=0)
         score_file = os.path.join(model, 'scores.json')
         with open(score_file) as f:
             scores = json.load(f)
@@ -147,15 +152,17 @@ def main():
             print_dim_multirow(dim)
             scores, gaps = [], []
             for val in vals:
-                if val == 'hint':
-                    continue
                 p = get_train_dset(**{dim: {val}})
                 p_ref = get_train_dset(**{dim: {v for v in vals if v != val}})
-                p_test = get_test_dset(**{dim: {v for v in vals if v != val}})
+                p_tests = []
+                for v in vals:
+                    if v != val:
+                        p_test = get_test_dset(**{dim: {val}})
+                        p_tests.append(p_test)
                 m = get_model(arch, p)
                 m_ref = get_model(arch, p_ref)
-                scores_i = get_scores(m, p_test)
-                scores_ref_i = get_scores(m_ref, p_test)
+                scores_i = get_scores(m, p_tests)
+                scores_ref_i = get_scores(m_ref, p_tests)
                 gaps_i = scores_i/scores_ref_i*100
                 scores.append(scores_i)
                 gaps.append(gaps_i)
@@ -164,8 +171,6 @@ def main():
             print_row(1, scores, gaps)
             scores, gaps = [], []
             for val in vals:
-                if val == 'hint':
-                    continue
                 p = get_train_dset(**{dim: {v for v in vals if v != val}})
                 p_ref = get_train_dset(**{dim: {val}})
                 p_test = get_test_dset(**{dim: {val}})
@@ -185,6 +190,145 @@ def main():
           'and Conv-TasNet across all folds. Delta scores indicate the '
           'difference with the unprocessed input mixture.}')
     print('\\end{table*}')
+
+    matrices = np.empty((2, 3, 5, 5, 6))
+    matrices_ref = np.empty((2, 3, 5, 5, 6))
+    for i_arch, arch in enumerate(archs):
+        for i_dim, (dim, vals) in enumerate(dict_.items()):
+            matrix = np.empty((5, 5, 6))
+            matrix_ref = np.empty((5, 5, 6))
+            for i in range(5):
+                for j in range(5):
+                    p = get_train_dset(**{dim: {vals[j]}})
+                    p_ref = get_train_dset(**{dim: {v for v in vals if v != vals[j]}})
+                    p_test = get_test_dset(**{dim: {vals[i]}})
+                    m = get_model(arch, p)
+                    m_ref = get_model(arch, p_ref)
+                    matrix[i, j, :] = get_scores(m, p_test)
+                    matrix_ref[i, j, :] = get_scores(m_ref, p_test)
+            matrices[i_arch, i_dim] = matrix
+            matrices_ref[i_arch, i_dim] = matrix_ref
+
+    for i_metric in range(6):
+        fig, axes = plt.subplots(3, 4)
+        vmin = np.percentile(np.stack([matrices[..., i_metric], matrices_ref[..., i_metric]]), 5)
+        vmax = np.percentile(np.stack([matrices[..., i_metric], matrices_ref[..., i_metric]]), 95)
+        for i_dim, (dim, vals) in enumerate(dict_.items()):
+            for i_arch in range(2):
+                for is_ref in [0, 1]:
+                    data = matrices_ref if is_ref else matrices
+                    data = data[i_arch, i_dim, :, :, i_metric]
+                    ax = axes[i_dim, 2*i_arch + is_ref]
+                    im = ax.imshow(data, vmin=vmin, vmax=vmax, cmap='OrRd')
+                    ax.set_xticks(np.arange(5), labels=vals)
+                    ax.set_yticks(np.arange(5), labels=vals)
+                    for i in range(5):
+                        for j in range(5):
+                            text = ax.text(j, i, f'{data[i, j]:.2f}',
+                                           ha="center", va="center", color="w")
+                    if i_dim == 0:
+                        ax.set_title([
+                            ['DNN', 'DNN-ref'],
+                            ['Conv-TasNet', 'Conv-TasNet-ref'],
+                        ][i_arch][is_ref])
+                    if i_arch == 0 and not is_ref:
+                        ax.set_ylabel(dim)
+        fig.suptitle(['pesq', 'stoi', 'snr', 'pesq_i', 'stoi_i', 'snr_i'][i_metric])
+
+    for i_metric in range(6):
+        fig, axes = plt.subplots(3, 2)
+        vmin = 0
+        vmax = max(matrices[..., i_metric].max(), matrices_ref[..., i_metric].max())
+        for i_dim, (dim, vals) in enumerate(dict_.items()):
+            for i_arch in range(2):
+                data = matrices[i_arch, i_dim, :, :, i_metric]
+                data_ref = matrices_ref[i_arch, i_dim, :, :, i_metric]
+                data = (data.sum(axis=0) - np.diag(data))/4
+                data_ref = (data_ref.sum(axis=0) - np.diag(data_ref))/4
+                ax = axes[i_dim, i_arch]
+                ax.bar(np.arange(5)*3, data, label='main')
+                ax.bar(np.arange(5)*3+1, data_ref, label='ref')
+                ax.set_xticks(np.arange(5)*3+0.5, labels=vals)
+                ax.set_ylim(vmin, vmax)
+                if i_dim == 0:
+                    ax.set_title(['DNN', 'Conv-TasNet'][i_arch])
+                if i_arch == 0:
+                    ax.set_ylabel(dim)
+                ax.legend()
+        fig.suptitle(['pesq', 'stoi', 'snr', 'pesq_i', 'stoi_i', 'snr_i'][i_metric])
+
+    scores = np.empty((2, 3, 2, 2, 6))  # archs, dims, lo/hi, main/ref, metrics
+    # ref score, lo div
+    tmp = []
+    for i in range(5):
+        for j in range(5):
+            if i != j:
+                tmp.append(matrices_ref[:, :, i, j, :])
+    scores[:, :, 0, 1, :] = np.mean(tmp, axis=0)
+    # main score, lo div
+    tmp = []
+    for i in range(5):
+        for j in range(5):
+            if i != j:
+                tmp.append(matrices[:, :, i, j, :])
+    scores[:, :, 0, 0, :] = np.mean(tmp, axis=0)
+    # ref score, hi div
+    tmp = []
+    for i in range(5):
+        tmp.append(matrices[:, :, i, i, :])
+    scores[:, :, 1, 1, :] = np.mean(tmp, axis=0)
+    # main score, hi div
+    tmp = []
+    for i in range(5):
+        tmp.append(matrices_ref[:, :, i, i, :])
+    scores[:, :, 1, 0, :] = np.mean(tmp, axis=0)
+
+    color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    hatch = ['', '////']
+    labels = [['DNN', 'DNN-ref'], ['Conv-TasNet', 'Conv-TasNet-ref']]
+
+    for i_dim, (dim, vals) in enumerate(dict_.items()):
+        fig, axes = plt.subplots(3, 2, sharey='row', figsize=(5.5, 6))
+        for i_metric in range(3):
+            for i_config in range(2):
+                ax = axes[i_metric, i_config]
+                sc = scores[:, i_dim, i_config, :, i_metric+3]
+                x = np.array([0, 1, 2.5, 3.5])
+                x = x - np.mean(x)
+                x = x.reshape(2, 2)
+                for arch in range(2):
+                    for j in range(2):
+                        ax.bar(x[arch, j], sc[arch, j], color=color_cycle[arch],
+                               hatch=hatch[j], width=1, label=labels[arch][j],
+                               edgecolor='black')
+                ax.set_xticks([])
+                ax.set_xlim([-4, 4])
+                if i_config == 0:
+                    ax.set_ylabel([r'$\Delta$PESQ', r'$\Delta$STOI', r'$\Delta$SNR'][i_metric])
+                if i_metric == 2:
+                    ax.set_xlabel(['Low diversity', 'High diversity'][i_config])
+                ax.set_axisbelow(True)
+                ax.grid(True, axis='y')
+                ax.set_yticks([
+                    np.linspace(0, 0.5, 6),
+                    np.linspace(0, 0.12, 7),
+                    np.linspace(0, 10, 6),
+                ][i_metric])
+                ax.set_ylim([
+                    (0, 0.5),
+                    (0, 0.12),
+                    (0, 10),
+                ][i_metric])
+        handles, labs = ax.get_legend_handles_labels()
+        fig.legend(handles, labs, loc='lower center', ncol=4)
+        fig.suptitle(['Speech', 'Noise', 'Room'][i_dim])
+        fig.tight_layout(rect=(0, 0.05, 1, 1), h_pad=0.3, w_pad=0.4)
+        fig.savefig([
+            'results_speech.svg',
+            'results_noise.svg',
+            'results_room.svg',
+        ][i_dim])
+    plt.show()
 
 
 if __name__ == '__main__':
