@@ -1,18 +1,20 @@
 import argparse
+import logging
 import os
-import pickle
+import json
 import random
 
-import h5py
-import matplotlib.pyplot as plt
 import numpy as np
+from pesq import pesq
+from pystoi import stoi
+import soundfile as sf
 import torch
+import matplotlib.pyplot as plt
 
-from brever.config import defaults
-import brever.data as bdata
-import brever.display as bplot
-import brever.management as bm
+from brever.config import get_config
+from brever.data import DNNDataset
 from brever.models import DNN
+import brever.display as bplot
 
 
 def main(args):
@@ -20,220 +22,105 @@ def main(args):
     if args.seed is not None:
         random.seed(args.seed)
 
-    # calculate subplot grid
-    n_rows = len(args.input)
-    n_cols = 2
-    n_models = len(args.input)
-    fig_run, axes_run = plt.subplots(n_rows, n_cols)
-    if axes_run.ndim == 1:
-        axes_run = axes_run.reshape(1, len(axes_run))
+    # load model config
+    config_path = os.path.join(args.input, 'config.yaml')
+    config = get_config(config_path)
 
-    for i_model, model_dir in enumerate(args.input):
-        # load model configuration
-        config = defaults()
-        config_file = os.path.join(model_dir, 'config.yaml')
-        config.update(bm.read_yaml(config_file))
-
-        # initialize and load model
-        model_args_path = os.path.join(model_dir, 'model_args.yaml')
-        model_args = bm.read_yaml(model_args_path)
-        model = DNN(**model_args)
-        state_file = os.path.join(model_dir, 'checkpoint.pt')
-        model.load_state_dict(torch.load(state_file, map_location='cpu'))
-
-        # get dataset path
-        if args.dataset is None:
-            # choose random data in the list of test paths
-            test_dir = random.choice(sorted(config.POST.PATH.TEST))
-        else:
-            test_dir = args.dataset
-
-        # load test dataset
-        test_dataset = bdata.H5Dataset(
-            dirpath=test_dir,
-            features=config.POST.FEATURES,
-            labels=config.POST.LABELS,
-            load=config.POST.LOAD,
-            stack=config.POST.STACK,
-            decimation=1,  # there must not be decimation during testing
-            dct_toggle=config.POST.DCT.ON,
-            n_dct=config.POST.DCT.NCOEFF,
-            prestack=config.POST.PRESTACK,
+    # initialize dataset
+    if config.ARCH == 'dnn':
+        dataset = DNNDataset(
+            path=args.test_path,
+            features=config.MODEL.FEATURES,
+            stacks=config.MODEL.STACKS,
+            decimation=1,
+            stft_frame_length=config.MODEL.STFT.FRAME_LENGTH,
+            stft_hop_length=config.MODEL.STFT.HOP_LENGTH,
+            stft_window=config.MODEL.STFT.WINDOW,
+            mel_filters=config.MODEL.MEL_FILTERS,
+            fs=config.FS,
         )
+    else:
+        raise ValueError(f'wrong model architecture, got {config.ARCH}')
 
-        # set normalization
-        if config.POST.NORMALIZATION.TYPE == 'global':
-            stat_path = os.path.join(model_dir, 'statistics.npy')
-            mean, std = np.load(stat_path)
-            test_dataset.transform = bdata.TensorStandardizer(mean, std)
-        elif config.POST.NORMALIZATION.TYPE == 'recursive':
-            stat_path = os.path.join(model_dir, 'statistics.npy')
-            mean, std = np.load(stat_path)
-            test_dataset.transform = bdata.ResursiveTensorStandardizer(
-                mean=mean,
-                std=std,
-                momentum=config.POST.NORMALIZATION.RECURSIVEMOMENTUM,
-            )
-        elif config.POST.NORMALIZATION.TYPE == 'filebased':
-            test_means, test_stds = bdata.get_files_mean_and_std(
-                test_dataset,
-                config.POST.NORMALIZATION.UNIFORMFEATURES,
-            )
-            test_dataset.transform = bdata.StateTensorStandardizer(
-                test_means,
-                test_stds,
-            )
-        else:
-            raise ValueError('Unrecognized normalization strategy: '
-                             f'{config.POST.NORMALIZATION.TYPE}')
-
-        # load pipes
-        pipes_file = os.path.join(test_dir, 'pipes.pkl')
-        with open(pipes_file, 'rb') as f:
-            pipes = pickle.load(f)
-        scaler = pipes['scaler']
-        filterbank = pipes['filterbank']
-        framer = pipes['framer']
-
-        # load scores
-        scores_file = os.path.join(model_dir, 'scores.json')
-        scores = bm.read_json(scores_file)
-
-        # open dataset
-        with h5py.File(test_dataset.filepath, 'r') as f:
-
-            # select mixture
-            if args.mix_index is None:
-                # select random mixture
-                n = len(f['mixture'])
-                k = random.randrange(n)
-            else:
-                k = args.mix_index
-            print(f'Predicting mixture number {k} in {test_dir}')
-
-            # grab pesq
-            pesq_in = scores[test_dir]['ref']['PESQ'][k]
-            pesq_out = scores[test_dir]['model']['PESQ'][k]
-            dpesq = pesq_out - pesq_in
-
-            # load mixture
-            mixture = f['mixture'][k].reshape(-1, 2)
-            foreground = f['foreground'][k].reshape(-1, 2)
-            # background = f['background'][k].reshape(-1, 2)
-            background = foreground
-
-        # scale signal
-        scaler.fit(mixture)
-        mixture = scaler.scale(mixture)
-        foreground = scaler.scale(foreground)
-        background = scaler.scale(background)
-
-        # apply filterbank
-        mixture = filterbank.filt(mixture)
-        foreground = filterbank.filt(foreground)
-        background = filterbank.filt(background)
-
-        # extract features and labels
-        i_start, i_end = test_dataset.file_indices[k]
-        features, labels = test_dataset[i_start:i_end]
-        features = torch.from_numpy(features).float()
-
-        # make RM prediction
-        model.eval()
-        with torch.no_grad():
-            PRM = model(features)
-            PRM = PRM.numpy()
-        mse = np.mean((PRM-labels)**2)
-
-        # grab un-normalized features
-        test_dataset.transform = None
-        features_raw, _ = test_dataset[i_start:i_end]
-
-        # convert features back to numpy array
-        if isinstance(features, torch.Tensor):
-            features = features.numpy()
-
-        # frame signal
-        mixture = framer.frame(mixture)
-        foreground = framer.frame(foreground)
-        background = framer.frame(background)
-
-        # average channels
-        mixture = mixture.mean(axis=-1)
-        foreground = foreground.mean(axis=-1)
-        background = background.mean(axis=-1)
-
-        # average energy over frame samples
-        mixture = (mixture**2).mean(axis=1)
-        foreground = (foreground**2).mean(axis=1)
-        background = (background**2).mean(axis=1)
-
-        # convert to dB
-        mixture = 10*np.log10(mixture + np.finfo(float).eps)
-        foreground = 10*np.log10(foreground + np.finfo(float).eps)
-        background = 10*np.log10(background + np.finfo(float).eps)
-
-        # plot
-        vars_ = [
-            'mixture',
-            'foreground',
-            'background',
-            'features',
-            'labels',
-            'PRM',
-        ]
-        fig, axes = plt.subplots(len(vars_)//2, 2)
-        axes = axes.T.flatten()
-        for i, var in enumerate(vars_):
-            if var == 'features':
-                f = None
-                set_kw = {'title': var, 'ylabel': ''}
-            elif var == 'PRM':
-                f = filterbank.fc
-                title = f'dPESQ: {dpesq:.2f}, MSE: {mse*1e3:.2f}e-3'
-                set_kw = {'title': title}
-            else:
-                f = filterbank.fc
-                set_kw = {'title': var}
-            bplot.plot_spectrogram(
-                locals()[var],
-                ax=axes[i],
-                fs=config.PRE.FS,
-                hop_length=framer.hop_length,
-                f=f,
-                set_kw=set_kw,
-            )
-
-        # plot on running fig
-        bplot.plot_spectrogram(
-            labels,
-            ax=axes_run[i_model, 0],
-            fs=config.PRE.FS,
-            hop_length=framer.hop_length,
-            f=filterbank.fc,
-            set_kw={'title': 'labels'},
+    # initialize model
+    logging.info('Initializing model')
+    if config.ARCH == 'dnn':
+        model = DNN(
+            input_size=dataset.n_features,
+            output_size=dataset.n_labels,
+            hidden_layers=config.MODEL.HIDDEN_LAYERS,
+            dropout=config.MODEL.DROPOUT,
+            batchnorm=config.MODEL.BATCH_NORM.TOGGLE,
+            batchnorm_momentum=config.MODEL.BATCH_NORM.MOMENTUM,
+            normalization=config.MODEL.NORMALIZATION.TYPE,
         )
-        title = f'{model_dir}, dPESQ: {dpesq:.2f}, MSE: {mse*1e3:.2f}e-3'
-        set_kw = {'title': title}
+    else:
+        raise ValueError(f'wrong model architecture, got {config.ARCH}')
+
+    # load checkpoint
+    checkpoint = os.path.join(args.input, 'checkpoint.pt')
+    state = torch.load(checkpoint, map_location='cpu')
+    model.load_state_dict(state['model'])
+
+    # disable gradients and set model to eval
+    torch.set_grad_enabled(False)
+    model.eval()
+
+    j = args.mix_index if args.mix_index is not None else 0
+    if config.ARCH == 'dnn':
+        mixture, target = dataset.load_segment(j)
+        features, labels = dataset[j]
+        output, prediction = model.enhance(mixture, dataset, True)
+        foreground, background = target
+        mixture, _ = dataset.stft.analyze(mixture.unsqueeze(0))
+        foreground, _ = dataset.stft.analyze(foreground.unsqueeze(0))
+        background, _ = dataset.stft.analyze(background.unsqueeze(0))
+    else:
+        raise ValueError(f'wrong model architecture, got {config.ARCH}')
+    mixture = mixture[0, 0].log10()
+    foreground = foreground[0, 0].log10()
+    background = background[0, 0].log10()
+    features = features[:64, :]
+
+    # plot
+    vars_ = [
+        'mixture',
+        'foreground',
+        'background',
+        'features',
+        'labels',
+        'prediction',
+    ]
+    fig, axes = plt.subplots(len(vars_)//2, 2)
+    axes = axes.T.flatten()
+    for i, var in enumerate(vars_):
+        if var == 'prediction' or var == 'labels' or var == 'features':
+            f = dataset.mel_fb.fc.numpy()
+            print(f)
+            set_kw = {'title': var}
+        elif var:
+            n_fft = dataset.stft.frame_length
+            f = np.linspace(0, config.FS/2, n_fft//2+1)
+            set_kw = {'title': var}
         bplot.plot_spectrogram(
-            PRM,
-            ax=axes_run[i_model, 1],
-            fs=config.PRE.FS,
-            hop_length=framer.hop_length,
-            f=filterbank.fc,
+            locals()[var].T,
+            ax=axes[i],
+            fs=config.FS,
+            hop_length=dataset.stft.hop_length,
+            f=f,
             set_kw=set_kw,
         )
 
-        # match signal spectrograms clims
-        vars__ = ['mixture', 'foreground', 'background']
-        axes_ = [axes[vars_.index(var)] for var in vars__]
-        bplot.share_clim(axes_)
+    # match signal spectrograms clims
+    vars__ = ['mixture', 'foreground', 'background']
+    axes_ = [axes[vars_.index(var)] for var in vars__]
+    bplot.share_clim(axes_)
 
-        # set IRM and PRM clims to 0 and 1
-        vars__ = ['labels', 'PRM']
-        axes_ = [axes[vars_.index(var)] for var in vars__]
-        for ax in axes_:
-            ax.images[0].set_clim(0, 1)
+    # set IRM and PRM clims to 0 and 1
+    vars__ = ['labels', 'prediction']
+    axes_ = [axes[vars_.index(var)] for var in vars__]
+    for ax in axes_:
+        ax.images[0].set_clim(0, 1)
 
     # show
     plt.show()
@@ -241,9 +128,9 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='make random mask prediction')
-    parser.add_argument('input', nargs='+', help='input model directories')
+    parser.add_argument('input', help='model directory')
+    parser.add_argument('test_path', help='dataset directory')
     parser.add_argument('--seed', type=int, help='seed', default=0)
-    parser.add_argument('--dataset', help='dataset directory path')
     parser.add_argument('--mix-index', type=int, help='mixture index')
     args = parser.parse_args()
     main(args)
