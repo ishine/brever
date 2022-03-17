@@ -144,7 +144,6 @@ def main():
 
         if config.ARCH == 'dnn':
             data, target = dataset.load_segment(i)
-            features, irm = dataset[i]
             output, mask = model.enhance(data, dataset, True)
             target = target[0]
         elif config.ARCH == 'convtasnet':
