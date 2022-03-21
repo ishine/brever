@@ -3,9 +3,27 @@ import json
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 from brever.args import arg_type_path
 from brever.config import DatasetInitializer, ModelInitializer
+
+plt.rcParams['svg.fonttype'] = 'none'
+plt.rcParams['font.size'] = 6
+plt.rcParams['patch.linewidth'] = .5
+plt.rcParams['hatch.linewidth'] = .5
+plt.rcParams['hatch.linewidth'] = .5
+plt.rcParams['axes.linewidth'] = .4
+plt.rcParams['grid.linewidth'] = .4
+plt.rcParams['xtick.major.size'] = 1
+plt.rcParams['xtick.major.width'] = .5
+plt.rcParams['ytick.major.size'] = 1
+plt.rcParams['ytick.major.width'] = .5
+RAW_MATH = True
+
+
+def _m(s):
+    return s.replace("$", r"\$") if RAW_MATH else s
 
 
 def main():
@@ -141,6 +159,12 @@ def main():
         dim = dict_[dim]
         out = f'\\hline\\multirow{{2}}{{*}}{{{dim}}}'
         print(out)
+
+    def add_title(fig, i_dim):
+        x = [0.20, 0.512, 0.819][i_dim]
+        y = 1
+        text = ['Speech', 'Noise', 'Room'][i_dim]
+        fig.text(x, y, text)
 
     print('\\begin{table*}')
     print('\\centering')
@@ -287,26 +311,54 @@ def main():
     hatch = ['', '////']
     labels = [['DNN', 'DNN-ref'], ['Conv-TasNet', 'Conv-TasNet-ref']]
 
+    fig = plt.figure(figsize=(6, 3.5))
+    outer_gs = gridspec.GridSpec(1, 3, figure=fig)
     for i_dim, (dim, vals) in enumerate(dict_.items()):
-        fig, axes = plt.subplots(3, 2, sharey='row', figsize=(5.5, 6))
+        inner_gs = gridspec.GridSpecFromSubplotSpec(
+            3, 2, subplot_spec=outer_gs[i_dim], hspace=0.05, wspace=0.05
+        )
         for i_metric in range(3):
             for i_config in range(2):
-                ax = axes[i_metric, i_config]
+                ax = fig.add_subplot(inner_gs[i_metric, i_config])
                 sc = scores[:, i_dim, i_config, :, i_metric+3]
                 x = np.array([0, 1, 2.5, 3.5])
                 x = x - np.mean(x)
                 x = x.reshape(2, 2)
+                ymin, ymax = [
+                    (0, 0.55),
+                    (0, 0.14),
+                    (0, 11),
+                ][i_metric]
+                yrange = ymax - ymin
                 for arch in range(2):
                     for j in range(2):
                         ax.bar(x[arch, j], sc[arch, j], color=color_cycle[arch],
                                hatch=hatch[j], width=1, label=labels[arch][j],
                                edgecolor='black')
+                    hl = yrange*0.027
+                    hw = 0.22
+                    x_ = x[arch, j]-1
+                    y_ = sc[arch, 1]
+                    dx = 0
+                    dy = sc[arch, 0] - sc[arch, 1] + hl*0.5
+                    ax.arrow(x_, y_, dx, dy, head_length=hl, head_width=hw,
+                             fc='k', length_includes_head=True, linewidth=.5)
+                    G_e = (sc[arch, 0] - sc[arch, 1])/sc[arch, 1]
+                    G_e = rf'{round(100*G_e)}%'
+                    ax.annotate(G_e, (x_+0.3, y_+hl), ha='center')
                 ax.set_xticks([])
-                ax.set_xlim([-4, 4])
-                if i_config == 0:
-                    ax.set_ylabel([r'$\Delta$PESQ', r'$\Delta$STOI', r'$\Delta$SNR'][i_metric])
+                ax.set_xlim([-3.5, 3.5])
+                if i_dim == 0 and i_config == 0:
+                    ax.set_ylabel([
+                        _m(r'$\Delta$PESQ'),
+                        _m(r'$\Delta$STOI'),
+                        _m(r'$\Delta$SNR'),
+                    ][i_metric])
                 if i_metric == 2:
-                    ax.set_xlabel(['Low diversity', 'High diversity'][i_config])
+                    ax.set_xlabel([
+                        _m(r'$N=1$'),
+                        _m(r'$N=4$'),
+                    ][i_config])
                 ax.set_axisbelow(True)
                 ax.grid(True, axis='y')
                 ax.set_yticks([
@@ -314,20 +366,15 @@ def main():
                     np.linspace(0, 0.12, 7),
                     np.linspace(0, 10, 6),
                 ][i_metric])
-                ax.set_ylim([
-                    (0, 0.5),
-                    (0, 0.12),
-                    (0, 10),
-                ][i_metric])
+                ax.set_ylim(ymin, ymax)
+                if i_dim != 0 or i_config != 0:
+                    ax.set_yticklabels([])
+        add_title(fig, i_dim)
         handles, labs = ax.get_legend_handles_labels()
-        fig.legend(handles, labs, loc='lower center', ncol=4)
-        fig.suptitle(['Speech', 'Noise', 'Room'][i_dim])
-        fig.tight_layout(rect=(0, 0.05, 1, 1), h_pad=0.3, w_pad=0.4)
-        fig.savefig([
-            'results_speech.svg',
-            'results_noise.svg',
-            'results_room.svg',
-        ][i_dim])
+    fig.legend(handles, labs, loc='lower center', ncol=4)
+    fig.tight_layout(rect=(0, 0.05, 1, 1), w_pad=1.6)
+    fig.patch.set_visible(False)
+    fig.savefig('results_all.svg', bbox_inches=0)
     plt.show()
 
 
