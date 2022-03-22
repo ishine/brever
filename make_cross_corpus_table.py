@@ -140,7 +140,7 @@ def main():
 
     def print_last_row(arch):
         dict_ = {
-            'dnn': 'DNN',
+            'dnn': 'FFNN',
             'convtasnet': 'Conv-TasNet',
         }
         arch = dict_[arch]
@@ -210,7 +210,7 @@ def main():
             print_row(4, scores, gaps)
         print_last_row(arch)
 
-    print('\\caption{Average scores and generalization gaps obtained by DNN '
+    print('\\caption{Average scores and generalization gaps obtained by FFNN '
           'and Conv-TasNet across all folds. Delta scores indicate the '
           'difference with the unprocessed input mixture.}')
     print('\\end{table*}')
@@ -254,7 +254,7 @@ def main():
                                            ha="center", va="center", color="w")
                     if i_dim == 0:
                         ax.set_title([
-                            ['DNN', 'DNN-ref'],
+                            ['FFNN', 'FFNN-ref'],
                             ['Conv-TasNet', 'Conv-TasNet-ref'],
                         ][i_arch][is_ref])
                     if i_arch == 0 and not is_ref:
@@ -278,7 +278,7 @@ def main():
                 ax.set_xticklabels(vals)
                 ax.set_ylim(vmin, vmax)
                 if i_dim == 0:
-                    ax.set_title(['DNN', 'Conv-TasNet'][i_arch])
+                    ax.set_title(['FFNN', 'Conv-TasNet'][i_arch])
                 if i_arch == 0:
                     ax.set_ylabel(dim)
                 ax.legend()
@@ -312,7 +312,7 @@ def main():
 
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
     hatch = ['', '////']
-    labels = [['DNN', 'DNN-ref'], ['Conv-TasNet', 'Conv-TasNet-ref']]
+    labels = [['FFNN', 'FFNN-ref'], ['Conv-TasNet', 'Conv-TasNet-ref']]
 
     fig = plt.figure(figsize=(6, 3.5))
     outer_gs = gridspec.GridSpec(1, 3, figure=fig)
