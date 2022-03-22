@@ -244,8 +244,10 @@ def main():
                     data = data[i_arch, i_dim, :, :, i_metric]
                     ax = axes[i_dim, 2*i_arch + is_ref]
                     im = ax.imshow(data, vmin=vmin, vmax=vmax, cmap='OrRd')
-                    ax.set_xticks(np.arange(5), labels=vals)
-                    ax.set_yticks(np.arange(5), labels=vals)
+                    ax.set_xticks(np.arange(5))
+                    ax.set_xticklabels(vals)
+                    ax.set_yticks(np.arange(5))
+                    ax.set_yticklabels(vals)
                     for i in range(5):
                         for j in range(5):
                             text = ax.text(j, i, f'{data[i, j]:.2f}',
@@ -272,7 +274,8 @@ def main():
                 ax = axes[i_dim, i_arch]
                 ax.bar(np.arange(5)*3, data, label='main')
                 ax.bar(np.arange(5)*3+1, data_ref, label='ref')
-                ax.set_xticks(np.arange(5)*3+0.5, labels=vals)
+                ax.set_xticks(np.arange(5)*3+0.5)
+                ax.set_xticklabels(vals)
                 ax.set_ylim(vmin, vmax)
                 if i_dim == 0:
                     ax.set_title(['DNN', 'Conv-TasNet'][i_arch])
