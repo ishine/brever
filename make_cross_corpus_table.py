@@ -12,7 +12,7 @@ plt.rcParams['svg.fonttype'] = 'none'
 plt.rcParams['font.size'] = 6
 plt.rcParams['patch.linewidth'] = .5
 plt.rcParams['hatch.linewidth'] = .5
-plt.rcParams['hatch.linewidth'] = .5
+plt.rcParams['lines.linewidth'] = .5
 plt.rcParams['axes.linewidth'] = .4
 plt.rcParams['grid.linewidth'] = .4
 plt.rcParams['xtick.major.size'] = 1
@@ -261,54 +261,54 @@ def main():
                         ax.set_ylabel(dim)
         fig.suptitle(['pesq', 'stoi', 'snr', 'pesq_i', 'stoi_i', 'snr_i'][i_metric])
 
-    for i_metric in range(6):
-        fig, axes = plt.subplots(3, 2)
-        vmin = 0
-        vmax = max(matrices[..., i_metric].max(), matrices_ref[..., i_metric].max())
-        for i_dim, (dim, vals) in enumerate(dict_.items()):
-            for i_arch in range(2):
-                data = matrices[i_arch, i_dim, :, :, i_metric]
-                data_ref = matrices_ref[i_arch, i_dim, :, :, i_metric]
-                data = (data.sum(axis=0) - np.diag(data))/4
-                data_ref = (data_ref.sum(axis=0) - np.diag(data_ref))/4
-                ax = axes[i_dim, i_arch]
-                ax.bar(np.arange(5)*3, data, label='main')
-                ax.bar(np.arange(5)*3+1, data_ref, label='ref')
-                ax.set_xticks(np.arange(5)*3+0.5)
-                ax.set_xticklabels(vals)
-                ax.set_ylim(vmin, vmax)
-                if i_dim == 0:
-                    ax.set_title(['FFNN', 'Conv-TasNet'][i_arch])
-                if i_arch == 0:
-                    ax.set_ylabel(dim)
-                ax.legend()
-        fig.suptitle(['pesq', 'stoi', 'snr', 'pesq_i', 'stoi_i', 'snr_i'][i_metric])
+    # for i_metric in range(6):
+    #     fig, axes = plt.subplots(3, 2)
+    #     vmin = 0
+    #     vmax = max(matrices[..., i_metric].max(), matrices_ref[..., i_metric].max())
+    #     for i_dim, (dim, vals) in enumerate(dict_.items()):
+    #         for i_arch in range(2):
+    #             data = matrices[i_arch, i_dim, :, :, i_metric]
+    #             data_ref = matrices_ref[i_arch, i_dim, :, :, i_metric]
+    #             data = (data.sum(axis=0) - np.diag(data))/4
+    #             data_ref = (data_ref.sum(axis=0) - np.diag(data_ref))/4
+    #             ax = axes[i_dim, i_arch]
+    #             ax.bar(np.arange(5)*3, data, label='main')
+    #             ax.bar(np.arange(5)*3+1, data_ref, label='ref')
+    #             ax.set_xticks(np.arange(5)*3+0.5)
+    #             ax.set_xticklabels(vals)
+    #             ax.set_ylim(vmin, vmax)
+    #             if i_dim == 0:
+    #                 ax.set_title(['FFNN', 'Conv-TasNet'][i_arch])
+    #             if i_arch == 0:
+    #                 ax.set_ylabel(dim)
+    #             ax.legend()
+    #     fig.suptitle(['pesq', 'stoi', 'snr', 'pesq_i', 'stoi_i', 'snr_i'][i_metric])
 
-    scores = np.empty((2, 3, 2, 2, 6))  # archs, dims, lo/hi, main/ref, metrics
-    # ref score, lo div
-    tmp = []
-    for i in range(5):
-        for j in range(5):
-            if i != j:
-                tmp.append(matrices_ref[:, :, i, j, :])
-    scores[:, :, 0, 1, :] = np.mean(tmp, axis=0)
-    # main score, lo div
-    tmp = []
-    for i in range(5):
-        for j in range(5):
-            if i != j:
-                tmp.append(matrices[:, :, i, j, :])
-    scores[:, :, 0, 0, :] = np.mean(tmp, axis=0)
-    # ref score, hi div
-    tmp = []
-    for i in range(5):
-        tmp.append(matrices[:, :, i, i, :])
-    scores[:, :, 1, 1, :] = np.mean(tmp, axis=0)
-    # main score, hi div
-    tmp = []
-    for i in range(5):
-        tmp.append(matrices_ref[:, :, i, i, :])
-    scores[:, :, 1, 0, :] = np.mean(tmp, axis=0)
+    # scores = np.empty((2, 3, 2, 2, 6))  # archs, dims, lo/hi, main/ref, metrics
+    # # ref score, lo div
+    # tmp = []
+    # for i in range(5):
+    #     for j in range(5):
+    #         if i != j:
+    #             tmp.append(matrices_ref[:, :, i, j, :])
+    # scores[:, :, 0, 1, :] = np.mean(tmp, axis=0)
+    # # main score, lo div
+    # tmp = []
+    # for i in range(5):
+    #     for j in range(5):
+    #         if i != j:
+    #             tmp.append(matrices[:, :, i, j, :])
+    # scores[:, :, 0, 0, :] = np.mean(tmp, axis=0)
+    # # ref score, hi div
+    # tmp = []
+    # for i in range(5):
+    #     tmp.append(matrices[:, :, i, i, :])
+    # scores[:, :, 1, 1, :] = np.mean(tmp, axis=0)
+    # # main score, hi div
+    # tmp = []
+    # for i in range(5):
+    #     tmp.append(matrices_ref[:, :, i, i, :])
+    # scores[:, :, 1, 0, :] = np.mean(tmp, axis=0)
 
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
     hatch = ['', '////']
@@ -323,32 +323,48 @@ def main():
         for i_metric in range(3):
             for i_config in range(2):
                 ax = fig.add_subplot(inner_gs[i_metric, i_config])
-                sc = scores[:, i_dim, i_config, :, i_metric+3]
-                x = np.array([0, 1, 2.5, 3.5])
+
+                # sc = scores[:, i_dim, i_config, :, i_metric+3]
+
+                x = np.array([0, 1, 2.8, 3.8])
                 x = x - np.mean(x)
                 x = x.reshape(2, 2)
                 ymin, ymax = [
-                    (0, 0.55),
+                    (0, 0.59),
                     (0, 0.14),
                     (0, 11),
                 ][i_metric]
                 yrange = ymax - ymin
                 for arch in range(2):
-                    for j in range(2):
-                        ax.bar(x[arch, j], sc[arch, j], color=color_cycle[arch],
-                               hatch=hatch[j], width=1, label=labels[arch][j],
-                               edgecolor='black')
+
+                    if i_config == 0:
+                        data = matrices[arch, i_dim, :, :, i_metric+3]
+                        data = (data.sum(axis=0) - np.diag(data))/4
+                        data_ref = matrices_ref[arch, i_dim, :, :, i_metric+3]
+                        data_ref = (data_ref.sum(axis=0) - np.diag(data_ref))/4
+                    else:
+                        data = np.diag(matrices_ref[arch, i_dim, :, :, i_metric+3])
+                        data_ref = np.diag(matrices[arch, i_dim, :, :, i_metric+3])
+
+                    ax.bar(x[arch, 0], data.mean(), color=color_cycle[arch],
+                           hatch=hatch[0], width=1, label=labels[arch][0],
+                           edgecolor='black', yerr=data.std())
+                    ax.bar(x[arch, 1], data_ref.mean(), color=color_cycle[arch],
+                           hatch=hatch[1], width=1, label=labels[arch][1],
+                           edgecolor='black', yerr=data_ref.std())
+
                     hl = yrange*0.027
                     hw = 0.22
-                    x_ = x[arch, j]-1
-                    y_ = sc[arch, 1]
+                    x_ = x[arch, 1] - 1.5
+                    y_ = data_ref.mean()
                     dx = 0
-                    dy = sc[arch, 0] - sc[arch, 1] + hl*0.5
+                    dy = data.mean() - data_ref.mean() + hl
                     ax.arrow(x_, y_, dx, dy, head_length=hl, head_width=hw,
                              fc='k', length_includes_head=True, linewidth=.5)
-                    G_e = (sc[arch, 0] - sc[arch, 1])/sc[arch, 1]
+
+                    G_e = ((data-data_ref)/data_ref).mean()
                     G_e = rf'{round(100*G_e)}%'
-                    ax.annotate(G_e, (x_+0.3, y_+hl), ha='center')
+                    ax.annotate(G_e, (x_+0.3, y_+hl*1.5), ha='center')
                 ax.set_xticks([])
                 ax.set_xlim([-3.5, 3.5])
                 if i_dim == 0 and i_config == 0:
@@ -377,7 +393,7 @@ def main():
     fig.legend(handles, labs, loc='lower center', ncol=4)
     fig.tight_layout(rect=(0, 0.05, 1, 1), w_pad=1.6)
     fig.patch.set_visible(False)
-    fig.savefig('results_all.svg', bbox_inches=0)
+    fig.savefig('../interspeech-2022-submission/results_all.svg', bbox_inches=0)
     plt.show()
 
 
