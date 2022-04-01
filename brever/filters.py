@@ -364,28 +364,29 @@ class STFT(nn.Module):
 
 
 class MelFB:
-    def __init__(self, n_filters=64, n_fft=512, fs=16e3):
+    def __init__(self, n_filters=64, n_fft=512, fs=16e3, fmin=50, fmax=8000):
         self.n_filters = n_filters
         self.n_fft = n_fft
         self.fs = fs
+        self.fmin = fmin
+        self.fmax = fmax
         self.filters, self.fc = self.calc_filterbank()
 
     def calc_filterbank(self):
-        mel_min, mel_max = freq_to_mel([0, self.fs/2])
-        mel = np.linspace(mel_min, mel_max, self.n_filters)
+        mel_min, mel_max = freq_to_mel([self.fmin, self.fmax])
+        mel = np.linspace(mel_min, mel_max, self.n_filters+2)
         fc = mel_to_freq(mel)
         f = fft_freqs(self.fs, self.n_fft)
         filters = np.zeros((self.n_filters, len(f)))
-        for i in range(self.n_filters):
-            if i != 0:
-                mask = (fc[i-1] <= f) & (f <= fc[i])
-                filters[i, mask] = (f[mask]-fc[i-1])/(fc[i]-fc[i-1])
-            if i != self.n_filters - 1:
-                mask = (fc[i] <= f) & (f <= fc[i+1])
-                filters[i, mask] = (fc[i+1]-f[mask])/(fc[i+1]-fc[i])
-        filters /= filters.sum(axis=1, keepdims=True)
+        for i_filt, i in enumerate(range(1, self.n_filters+1)):
+            mask = (fc[i-1] <= f) & (f <= fc[i])
+            filters[i_filt, mask] = (f[mask]-fc[i-1])/(fc[i]-fc[i-1])
+            mask = (fc[i] <= f) & (f <= fc[i+1])
+            filters[i_filt, mask] = (fc[i+1]-f[mask])/(fc[i+1]-fc[i])
         filters = torch.from_numpy(filters).float()
         fc = torch.from_numpy(fc).float()
+        self._gain = filters.sum(axis=1, keepdims=True)
+        filters /= self._gain
         return filters, fc
 
     def __call__(self, x):
@@ -393,9 +394,9 @@ class MelFB:
 
     @property
     def inverse_filters(self):
-        filters = self.filters.T.clone()
-        filters /= filters.sum(axis=1, keepdims=True)
-        return filters
+        filters = self.filters.clone()
+        filters *= self._gain
+        return filters.T
 
     def extrapolate(self, x):
         return torch.matmul(self.inverse_filters, x)
