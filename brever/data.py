@@ -36,8 +36,8 @@ class BreverDataset(torch.utils.data.Dataset):
         mix_dir = os.path.join(self.path, 'audio')
         mix_path = os.path.join(mix_dir, f'{mix_idx:05d}_mixture.flac')
         comp_paths = []
-        for component in self.components:
-            comp_path = os.path.join(mix_dir, f'{mix_idx:05d}_{component}.flac')
+        for comp in self.components:
+            comp_path = os.path.join(mix_dir, f'{mix_idx:05d}_{comp}.flac')
             comp_paths.append(comp_path)
         return mix_path, comp_paths
 
