@@ -57,8 +57,8 @@ RMS_JITTER:
   DIST_NAME: uniform
   DIST_ARGS: [0.0, 0.0]
 FILES:
-  NOISE: [0.0, 0.1]
-  SPEECH: [0.0, 0.1]
+  NOISE: [0.0, 1.0]
+  SPEECH: [0.0, 1.0]
   ROOM: all
   # ROOM: even
   # ROOM: odd
