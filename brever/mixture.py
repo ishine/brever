@@ -727,6 +727,9 @@ class RandomMixtureMaker:
         self.fs = fs
         self.padding = padding
         self.reflection_boundary = reflection_boundary
+        self.speech_files = speech_files
+        self.noise_files = noise_files
+        self.room_files = 'all'
 
         # speakers
         """
@@ -1005,10 +1008,11 @@ class RandomMixtureMaker:
                 idx = None
             else:
                 file = self.noise_file_randomizer.get(noise, i)
+                lims = self.noise_files if is_long_recording(noise) else None
                 x, idx = self.loader.load_noise(
                     file=file,
                     n_samples=len(self.mix),
-                    use_lims=is_long_recording(noise),
+                    lims=lims,
                 )
             to_zip.append((x, file, idx))
         xs, files, idxs = zip(*to_zip)

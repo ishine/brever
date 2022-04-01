@@ -41,13 +41,10 @@ def resample(x, old_fs, new_fs, axis=0):
 
 
 class AudioFileLoader:
-    def __init__(self, fs=16e3, resample=True, lims_speech=[0.0, 1.0],
-                 lims_noise=[0.0, 1.0]):
+    def __init__(self, fs=16e3, resample=True):
         self.load_cfg()
         self.fs = fs
         self.resample = resample
-        self.lims_speech = lims_speech
-        self.lims_noise = lims_noise
         self._speech_files = {}
         self._noise_files = {}
         self._room_angles = {}
@@ -80,11 +77,10 @@ class AudioFileLoader:
                 x = resample(x, fs, self.fs, axis=0)
         return x
 
-    def load_noise(self, file, n_samples, use_lims=False):
+    def load_noise(self, file, n_samples, lims=None):
         x = self.load_file(file)
 
-        if use_lims:
-            lims = self.lims_noise
+        if lims is not None:
             i_start = round(lims[0]*len(x))
             i_end = round(lims[1]*len(x))
             x = x[i_start:i_end]
