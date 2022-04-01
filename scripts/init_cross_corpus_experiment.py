@@ -64,29 +64,39 @@ def main():
             speech_files=[0.8, 1.0],
             noise_files=[0.8, 1.0],
             room_files='odd',
-            duration=1800,
+            duration=3600,
             seed=42,
             force=args.force,
         )
 
     def init_model(arch, train_path):
+        kwargs = {}
+        if arch == 'convtasnet-2':
+            arch = 'convtasnet'
+            kwargs['sources'] = ['foreground', 'background']
         return model_init.init_from_kwargs(
             arch=arch,
             train_path=arg_type_path(train_path),
             force=args.force,
+            **kwargs,
         )
 
-    archs = ['convtasnet', 'dnn']
+    archs = ['dnn', 'convtasnet', 'convtasnet-2']
     dsets = []
     models = []
     evaluations = []
+
+    def add_evals(model, paths):
+        for p in paths:
+            evaluations.append(f'bash jobs/test_model.sh {model} {p}\n')
+
     for dim, vals in dict_.items():
         # test paths
-        p0s = []
+        test_paths = []
         for val in vals:
-            p0 = init_test_dset(**{dim: {val}})
-            dsets.append(p0)
-            p0s.append(p0)
+            p = init_test_dset(**{dim: {val}})
+            dsets.append(p)
+            test_paths.append(p)
         # train paths
         for val in vals:
             p1 = init_train_dset(**{dim: {val}})
@@ -100,9 +110,15 @@ def main():
                 models.append(m1)
                 models.append(m2)
                 # evaluations
-                for p0 in p0s:
-                    evaluations.append(f'bash jobs/test_model.sh {m1} {p0}\n')
-                    evaluations.append(f'bash jobs/test_model.sh {m2} {p0}\n')
+                add_evals(m1, test_paths)
+                add_evals(m2, test_paths)
+        # models for alternative definition of generalization gap
+        p3 = init_train_dset(**{dim: set(vals)})
+        dsets.append(p3)
+        for arch in archs:
+            m3 = init_model(arch, p3)
+            models.append(m3)
+            add_evals(m3, test_paths)
 
     eval_script = 'cross_corpus_eval.sh'
     with open(eval_script, 'w') as f:
