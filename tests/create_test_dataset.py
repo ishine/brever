@@ -62,7 +62,7 @@ def main():
         # make mixture and save
         mixObject, metadata = randomMixtureMaker.make()
         for name in components:
-            filename = f'{i:05d}_{name}.wav'
+            filename = f'{i:05d}_{name}.flac'
             filepath = os.path.join(mixtures_dir, filename)
             sf.write(filepath, getattr(mixObject, name), fs)
         metadatas.append(metadata)

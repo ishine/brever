@@ -205,7 +205,7 @@ def main():
         logging.info(f'SNRi: {significant_figures(snr_model - snr_ref)}')
 
         if args.output_dir is not None:
-            output_path = os.path.join(args.output_dir, f'{i:05d}_output.wav')
+            output_path = os.path.join(args.output_dir, f'{i:05d}_output.flac')
             sf.write(output_path, output.T, config.FS)
 
     # update scores file
