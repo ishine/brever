@@ -66,5 +66,3 @@ COMPONENTS: !!set
   mixture: null
   foreground: null
   background: null
-  # noise: null
-  # late_target: null

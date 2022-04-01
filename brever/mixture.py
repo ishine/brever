@@ -268,19 +268,19 @@ class Mixture:
     the sum of the late speech, the diretional noise and the diffuse noise.
     """
     def __init__(self):
-        self.early_target = None
-        self.late_target = None
+        self.early_speech = None
+        self.late_speech = None
         self.dir_noise = None
         self.diffuse = None
-        self.target_idx = None
+        self.speech_idx = None
 
     @property
     def mixture(self):
-        return self.target + self.noise
+        return self.speech + self.noise
 
     @property
-    def target(self):
-        return self.early_target + self.late_target
+    def speech(self):
+        return self.early_speech + self.late_speech
 
     @property
     def noise(self):
@@ -293,28 +293,28 @@ class Mixture:
 
     @property
     def foreground(self):
-        return self.early_target
+        return self.early_speech
 
     @property
     def background(self):
-        return self.late_target + self.noise
+        return self.late_speech + self.noise
 
     @property
     def shape(self):
-        return self.early_target.shape
+        return self.early_speech.shape
 
     def __len__(self):
-        return len(self.early_target)
+        return len(self.early_speech)
 
-    def add_target(self, x, brir, reflection_boundary, padding, fs):
+    def add_speech(self, x, brir, reflection_boundary, padding, fs):
         brir_early, brir_late = split_brir(brir, reflection_boundary, fs)
         n_pad = round(padding*fs)
-        self.target_idx = (n_pad, n_pad+len(x))
+        self.speech_idx = (n_pad, n_pad+len(x))
         x = pad(x, n_pad, where='both')
-        self.early_target = spatialize(x, brir_early)
-        self.late_target = spatialize(x, brir_late)
-        self.early_target = pad(self.early_target, n_pad, where='both')
-        self.late_target = pad(self.late_target, n_pad, where='both')
+        self.early_speech = spatialize(x, brir_early)
+        self.late_speech = spatialize(x, brir_late)
+        self.early_speech = pad(self.early_speech, n_pad, where='both')
+        self.late_speech = pad(self.late_speech, n_pad, where='both')
 
     def add_noises(self, xs, brirs):
         if len(xs) != len(brirs):
@@ -344,10 +344,10 @@ class Mixture:
 
     def set_snr(self, snr):
         _, gain = adjust_snr(
-            self.target,
-            self.noise,
+            self.foreground,
+            self.background,
             snr,
-            slice(*self.target_idx)
+            slice(*self.speech_idx)
         )
         if self.dir_noise is not None:
             self.dir_noise *= gain
@@ -356,8 +356,8 @@ class Mixture:
 
     def set_rms(self, rms_dB):
         _, gain = adjust_rms(self.mixture, rms_dB)
-        self.early_target *= gain
-        self.late_target *= gain
+        self.early_speech *= gain
+        self.late_speech *= gain
         if self.dir_noise is not None:
             self.dir_noise *= gain
         if self.diffuse is not None:
@@ -369,8 +369,8 @@ class Mixture:
 
     def transform(self, func):
         for attr_name in [
-                    'early_target',
-                    'late_target',
+                    'early_speech',
+                    'late_speech',
                     'noise',
                     'diffuse',
                 ]:
@@ -379,23 +379,23 @@ class Mixture:
                 setattr(self, attr_name, func(attr_val))
 
     def get_long_term_label(self, label='tmr'):
-        target = self.early_target
+        target = self.early_speech
         if label == 'tmr':
-            masker = self.late_target + self.noise
+            masker = self.late_speech + self.noise
         elif label == 'tnr':
             masker = self.noise
         elif label == 'trr':
-            masker = self.late_target
+            masker = self.late_speech
         else:
             raise ValueError(f'label must be tmr, tnr or trr, got {label}')
-        slice_ = slice(*self.target_idx)
+        slice_ = slice(*self.speech_idx)
         energy_target = np.sum(target[slice_].mean(axis=-1)**2)
         energy_masker = np.sum(masker[slice_].mean(axis=-1)**2)
         label = energy_target / (energy_target + energy_masker)
         return label
 
     def scale_background(self, gain):
-        self.late_target = gain*self.late_target
+        self.late_speech = gain*self.late_speech
         if self.dir_noise is not None:
             self.dir_noise = gain*self.dir_noise
         if self.diffuse is not None:
@@ -917,7 +917,7 @@ class RandomMixtureMaker:
         x = self.loader.load_file(file)
         brir, _ = self.loader.load_brirs(self.room, angle)
         brir = self.decayer.run(brir)
-        self.mix.add_target(
+        self.mix.add_speech(
             x=x,
             brir=brir,
             reflection_boundary=self.reflection_boundary,
