@@ -311,8 +311,8 @@ def main():
     # scores[:, :, 1, 0, :] = np.mean(tmp, axis=0)
 
     color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    hatch = ['', '////']
-    labels = [['FFNN', 'FFNN-ref'], ['Conv-TasNet', 'Conv-TasNet-ref']]
+    hatch = ['', '////', r'\\\\']
+    labels = [['FFNN', 'FFNN-ref', 'FFNN-naive'], ['Conv-TasNet', 'Conv-TasNet-ref', 'Conv-TasNet-naive']]
 
     fig = plt.figure(figsize=(6, 3.5))
     outer_gs = gridspec.GridSpec(1, 3, figure=fig)
@@ -326,9 +326,9 @@ def main():
 
                 # sc = scores[:, i_dim, i_config, :, i_metric+3]
 
-                x = np.array([0, 1, 2.8, 3.8])
+                x = np.array([0, 1, 2, 3.8, 4.8, 5.8])
                 x = x - np.mean(x)
-                x = x.reshape(2, 2)
+                x = x.reshape(2, 3)
                 ymin, ymax = [
                     (0, 0.59),
                     (0, 0.14),
@@ -342,9 +342,12 @@ def main():
                         data = (data.sum(axis=0) - np.diag(data))/4
                         data_ref = matrices_ref[arch, i_dim, :, :, i_metric+3]
                         data_ref = (data_ref.sum(axis=0) - np.diag(data_ref))/4
+                        data_naive = np.diag(matrices[arch, i_dim, :, :, i_metric+3])
                     else:
                         data = np.diag(matrices_ref[arch, i_dim, :, :, i_metric+3])
                         data_ref = np.diag(matrices[arch, i_dim, :, :, i_metric+3])
+                        data_naive = matrices_ref[arch, i_dim, :, :, i_metric+3]
+                        data_naive = (data_naive.sum(axis=0) - np.diag(data_naive))/4
 
                     ax.bar(x[arch, 0], data.mean(), color=color_cycle[arch],
                            hatch=hatch[0], width=1, label=labels[arch][0],
@@ -352,6 +355,9 @@ def main():
                     ax.bar(x[arch, 1], data_ref.mean(), color=color_cycle[arch],
                            hatch=hatch[1], width=1, label=labels[arch][1],
                            edgecolor='black', yerr=data_ref.std())
+                    ax.bar(x[arch, 2], data_naive.mean(), color=color_cycle[arch],
+                           hatch=hatch[2], width=1, label=labels[arch][2],
+                           edgecolor='black', yerr=data_naive.std())
 
                     hl = yrange*0.027
                     hw = 0.22
@@ -366,7 +372,7 @@ def main():
                     G_e = rf'{round(100*G_e)}%'
                     ax.annotate(G_e, (x_+0.3, y_+hl*1.5), ha='center')
                 ax.set_xticks([])
-                ax.set_xlim([-3.5, 3.5])
+                ax.set_xlim([-5, 5])
                 if i_dim == 0 and i_config == 0:
                     ax.set_ylabel([
                         _m(r'$\Delta$PESQ'),
@@ -390,7 +396,7 @@ def main():
                     ax.set_yticklabels([])
         add_title(fig, i_dim)
         handles, labs = ax.get_legend_handles_labels()
-    fig.legend(handles, labs, loc='lower center', ncol=4)
+    fig.legend(handles, labs, loc='lower center', ncol=len(labels))
     fig.tight_layout(rect=(0, 0.05, 1, 1), w_pad=1.6)
     fig.patch.set_visible(False)
     fig.savefig('../interspeech-2022-submission/results_all.svg', bbox_inches=0)
