@@ -71,9 +71,15 @@ def main():
 
     def init_model(arch, train_path):
         kwargs = {}
-        if arch == 'convtasnet-2':
+        if arch == 'convtasnet-k=2':
             arch = 'convtasnet'
             kwargs['sources'] = ['foreground', 'background']
+        elif arch == 'convtasnet-big':
+            arch = 'convtasnet'
+            kwargs['filters'] = 512
+            kwargs['hidden_channels'] = 512
+            kwargs['layers'] = 8
+            kwargs['repeats'] = 3
         return model_init.init_from_kwargs(
             arch=arch,
             train_path=arg_type_path(train_path),
@@ -81,7 +87,7 @@ def main():
             **kwargs,
         )
 
-    archs = ['dnn', 'convtasnet', 'convtasnet-2']
+    archs = ['dnn', 'convtasnet', 'convtasnet-k=2', 'convtasnet-big']
     dsets = []
     models = []
     evaluations = []

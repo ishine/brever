@@ -17,18 +17,20 @@ class BreverDataset(torch.utils.data.Dataset):
     """
     Base dataset for all datasets. Reads mixtures from a created dataset.
     Mixtures can be loaded as segments of fixed length or entirely by setting
-    segment_length=-1. When a fixed segment is used, the last samples in each
+    segment_length=0. When a fixed segment is used, the last samples in each
     mixture are dropped.
 
     Should be subclassed for post-processing by re-implementing the post_proc
     method.
     """
-    def __init__(self, path, segment_length=-1, overlap_length=0,
-                 components=['foreground', 'background']):
+    def __init__(self, path, segment_length=0, overlap_length=0, fs=16e3,
+                 components=['foreground', 'background'],
+                 segment_strategy='drop'):
         self.path = path
-        self.segment_length = segment_length
-        self.overlap_length = overlap_length
+        self.segment_length = round(segment_length*fs)
+        self.overlap_length = round(overlap_length*fs)
         self.components = components
+        self.segment_strategy = segment_strategy
         self.segment_info = self.get_segment_info()
         self.preloaded_data = None
 
@@ -44,18 +46,43 @@ class BreverDataset(torch.utils.data.Dataset):
     def get_segment_info(self):
         mix_lengths = self.get_mix_lengths()
         segment_info = []
-        if self.segment_length == -1:
+        if self.segment_length == 0:
             for mix_idx, mix_length in enumerate(mix_lengths):
                 segment_info.append((mix_idx, (0, mix_length)))
         else:
-            hop_length = self.segment_length - self.overlap_length
             for mix_idx, mix_length in enumerate(mix_lengths):
-                n_segments = (mix_length - self.segment_length)//hop_length + 1
-                for segment_idx in range(n_segments):
-                    start = segment_idx*hop_length
-                    end = start + self.segment_length
-                    segment_info.append((mix_idx, (start, end)))
+                self._add_segment_info(segment_info, mix_idx, mix_length)
         return segment_info
+
+    def _add_segment_info(self, segment_info, mix_idx, mix_length):
+        hop_length = self.segment_length - self.overlap_length
+        n_segments = (mix_length - self.segment_length)//hop_length + 1
+        for segment_idx in range(n_segments):
+            start = segment_idx*hop_length
+            end = start + self.segment_length
+            segment_info.append((mix_idx, (start, end)))
+        if self.segment_strategy == 'drop':
+            pass
+        elif self.segment_strategy == 'proceed':
+            if end != mix_length:
+                segment_idx = n_segments
+                start = segment_idx*hop_length
+                end = mix_length
+                segment_info.append((mix_idx, (start, end)))
+        elif self.segment_strategy == 'pad':
+            if end != mix_length:
+                segment_idx = n_segments
+                start = segment_idx*hop_length
+                end = start + self.segment_length
+                segment_info.append((mix_idx, (start, end)))
+        elif self.segment_strategy == 'overlap':
+            if end != mix_length:
+                start = mix_length - self.segment_length
+                end = mix_length
+                segment_info.append((mix_idx, (start, end)))
+        else:
+            raise ValueError('wrong segment strategy, got '
+                             f'{self.segment_strategy}')
 
     def get_mix_lengths(self):
         json_path = os.path.join(self.path, 'mixture_info.json')
@@ -91,6 +118,12 @@ class BreverDataset(torch.utils.data.Dataset):
         mix_idx, (start, end) = self.segment_info[index]
         mix_path, comp_paths = self.build_paths(mix_idx)
         mix, _ = torchaudio.load(mix_path)
+        if end > mix.shape[-1]:
+            if self.segment_strategy != 'pad':
+                raise ValueError('attempting to load a segment outside of '
+                                 'mixture range but segment strategy is not '
+                                 f'"pad", got "{self.segment_strategy}"')
+            mix = F.pad(mix, (0, end - mix.shape[-1]))
         mix = mix[:, start:end]
         components = []
         for comp_path in comp_paths:
@@ -200,8 +233,10 @@ class DNNDataset(BreverDataset):
         stft_window='hann',
         mel_filters=64,
         fs=16e3,
+        **kwargs,
     ):
-        super().__init__(path, components=['foreground', 'background'])
+        super().__init__(path, components=['foreground', 'background'],
+                         **kwargs)
         self.stacks = stacks
         self.decimation = decimation
         self.stft = STFT(
@@ -288,8 +323,12 @@ class DNNDataset(BreverDataset):
 
 
 class ConvTasNetDataset(BreverDataset):
-    def __init__(self, path, components=['foreground', 'background']):
-        super().__init__(path, components=components)
+    def __init__(
+        self,
+        path,
+        **kwargs,
+    ):
+        super().__init__(path, **kwargs)
 
     def post_proc(self, data, target):
         data = data.mean(axis=-2)

@@ -132,6 +132,8 @@ class ModelArgParser(argparse.ArgumentParser):
         'preload': ['TRAINING', 'PRELOAD'],
         'grad_clip': ['TRAINING', 'GRAD_CLIP'],
         'optimizer': ['TRAINING', 'OPTIMIZER'],
+        'segment_length': ['TRAINING', 'SEGMENT_LENGTH'],
+        'segment_strategy': ['TRAINING', 'SEGMENT_STRATEGY'],
     }
 
     arg_map = {
@@ -210,3 +212,5 @@ class ModelArgParser(argparse.ArgumentParser):
         self.add_argument('--preload', type=arg_type_bool)
         self.add_argument('--grad-clip', type=float)
         self.add_argument('--optimizer')
+        self.add_argument('--segment-length', type=float)
+        self.add_argument('--segment-strategy')

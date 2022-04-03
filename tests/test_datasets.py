@@ -18,9 +18,16 @@ def test_audio_dataset():
     for data, target in dataloader:
         pass
 
-    dataset = BreverDataset('tests/test_dataset', segment_length=4000)
-    assert len(dataset) == 121
+    strats = ['drop', 'proceed', 'pad', 'overlap']
+    lengths = [121, 131, 131, 131]
+    for strat, length in zip(strats, lengths):
+        dataset = BreverDataset('tests/test_dataset', segment_length=0.25,
+                                segment_strategy=strat)
+        for x in dataset:
+            pass
+        assert len(dataset) == length
 
+    dataset = BreverDataset('tests/test_dataset', segment_length=0.25)
     batch_sampler = BreverBatchSampler(dataset, 3)
     dataloader = BreverDataLoader(dataset, batch_sampler=batch_sampler)
     assert len(dataloader) == 41
@@ -35,6 +42,10 @@ def test_audio_dataset():
 
 
 def test_dnn_dataset():
+    dataset = DNNDataset('tests/test_dataset', segment_length=0.25,
+                         segment_strategy='proceed')
+    assert len(dataset) == 131
+
     dataset = DNNDataset('tests/test_dataset', features={'logfbe'})
     assert len(dataset) == 10
 
@@ -44,7 +55,7 @@ def test_dnn_dataset():
     for data, target in dataloader:
         pass
 
-    dataset = BreverDataset('tests/test_dataset', segment_length=4000)
+    dataset = BreverDataset('tests/test_dataset', segment_length=0.25)
     assert len(dataset) == 121
 
     batch_sampler = BreverBatchSampler(dataset, 3, drop_last=True)

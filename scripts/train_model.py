@@ -48,11 +48,15 @@ def main():
             stft_window=config.MODEL.STFT.WINDOW,
             mel_filters=config.MODEL.MEL_FILTERS,
             fs=config.FS,
+            segment_length=config.TRAINING.SEGMENT_LENGTH,
+            segment_strategy=config.TRAINING.SEGMENT_STRATEGY,
         )
     elif config.ARCH == 'convtasnet':
         dataset = ConvTasNetDataset(
             path=config.TRAINING.PATH,
             components=config.MODEL.SOURCES,
+            segment_length=config.TRAINING.SEGMENT_LENGTH,
+            segment_strategy=config.TRAINING.SEGMENT_STRATEGY,
         )
     else:
         raise ValueError(f'wrong model architecture, got {config.ARCH}')

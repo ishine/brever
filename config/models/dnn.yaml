@@ -21,6 +21,8 @@ TRAINING:
   VAL_SIZE: 0.1
   PRELOAD: true
   GRAD_CLIP: 0.0  # 0.0 to disable
+  SEGMENT_LENGTH: 0.0  # 0.0 to disable
+  SEGMENT_STRATEGY: drop
 MODEL:
   BATCH_NORM:
     MOMENTUM: 0.1
