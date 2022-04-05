@@ -46,6 +46,8 @@ class BreverDataset(torch.utils.data.Dataset):
     def get_segment_info(self):
         mix_lengths = self.get_mix_lengths()
         segment_info = []
+        self._pad_amount = 0
+        self._drop_amount = 0
         if self.segment_length == 0:
             for mix_idx, mix_length in enumerate(mix_lengths):
                 segment_info.append((mix_idx, (0, mix_length)))
@@ -55,14 +57,22 @@ class BreverDataset(torch.utils.data.Dataset):
         return segment_info
 
     def _add_segment_info(self, segment_info, mix_idx, mix_length):
+        # shift length
         hop_length = self.segment_length - self.overlap_length
+        # number of segments in mixture
         n_segments = (mix_length - self.segment_length)//hop_length + 1
+        # build segments
         for segment_idx in range(n_segments):
             start = segment_idx*hop_length
             end = start + self.segment_length
             segment_info.append((mix_idx, (start, end)))
+        # if segment_length > mix_length then we never entered the loop
+        # we need to assign the last index of the last segment to 0
+        # such that handling of the remaining samples does not fail
+        if n_segments <= 0:
+            end = 0
         if self.segment_strategy == 'drop':
-            pass
+            self._drop_amount += mix_length - end
         elif self.segment_strategy == 'proceed':
             if end != mix_length:
                 segment_idx = n_segments
@@ -75,6 +85,7 @@ class BreverDataset(torch.utils.data.Dataset):
                 start = segment_idx*hop_length
                 end = start + self.segment_length
                 segment_info.append((mix_idx, (start, end)))
+                self._pad_amount = end - mix_length
         elif self.segment_strategy == 'overlap':
             if end != mix_length:
                 start = mix_length - self.segment_length
@@ -172,14 +183,24 @@ class BreverBatchSampler(torch.utils.data.Sampler):
         lengths = sorted(lengths, key=lambda x: x[1])
         batch_list = []
         batch = []
+        _batch_lengths = []
+        self._pad_amount = 0
         for idx, length in lengths:
             batch.append(idx)
+            _batch_lengths.append(length)
             if len(batch) == self.batch_size:
                 batch_list.append(batch)
+                self._pad_amount += self._calc_batch_pad_amount(_batch_lengths)
                 batch = []
+                _batch_lengths = []
         if len(batch) > 0 and not self.drop_last:
             batch_list.append(batch)
+            self._pad_amount += self._calc_batch_pad_amount(_batch_lengths)
         return batch_list
+
+    def _calc_batch_pad_amount(self, _batch_lengths):
+        max_length = max(_batch_lengths)
+        return sum(max_length - length for length in _batch_lengths)
 
     def get_item_lengths(self):
         if isinstance(self.dataset, torch.utils.data.Subset):

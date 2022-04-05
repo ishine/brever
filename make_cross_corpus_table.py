@@ -84,7 +84,7 @@ def main():
             speech_files=[0.8, 1.0],
             noise_files=[0.8, 1.0],
             room_files='odd',
-            duration=1800,
+            duration=3600,
             seed=42,
         )
 
