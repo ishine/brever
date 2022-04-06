@@ -38,7 +38,7 @@ def main():
     hyperparams = {
         'batch_size': [1, 8, 16],
         'segment_length': [0.0, 1.0, 4.0],
-        'segment_strategy': ['drop', 'proceed'],
+        'segment_strategy': ['drop', 'pass'],
     }
 
     evaluations = []

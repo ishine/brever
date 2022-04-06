@@ -18,7 +18,7 @@ def test_audio_dataset():
     for data, target in dataloader:
         pass
 
-    strats = ['drop', 'proceed', 'pad', 'overlap']
+    strats = ['drop', 'pass', 'pad', 'overlap']
     lengths = [121, 131, 131, 131]
     for strat, length in zip(strats, lengths):
         dataset = BreverDataset('tests/test_dataset', segment_length=0.25,
@@ -43,7 +43,7 @@ def test_audio_dataset():
 
 def test_dnn_dataset():
     dataset = DNNDataset('tests/test_dataset', segment_length=0.25,
-                         segment_strategy='proceed')
+                         segment_strategy='pass')
     assert len(dataset) == 131
 
     dataset = DNNDataset('tests/test_dataset', features={'logfbe'})

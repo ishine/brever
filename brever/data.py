@@ -73,7 +73,7 @@ class BreverDataset(torch.utils.data.Dataset):
             end = 0
         if self.segment_strategy == 'drop':
             self._drop_amount += mix_length - end
-        elif self.segment_strategy == 'proceed':
+        elif self.segment_strategy == 'pass':
             if end != mix_length:
                 segment_idx = n_segments
                 start = segment_idx*hop_length
