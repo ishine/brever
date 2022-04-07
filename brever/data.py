@@ -397,7 +397,6 @@ class DynamicSimpleBatchSampler(BreverBatchSampler):
     Items are added to the current batch until the total batch size exceeds a
     limit. This can subtantially reduce the batch size variability and the
     total number of batches, but increases padding.
-    padding.
     """
     def __init__(self, dataset, max_batch_size, drop_last=False, shuffle=True,
                  seed=0):
@@ -443,8 +442,8 @@ class DynamicSortedBatchSampler(DynamicSimpleBatchSampler):
     Similar to SortedBatchSampler but with a dynamic number of items per batch.
     After sorting, items are added to the current batch until the total batch
     size exceeds a limit. This can subtantially reduce the batch size
-    variability and the total number of batches, but increases padding.
-    Items within a batch are also not random because of sorting.
+    variability and the total number of batches, but increases padding. Items
+    within a batch are also not random because of sorting.
     """
     def __init__(self, dataset, max_batch_size, drop_last=False,
                  shuffle=True, seed=0):
