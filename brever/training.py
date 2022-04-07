@@ -8,7 +8,14 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
-from .data import BreverBatchSampler, BreverDataLoader
+from .data import (
+    BreverDataLoader,
+    BucketBatchSampler,
+    DynamicSortedBatchSampler,
+    DynamicSimpleBatchSampler,
+    SortedBatchSampler,
+    SimpleBatchSampler,
+)
 
 eps = torch.finfo(torch.float32).eps
 
@@ -93,14 +100,32 @@ class LossLogger:
 
 
 class BreverTrainer:
-    def __init__(self, model, train_dataset, val_dataset, dirpath,
-                 batch_size=1, workers=0, epochs=100, learning_rate=1e-3,
-                 weight_decay=0.0, cuda=True, criterion='MSELoss',
-                 optimizer='Adam', early_stop=False, early_stop_patience=10,
-                 convergence=False, convergence_window=10,
-                 convergence_threshold=1.0e-6, grad_clip=0.0,
-                 ignore_checkpoint=False):
-
+    def __init__(
+        self,
+        model,
+        train_dataset,
+        val_dataset,
+        dirpath: str,
+        workers: int = 0,
+        epochs: int = 100,
+        learning_rate: float = 1e-3,
+        weight_decay: float = 0.0,
+        cuda: bool = True,
+        criterion: str = 'MSELoss',
+        optimizer: str = 'Adam',
+        batch_sampler: str = 'bucket',
+        batch_size: int | float = 16.0,
+        num_buckets: int = 10,
+        sorted_: bool = False,
+        segment_length: float = 4.0,
+        early_stop: bool = False,
+        early_stop_patience: int = 10,
+        convergence: bool = False,
+        convergence_window: int = 10,
+        convergence_threshold: float = 1.0e-6,
+        grad_clip: float = 0.0,
+        ignore_checkpoint: bool = False
+    ) -> None:
         if early_stop and convergence:
             raise ValueError('cannot toggle both early_stop and convergence')
 
@@ -117,13 +142,37 @@ class BreverTrainer:
         self.epochs_ran = 0
 
         # batch samplers
-        self.train_batch_sampler = BreverBatchSampler(
+        if batch_sampler == 'bucket':
+            batch_sampler_class = BucketBatchSampler
+            kwargs = {
+                'max_batch_size': batch_size,
+                'max_item_length': segment_length,
+                'num_buckets': num_buckets
+            }
+        elif batch_sampler == 'dynamic':
+            if sorted_:
+                batch_sampler_class = DynamicSortedBatchSampler
+            else:
+                batch_sampler_class = DynamicSimpleBatchSampler
+            kwargs = {
+                'max_batch_size': batch_size,
+            }
+        elif batch_sampler == 'simple':
+            if sorted_:
+                batch_sampler_class = SortedBatchSampler
+            else:
+                batch_sampler_class = SimpleBatchSampler
+            kwargs = {
+                'max_batch_size': batch_size,
+            }
+
+        self.train_batch_sampler = batch_sampler_class(
             dataset=train_dataset,
-            batch_size=batch_size,
+            **kwargs,
         )
-        self.val_batch_sampler = BreverBatchSampler(
+        self.val_batch_sampler = batch_sampler_class(
             dataset=val_dataset,
-            batch_size=batch_size,
+            **kwargs,
         )
 
         # dataloaders

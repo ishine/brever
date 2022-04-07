@@ -1,7 +1,6 @@
 ARCH: dnn
 FS: 16000
 TRAINING:
-  BATCH_SIZE: 1
   CRITERION: MSELoss
   CUDA: true
   EARLY_STOP:
@@ -21,8 +20,12 @@ TRAINING:
   VAL_SIZE: 0.1
   PRELOAD: true
   GRAD_CLIP: 0.0  # 0.0 to disable
-  SEGMENT_LENGTH: 0.0  # 0.0 to disable
-  SEGMENT_STRATEGY: drop
+  SEGMENT_LENGTH: 4.0  # 0.0 to disable
+  BATCH_SAMPLER:
+    WHICH: bucket
+    BATCH_SIZE: 16.0
+    NUM_BUCKETS: 10
+    SORTED: False
 MODEL:
   BATCH_NORM:
     MOMENTUM: 0.1

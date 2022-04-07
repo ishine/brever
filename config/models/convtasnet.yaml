@@ -1,7 +1,6 @@
 ARCH: convtasnet
 FS: 16000
 TRAINING:
-  BATCH_SIZE: 1
   CRITERION: SNR
   CUDA: true
   EARLY_STOP:
@@ -21,8 +20,12 @@ TRAINING:
   VAL_SIZE: 0.1
   PRELOAD: false
   GRAD_CLIP: 5.0  # 0.0 to disable
-  SEGMENT_LENGTH: 0.0  # 0.0 to disable
-  SEGMENT_STRATEGY: drop
+  SEGMENT_LENGTH: 4.0  # 0.0 to disable
+  BATCH_SAMPLER:
+    WHICH: bucket
+    BATCH_SIZE: 16.0
+    NUM_BUCKETS: 10
+    SORTED: False
 MODEL:
   ENCODER:
     FILTERS: 128  # 512
