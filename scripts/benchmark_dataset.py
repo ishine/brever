@@ -1,26 +1,43 @@
 import argparse
 import time
 
-from brever.data import BreverBatchSampler, BreverDataLoader, DNNDataset
+import brever.data
 
 
 def main():
     print('Initializing dataset')
-    dataset = DNNDataset(
-        path=args.input,
-        features=args.features,
+    dataset = {
+        'dnn': brever.data.DNNDataset,
+        'convtasnet': brever.data.ConvTasNetDataset,
+    }[args.arch]
+    kwargs = {
+        'dnn': {
+            'features': args.features
+        },
+        'convtasnet': {},
+    }[args.arch]
+    dataset = dataset(
+        args.input,
+        segment_length=args.segment_length,
+        **kwargs
     )
 
     print('Initializing batch sampler')
-    batch_sampler = BreverBatchSampler(
-        dataset=dataset,
-        batch_size=args.batch_size,
-    )
+    sampler = {
+        'bucket': brever.data.BucketBatchSampler,
+    }[args.sampler]
+    kwargs = {
+        'bucket': {
+            'max_batch_size': args.max_batch_size,
+            'max_item_length': args.segment_length,
+        },
+    }[args.sampler]
+    sampler = sampler(dataset, **kwargs)
 
     print('Initializing data loader')
-    dataloader = BreverDataLoader(
+    dataloader = brever.data.BreverDataLoader(
         dataset=dataset,
-        batch_sampler=batch_sampler,
+        batch_sampler=sampler,
         num_workers=args.workers,
     )
 
@@ -40,15 +57,27 @@ def main():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='benchmark a dataset')
     parser.add_argument('input', help='dataset directory')
+    parser.add_argument('--arch')
     parser.add_argument('--features', nargs='+')
-    parser.add_argument('--batch-size', type=int)
+    parser.add_argument('--sampler')
+    parser.add_argument('--segment-length', type=float)
+    parser.add_argument('--max-batch-size', type=float)
+    parser.add_argument('--items-per-batch', type=int)
     parser.add_argument('--epochs', type=int)
     parser.add_argument('--workers', type=int)
+    parser.add_argument('--fs', type=int)
     parser.set_defaults(
-        features=['fbe'],
-        batch_size=1,
+        arch='convtasnet',
+        features={'logfbe'},
+        sampler='bucket',
+        segment_length=4.0,
+        max_batch_size=16.0,
+        items_per_batch=4,
         epochs=1,
         workers=0,
+        fs=16e3,
     )
     args = parser.parse_args()
+    args.segment_length = int(round(args.segment_length)*args.fs)
+    args.max_batch_size = int(round(args.max_batch_size)*args.fs)
     main()

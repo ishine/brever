@@ -23,12 +23,12 @@ class BreverDataset(torch.utils.data.Dataset):
     Should be subclassed for post-processing by re-implementing the post_proc
     method.
     """
-    def __init__(self, path, segment_length=0, overlap_length=0, fs=16e3,
+    def __init__(self, path, segment_length=0, overlap_length=0,
                  components=['foreground', 'background'],
-                 segment_strategy='drop'):
+                 segment_strategy='pass'):
         self.path = path
-        self.segment_length = round(segment_length*fs)
-        self.overlap_length = round(overlap_length*fs)
+        self.segment_length = segment_length
+        self.overlap_length = overlap_length
         self.components = components
         self.segment_strategy = segment_strategy
         self.segment_info = self.get_segment_info()
@@ -45,9 +45,8 @@ class BreverDataset(torch.utils.data.Dataset):
 
     def get_segment_info(self):
         mix_lengths = self.get_mix_lengths()
+        self._duration = sum(mix_lengths)
         segment_info = []
-        self._pad_amount = 0
-        self._drop_amount = 0
         if self.segment_length == 0:
             for mix_idx, mix_length in enumerate(mix_lengths):
                 segment_info.append((mix_idx, (0, mix_length)))
@@ -85,7 +84,6 @@ class BreverDataset(torch.utils.data.Dataset):
                 start = segment_idx*hop_length
                 end = start + self.segment_length
                 segment_info.append((mix_idx, (start, end)))
-                self._pad_amount = end - mix_length
         elif self.segment_strategy == 'overlap':
             if end != mix_length:
                 start = mix_length - self.segment_length
@@ -160,86 +158,6 @@ class BreverDataset(torch.utils.data.Dataset):
         # set the attribute only at the end, otherwise __getitem__ will attempt
         # to access it insite the loop
         self.preloaded_data = preloaded_data
-
-
-class BreverBatchSampler(torch.utils.data.Sampler):
-    """
-    Batch sampler that minimizes the amount of padding required to collate
-    mixtures of different length. This is done by sorting the mixtures by
-    length. So within a batch the order is deterministic, but batches can
-    be shuffled. The dataset must have an item_lengths attribute containing
-    the list of each item length such that the batch list can be created
-    without manually iterating across the dataset.
-    """
-    def __init__(self, dataset, batch_size, drop_last=False, shuffle=True):
-        self.dataset = dataset
-        self.batch_size = batch_size
-        self.drop_last = drop_last
-        self.shuffle = shuffle
-        self.batches = self.generate_batches()
-
-    def generate_batches(self):
-        lengths = self.get_item_lengths()
-        lengths = sorted(lengths, key=lambda x: x[1])
-        batch_list = []
-        batch = []
-        _batch_lengths = []
-        self._pad_amount = 0
-        for idx, length in lengths:
-            batch.append(idx)
-            _batch_lengths.append(length)
-            if len(batch) == self.batch_size:
-                batch_list.append(batch)
-                self._pad_amount += self._calc_batch_pad_amount(_batch_lengths)
-                batch = []
-                _batch_lengths = []
-        if len(batch) > 0 and not self.drop_last:
-            batch_list.append(batch)
-            self._pad_amount += self._calc_batch_pad_amount(_batch_lengths)
-        return batch_list
-
-    def _calc_batch_pad_amount(self, _batch_lengths):
-        max_length = max(_batch_lengths)
-        return sum(max_length - length for length in _batch_lengths)
-
-    def get_item_lengths(self):
-        if isinstance(self.dataset, torch.utils.data.Subset):
-            dataset = self.dataset.dataset
-            indices = self.dataset.indices
-            lengths = []
-            for i, index in enumerate(indices):
-                lengths.append((i, dataset.item_lengths[index]))
-        else:
-            lengths = list(enumerate(self.dataset.item_lengths))
-        return lengths
-
-    def __iter__(self):
-        if self.shuffle:
-            random.shuffle(self.batches)
-        for i in self.batches:
-            yield i
-
-    def __len__(self):
-        return len(self.batches)
-
-
-class BreverDataLoader(torch.utils.data.DataLoader):
-    """
-    Implements the collating function to form batches from mixtures of
-    different length.
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.collate_fn = self._collate_fn
-
-    def _collate_fn(self, batch):
-        max_length = max(x.shape[-1] for x, _ in batch)
-        batch_x, batch_y = [], []
-        for x, y in batch:
-            assert x.shape[-1] == y.shape[-1]
-            batch_x.append(F.pad(x, (0, max_length - x.shape[-1])))
-            batch_y.append(F.pad(y, (0, max_length - y.shape[-1])))
-        return torch.stack(batch_x), torch.stack(batch_y)
 
 
 class DNNDataset(BreverDataset):
@@ -355,3 +273,249 @@ class ConvTasNetDataset(BreverDataset):
         data = data.mean(axis=-2)
         target = target.mean(axis=-2)
         return data, target
+
+
+class BreverBatchSampler(torch.utils.data.Sampler):
+    """
+    Base class for all samplers.
+    """
+    def __init__(self, dataset, drop_last=False, shuffle=True, seed=0,
+                 sort=False):
+        self.__pre_init__(dataset, drop_last, shuffle, seed, sort)
+        self.generate_batches()
+
+    def __pre_init__(self, dataset, drop_last, shuffle, seed, sort):
+        self.dataset = dataset
+        self.drop_last = drop_last
+        self.shuffle = shuffle
+        self.seed = seed
+        self.sort = sort
+        self._epoch = 0
+        self._previous_epoch = -1
+        self._item_lengths = self.get_item_lengths()
+
+    def generate_batches(self):
+        indices = self._generate_indices()
+        self._generate_batches(indices)
+
+    def _generate_indices(self):
+        if self.sort:
+            if self.shuffle:
+                # sort by length but randomize items of same length
+                randomizer = random.Random(self.seed + self._epoch)
+                lengths = sorted(self._item_lengths,
+                                 key=lambda x: (x[1], randomizer.random()))
+            else:
+                lengths = sorted(self._item_lengths, key=lambda x: x[1])
+            indices = [idx for idx, length in lengths]
+        else:
+            indices = list(range(len(self._item_lengths)))
+            if self.shuffle:
+                randomizer = random.Random(self.seed + self._epoch)
+                randomizer.shuffle(indices)
+        return indices
+
+    def _generate_batches(self):
+        raise NotImplementedError
+
+    def shuffle_batches(self):
+        randomizer = random.Random(self.seed + self._epoch)
+        randomizer.shuffle(self.batches)
+
+    def get_item_lengths(self):
+        if isinstance(self.dataset, torch.utils.data.Subset):
+            dataset = self.dataset.dataset
+            indices = self.dataset.indices
+            lengths = []
+            for i, index in enumerate(indices):
+                lengths.append((i, dataset.item_lengths[index]))
+        else:
+            lengths = list(enumerate(self.dataset.item_lengths))
+        return lengths
+
+    def calc_batch_stats(self):
+        batch_sizes = []
+        pad_amounts = []
+        for batch in self.batches:
+            batch_lengths = [length for idx, length in batch]
+            max_length = max(batch_lengths)
+            batch_sizes.append(len(batch)*max_length)
+            pad_amounts.append(
+                sum(max_length - length for length in batch_lengths)
+            )
+        return batch_sizes, pad_amounts
+
+    def set_epoch(self, epoch):
+        self._epoch = epoch
+
+    def __iter__(self):
+        if self.shuffle:
+            if self._epoch == self._previous_epoch:
+                raise ValueError('the set_epoch method must be called before '
+                                 'iterating over the dataloader in order to '
+                                 'regenerate the batches with the correct '
+                                 'seed')
+            self.generate_batches()
+            self.shuffle_batches()
+            self._previous_epoch = self._epoch
+        for batch in self.batches:
+            yield [idx for idx, length in batch]
+
+    def __len__(self):
+        return len(self.batches)
+
+
+class SimpleBatchSampler(BreverBatchSampler):
+    """
+    Simplest batch sampler possible. Batches have a fixed number of items.
+    Iterates over items and appends to current batch if it fits, otherwise
+    appends to new batch. This means batches have random total size and
+    padding.
+    """
+    def __init__(self, dataset, items_per_batch, drop_last=False, shuffle=True,
+                 seed=0):
+        super().__pre_init__(dataset, drop_last, shuffle, seed, sort=False)
+        self.items_per_batch = items_per_batch
+        self.generate_batches()
+
+    def _generate_batches(self, indices):
+        self.batches = []
+        batch = []
+        for i in indices:
+            item_idx, item_length = self._item_lengths[i]
+            batch.append((item_idx, item_length))
+            if len(batch) == self.items_per_batch:
+                self.batches.append(batch)
+                batch = []
+        if len(batch) > 0 and not self.drop_last:
+            self.batches.append(batch)
+
+
+class DynamicSimpleBatchSampler(BreverBatchSampler):
+    """
+    Similar to SimpleBatchSampler but with a dynamic number of items per batch.
+    Items are added to the current batch until the total batch size exceeds a
+    limit. This can subtantially reduce the batch size variability and the
+    total number of batches, but increases padding.
+    padding.
+    """
+    def __init__(self, dataset, max_batch_size, drop_last=False, shuffle=True,
+                 seed=0):
+        super().__pre_init__(dataset, drop_last, shuffle, seed, sort=False)
+        self.max_batch_size = max_batch_size
+        self.generate_batches()
+
+    def _generate_batches(self, indices):
+        self.batches = []
+        batch = []
+        for i in indices:
+            item_idx, item_length = self._item_lengths[i]
+            if item_length > self.max_batch_size:
+                raise ValueError('found an item that is longer than the '
+                                 'maximum batch size')
+            if (len(batch)+1)*item_length <= self.max_batch_size:
+                batch.append((item_idx, item_length))
+            else:
+                self.batches.append(batch)
+                batch = []
+                batch.append((item_idx, item_length))
+        if len(batch) > 0 and not self.drop_last:
+            self.batches.append(batch)
+
+
+class SortedBatchSampler(SimpleBatchSampler):
+    """
+    Sorts all items by length before making batches with a fixed number of
+    items. This optimally minimizes the amount of padding, but batches have
+    highly variable size. Namely the last batches can be very small if
+    the dataset contains very short items. Also items within a batch are not
+    random.
+    """
+    def __init__(self, dataset, items_per_batch, drop_last=False, shuffle=True,
+                 seed=0):
+        super().__pre_init__(dataset, drop_last, shuffle, seed, sort=True)
+        self.items_per_batch = items_per_batch
+        self.generate_batches()
+
+
+class DynamicSortedBatchSampler(DynamicSimpleBatchSampler):
+    """
+    Similar to SortedBatchSampler but with a dynamic number of items per batch.
+    After sorting, items are added to the current batch until the total batch
+    size exceeds a limit. This can subtantially reduce the batch size
+    variability and the total number of batches, but increases padding.
+    Items within a batch are also not random because of sorting.
+    """
+    def __init__(self, dataset, max_batch_size, drop_last=False,
+                 shuffle=True, seed=0):
+        super().__pre_init__(dataset, drop_last, shuffle, seed, sort=True)
+        self.max_batch_size = max_batch_size
+        self.generate_batches()
+
+
+class BucketBatchSampler(BreverBatchSampler):
+    """
+    Items of similar length are grouped into buckets. Batches are formed with
+    items from the same bucket. This attempts to minize both the batch size
+    variability and the amount of padding while keeping some randomness.
+    """
+    def __init__(self, dataset, max_batch_size, max_item_length,
+                 num_buckets=10, drop_last=False, shuffle=True, seed=0):
+        super().__pre_init__(dataset, drop_last, shuffle, seed, sort=False)
+        self.max_batch_size = max_batch_size
+        self.max_item_length = max_item_length
+        self.num_buckets = num_buckets
+
+        self.right_bucket_limits = np.linspace(
+            max_item_length/num_buckets, max_item_length, num_buckets,
+        )
+        self.bucket_batch_lengths = max_batch_size//self.right_bucket_limits
+
+        self.generate_batches()
+
+    def _generate_batches(self, indices):
+        self.batches = []
+        bucket_batches = [[] for _ in range(self.num_buckets)]
+        for i in indices:
+            item_idx, item_length = self._item_lengths[i]
+            bucket_idx = np.searchsorted(
+                self.right_bucket_limits, item_length,
+            )
+            if bucket_idx == self.num_buckets:
+                if item_length == self.max_item_length:
+                    bucket_idx -= 1
+                else:
+                    raise ValueError('found an item that is longer than the '
+                                     'maximum batch size')
+            bucket_batches[bucket_idx].append((item_idx, item_length))
+            if len(bucket_batches[bucket_idx]) \
+                    >= self.bucket_batch_lengths[bucket_idx]:
+                self.batches.append(bucket_batches[bucket_idx])
+                bucket_batches[bucket_idx] = []
+        if not self.drop_last:
+            for batch in bucket_batches:
+                if len(batch) > 0:
+                    self.batches.append(batch)
+
+
+class BreverDataLoader(torch.utils.data.DataLoader):
+    """
+    Implements the collating function to form batches from mixtures of
+    different length.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.collate_fn = self._collate_fn
+
+    def set_epoch(self, epoch):
+        self.batch_sampler.set_epoch(epoch)
+
+    def _collate_fn(self, batch):
+        max_length = max(x.shape[-1] for x, _ in batch)
+        batch_x, batch_y = [], []
+        for x, y in batch:
+            assert x.shape[-1] == y.shape[-1]
+            padding = max_length - x.shape[-1]
+            batch_x.append(F.pad(x, (0, padding)))
+            batch_y.append(F.pad(y, (0, padding)))
+        return torch.stack(batch_x), torch.stack(batch_y)
