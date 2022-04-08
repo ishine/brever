@@ -54,7 +54,6 @@ def test_dnn_args():
 
     arg_cmd = [
         # training args
-        '--batch-size', '0',
         '--cuda', '0',
         '--early-stop', '0',
         '--convergence', '0',
@@ -70,7 +69,6 @@ def test_dnn_args():
         '--grad-clip', '0',
         '--optimizer', 'foo',
         '--segment-length', '0',
-        '--segment-strategy', 'foo',
         # model args
         'dnn',
         '--batch-norm', '0',
@@ -97,7 +95,6 @@ def test_convtasnet_args():
 
     arg_cmd = [
         # training args
-        '--batch-size', '0',
         '--cuda', '0',
         '--early-stop', '0',
         '--convergence', '0',
@@ -113,7 +110,6 @@ def test_convtasnet_args():
         '--grad-clip', '0',
         '--optimizer', 'foo',
         '--segment-length', '0',
-        '--segment-strategy', 'foo',
         # model args
         'convtasnet',
         '--filters', '0',

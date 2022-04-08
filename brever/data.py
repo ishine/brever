@@ -23,12 +23,13 @@ class BreverDataset(torch.utils.data.Dataset):
     Should be subclassed for post-processing by re-implementing the post_proc
     method.
     """
-    def __init__(self, path, segment_length=0, overlap_length=0,
+    def __init__(self, path, segment_length=4.0, overlap_length=0.0, fs=16e3,
                  components=['foreground', 'background'],
                  segment_strategy='pass'):
         self.path = path
-        self.segment_length = segment_length
-        self.overlap_length = overlap_length
+        self.segment_length = round(segment_length*fs)
+        self.overlap_length = round(overlap_length*fs)
+        self.fs = fs
         self.components = components
         self.segment_strategy = segment_strategy
         self.segment_info = self.get_segment_info()
@@ -171,7 +172,6 @@ class DNNDataset(BreverDataset):
         stft_hop_length=256,
         stft_window='hann',
         mel_filters=64,
-        fs=16e3,
         **kwargs,
     ):
         super().__init__(path, components=['foreground', 'background'],
@@ -186,13 +186,13 @@ class DNNDataset(BreverDataset):
         self.mel_fb = MelFB(
             n_filters=mel_filters,
             n_fft=stft_frame_length,
-            fs=fs,
+            fs=self.fs,
         )
         self.feature_extractor = FeatureExtractor(
             features=features,
             mel_fb=self.mel_fb,
             hop_length=stft_hop_length,
-            fs=fs,
+            fs=self.fs,
         )
 
     def post_proc(self, data, target, return_stft_output=False):
@@ -407,17 +407,21 @@ class DynamicSimpleBatchSampler(BreverBatchSampler):
     def _generate_batches(self, indices):
         self.batches = []
         batch = []
+        batch_width = 0
         for i in indices:
             item_idx, item_length = self._item_lengths[i]
             if item_length > self.max_batch_size:
                 raise ValueError('found an item that is longer than the '
                                  'maximum batch size')
-            if (len(batch)+1)*item_length <= self.max_batch_size:
+            if (len(batch)+1)*max(item_length, batch_width) \
+                    <= self.max_batch_size:
                 batch.append((item_idx, item_length))
+                batch_width = max(item_length, batch_width)
             else:
                 self.batches.append(batch)
                 batch = []
                 batch.append((item_idx, item_length))
+                batch_width = item_length
         if len(batch) > 0 and not self.drop_last:
             self.batches.append(batch)
 

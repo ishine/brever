@@ -117,7 +117,6 @@ class DatasetArgParser(argparse.ArgumentParser):
 class ModelArgParser(argparse.ArgumentParser):
 
     training_args = {
-        'batch_size': ['TRAINING', 'BATCH_SIZE'],
         'cuda': ['TRAINING', 'CUDA'],
         'early_stop': ['TRAINING', 'EARLY_STOP', 'TOGGLE'],
         'convergence': ['TRAINING', 'CONVERGENCE', 'TOGGLE'],
@@ -133,7 +132,6 @@ class ModelArgParser(argparse.ArgumentParser):
         'grad_clip': ['TRAINING', 'GRAD_CLIP'],
         'optimizer': ['TRAINING', 'OPTIMIZER'],
         'segment_length': ['TRAINING', 'SEGMENT_LENGTH'],
-        'segment_strategy': ['TRAINING', 'SEGMENT_STRATEGY'],
     }
 
     arg_map = {
@@ -197,7 +195,6 @@ class ModelArgParser(argparse.ArgumentParser):
         sub.add_argument('--repeats', type=int)
         sub.add_argument('--sources', nargs='+')
 
-        self.add_argument('--batch-size', type=int)
         self.add_argument('--cuda', type=arg_type_bool)
         self.add_argument('--early-stop', type=arg_type_bool)
         self.add_argument('--convergence', type=arg_type_bool)
@@ -213,4 +210,3 @@ class ModelArgParser(argparse.ArgumentParser):
         self.add_argument('--grad-clip', type=float)
         self.add_argument('--optimizer')
         self.add_argument('--segment-length', type=float)
-        self.add_argument('--segment-strategy')

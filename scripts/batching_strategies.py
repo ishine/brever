@@ -7,7 +7,7 @@ from brever.config import DatasetInitializer
 
 
 def plot(batches, title=None):
-    batches = sorted(batches, key=lambda x: max(b[1] for b in x))
+    # batches = sorted(batches, key=lambda x: max(b[1] for b in x))
     fig, ax = plt.subplots()
     i = 0
     for batch in batches:
@@ -35,12 +35,9 @@ def main():
         seed=0,
     )
 
-    segment_length = int(4*16e3)
-
     dataset = BreverDataset(
         path,
-        segment_length=segment_length,
-        segment_strategy='pass',
+        segment_length=4.0,
     )
     duration = dataset._duration
 

@@ -118,6 +118,7 @@ class BreverTrainer:
         num_buckets: int = 10,
         sorted_: bool = False,
         segment_length: float = 4.0,
+        fs: int | float = 16e3,
         early_stop: bool = False,
         early_stop_patience: int = 10,
         convergence: bool = False,
@@ -145,8 +146,8 @@ class BreverTrainer:
         if batch_sampler == 'bucket':
             batch_sampler_class = BucketBatchSampler
             kwargs = {
-                'max_batch_size': batch_size,
-                'max_item_length': segment_length,
+                'max_batch_size': round(batch_size*fs),
+                'max_item_length': round(segment_length*fs),
                 'num_buckets': num_buckets
             }
         elif batch_sampler == 'dynamic':
@@ -155,7 +156,7 @@ class BreverTrainer:
             else:
                 batch_sampler_class = DynamicSimpleBatchSampler
             kwargs = {
-                'max_batch_size': batch_size,
+                'max_batch_size': round(batch_size*fs),
             }
         elif batch_sampler == 'simple':
             if sorted_:
@@ -163,7 +164,7 @@ class BreverTrainer:
             else:
                 batch_sampler_class = SimpleBatchSampler
             kwargs = {
-                'max_batch_size': batch_size,
+                'items_per_batch': batch_size,
             }
 
         self.train_batch_sampler = batch_sampler_class(
@@ -231,6 +232,8 @@ class BreverTrainer:
         # initialize timer
         self.timer.start()
         for epoch in range(self.epochs_ran, self.epochs):
+            self.train_dataloader.set_epoch(epoch)
+            self.val_dataloader.set_epoch(epoch)
             # train
             train_loss = self.train()
             # evaluate

@@ -360,7 +360,7 @@ class STFT(nn.Module):
         return F.pad(x, (0, padding))
 
     def frame_count(self, samples):
-        return math.ceil((samples - self.frame_length)/self.hop_length) + 1
+        return math.ceil(max(samples-self.frame_length, 0)/self.hop_length)+1
 
 
 class MelFB:

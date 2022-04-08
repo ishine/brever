@@ -40,6 +40,8 @@ def main():
     if config.ARCH == 'dnn':
         dataset = DNNDataset(
             path=config.TRAINING.PATH,
+            segment_length=config.TRAINING.SEGMENT_LENGTH,
+            fs=config.FS,
             features=config.MODEL.FEATURES,
             stacks=config.MODEL.STACKS,
             decimation=config.MODEL.DECIMATION,
@@ -47,16 +49,13 @@ def main():
             stft_hop_length=config.MODEL.STFT.HOP_LENGTH,
             stft_window=config.MODEL.STFT.WINDOW,
             mel_filters=config.MODEL.MEL_FILTERS,
-            fs=config.FS,
-            segment_length=config.TRAINING.SEGMENT_LENGTH,
-            segment_strategy=config.TRAINING.SEGMENT_STRATEGY,
         )
     elif config.ARCH == 'convtasnet':
         dataset = ConvTasNetDataset(
             path=config.TRAINING.PATH,
-            components=config.MODEL.SOURCES,
             segment_length=config.TRAINING.SEGMENT_LENGTH,
-            segment_strategy=config.TRAINING.SEGMENT_STRATEGY,
+            fs=config.FS,
+            components=config.MODEL.SOURCES,
         )
     else:
         raise ValueError(f'wrong model architecture, got {config.ARCH}')
@@ -115,7 +114,6 @@ def main():
         train_dataset=train_dataset,
         val_dataset=val_dataset,
         dirpath=args.input,
-        batch_size=config.TRAINING.BATCH_SIZE,
         workers=config.TRAINING.WORKERS,
         epochs=config.TRAINING.EPOCHS,
         learning_rate=config.TRAINING.LEARNING_RATE,
@@ -123,6 +121,12 @@ def main():
         cuda=cuda,
         criterion=config.TRAINING.CRITERION,
         optimizer=config.TRAINING.OPTIMIZER,
+        batch_sampler=config.TRAINING.BATCH_SAMPLER.WHICH,
+        batch_size=config.TRAINING.BATCH_SAMPLER.BATCH_SIZE,
+        num_buckets=config.TRAINING.BATCH_SAMPLER.NUM_BUCKETS,
+        sorted_=config.TRAINING.BATCH_SAMPLER.SORTED,
+        segment_length=config.TRAINING.SEGMENT_LENGTH,
+        fs=config.FS,
         early_stop=config.TRAINING.EARLY_STOP.TOGGLE,
         early_stop_patience=config.TRAINING.EARLY_STOP.PATIENCE,
         convergence=config.TRAINING.CONVERGENCE.TOGGLE,
