@@ -6,7 +6,7 @@ import torch.nn.functional as F
 class ConvTasNet(nn.Module):
     def __init__(self, filters=512, filter_length=16, bottleneck_channels=128,
                  hidden_channels=512, skip_channels=128, kernel_size=3,
-                 layers=8, repeats=3, sources=2):
+                 layers=8, repeats=3, sources=2, norm='cLN'):
         super().__init__()
         self.encoder = Encoder(filters, filter_length)
         self.decoder = Decoder(filters, filter_length)
@@ -19,6 +19,7 @@ class ConvTasNet(nn.Module):
             layers=layers,
             repeats=repeats,
             sources=sources,
+            norm=norm,
         )
         self.masks = None
 
@@ -102,10 +103,10 @@ class TCN(nn.Module):
     Temporal convolutional network
     """
     def __init__(self, input_channels, bottleneck_channels, hidden_channels,
-                 skip_channels, kernel_size, layers, repeats, sources):
+                 skip_channels, kernel_size, layers, repeats, sources, norm):
         super().__init__()
         self.sources = sources
-        self.layer_norm = cLN(input_channels)
+        self.layer_norm = init_norm(norm, input_channels)
         self.bottleneck_conv = nn.Conv1d(
             in_channels=input_channels,
             out_channels=bottleneck_channels,
@@ -122,6 +123,7 @@ class TCN(nn.Module):
                         skip_channels=skip_channels,
                         dilation=dilation,
                         kernel_size=kernel_size,
+                        norm=norm,
                     )
                 )
         self.prelu = nn.PReLU()
@@ -176,7 +178,7 @@ class Conv1DBlock(nn.Module):
     1-D convolutional block
     """
     def __init__(self, input_channels, hidden_channels, skip_channels,
-                 kernel_size, dilation):
+                 kernel_size, dilation, norm):
         super().__init__()
         self.kernel_size = kernel_size
         self.dilation = dilation
@@ -202,8 +204,8 @@ class Conv1DBlock(nn.Module):
             out_channels=skip_channels,
             kernel_size=1,
         )
-        self.norm_1 = cLN(hidden_channels)
-        self.norm_2 = cLN(hidden_channels)
+        self.norm_1 = init_norm(norm, hidden_channels)
+        self.norm_2 = init_norm(norm, hidden_channels)
         self.prelu_1 = nn.PReLU()
         self.prelu_2 = nn.PReLU()
 
@@ -223,3 +225,13 @@ class Conv1DBlock(nn.Module):
         res = self.res_conv(out)
         skip = self.skip_conv(out)
         return x + res, skip
+
+
+def init_norm(which, dim):
+    if which == 'cLN':
+        module = cLN(dim)
+    elif which == 'none':
+        module = nn.Identity()
+    else:
+        raise ValueError(f'norm must be cLN or none, got {which}')
+    return module
