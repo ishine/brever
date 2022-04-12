@@ -746,6 +746,14 @@ class RandomMixtureMaker:
             weights=weights,
             seed=seeder.get(),
         )
+        self.speaker_ids = MultiChoiceRandGen(
+            pool_dict={
+                regexp: list(filter(
+                    re.compile(regexp).match,
+                    self.loader._speech_files.keys(),
+                )) for regexp in speakers},
+            seed=seeder.get(),
+        )
 
         # noises
         self.noises = ChoiceRandGen(
@@ -870,6 +878,7 @@ class RandomMixtureMaker:
 
     def roll(self):
         self.speakers.roll()
+        self.speaker_ids.roll()
         self.noises.roll()
         self.room_regexps.roll()
         self.rooms.roll()
@@ -913,7 +922,8 @@ class RandomMixtureMaker:
 
     def add_random_target(self, angle):
         speaker = self.speakers.get()
-        file = self.target_file_randomizer.get(speaker)
+        speaker_id = self.speaker_ids.get(speaker)
+        file = self.target_file_randomizer.get(speaker_id)
         x = self.loader.load_file(file)
         brir, _ = self.loader.load_brirs(self.room, angle)
         brir = self.decayer.run(brir)

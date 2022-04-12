@@ -1,6 +1,6 @@
 MODELS: models/
 DATASETS: data/datasets/
-DCASE: data/external/DCASE/
+DCASE: data/external/DCASE-16kHz-mono-flac/
 SURREY: data/external/SURREY/
 TIMIT: data/external/TIMIT/
 HUDDERSFIELD: data/external/Huddersfield/
@@ -19,3 +19,5 @@ AVIL: data/external/AVIL/
 ELOSPHERES: data/external/ELOSPHERES/
 BRAS: data/external/BRAS/
 VCTK: data/external/VCTK-16kHz/
+WSJ0: data/external/WSJ0-convert/
+CLARITY: data/external/Clarity-16kHz-flac/

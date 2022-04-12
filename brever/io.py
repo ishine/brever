@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import random
@@ -46,6 +47,7 @@ class AudioFileLoader:
         self.fs = fs
         self.resample = resample
         self._speech_files = {}
+        self._speakers = {}
         self._noise_files = {}
         self._room_angles = {}
         self._room_regexps = {}
@@ -102,98 +104,80 @@ class AudioFileLoader:
     def get_speech_files(self, speaker):
         if speaker in self._speech_files.keys():
             return self._speech_files[speaker]
-        prefix = speaker.split('_')[0]
-        dirpath = self.get_path(prefix)
-        output = []
-        if prefix in ['timit', 'libri']:
-            try:
-                regexp = speaker.split('_')[1].lower()
-            except IndexError:
-                raise ValueError(f'wrong speaker, got {speaker}')
-            regexp = check_regexp(regexp)
-            speakers = self.get_speakers(prefix)
-            if prefix == 'timit':
-                for key in filter(re.compile(regexp).match, speakers):
-                    for file in os.listdir(speakers[key]):
-                        if file.lower().endswith('.wav'):
-                            output.append(os.path.join(speakers[key], file))
-            elif prefix == 'libri':
-                for key in filter(re.compile(regexp).match, speakers):
-                    for root, dirs, files in os.walk(speakers[key]):
-                        for file in files:
-                            if file.lower().endswith('.flac'):
-                                output.append(os.path.join(root, file))
-        elif prefix in ['ieee', 'arctic', 'hint', 'vctk']:
-            for root, dirs, files in os.walk(dirpath):
-                for file in files:
-                    if file.lower().endswith(('.wav', '.flac')):
-                        output.append(os.path.join(root, file))
-        else:
+        try:
+            prefix = speaker.split('_')[0]
+            regexp = speaker.split('_')[1]
+        except IndexError:
             raise ValueError(f'wrong speaker, got {speaker}')
+        speakers = self.get_speakers(prefix)
+        output = []
+        regexp = check_regexp(regexp)
+        for key in filter(re.compile(regexp).match, speakers):
+            output += speakers[key]
         if not output:
             raise ValueError(f'no audio file found for speaker {speaker}')
-        self._speech_files[speaker] = output
         return output
 
     def get_speakers(self, prefix):
         dirpath = self.get_path(prefix)
+        if prefix in self._speakers:
+            return self._speakers[prefix]
+        speakers = {}
         if prefix == 'timit':
-            male_speakers = []
-            female_speakers = []
-            for root, dirs, files in os.walk(dirpath):
-                if root.endswith('TRAIN') or root.endswith('TEST'):
-                    for dialect in dirs:
-                        root_ = os.path.join(root, dialect)
-                        for speaker_id in os.listdir(root_):
-                            item = os.path.join(root_, speaker_id)
-                            if speaker_id.startswith('M'):
-                                male_speakers.append(item)
-                            elif speaker_id.startswith('F'):
-                                female_speakers.append(item)
-                            else:
-                                raise ValueError(f'Found unexpected TIMIT '
-                                                 'speaker ID not starting '
-                                                 f'with M nor F: {item}')
-            male_speakers.sort()
-            female_speakers.sort()
-            output = {}
-            for i, path in enumerate(male_speakers):
-                output[f'm{i}'] = path
-            for i, path in enumerate(female_speakers):
-                output[f'f{i}'] = path
-            return output
+            for folder in ['TRAIN', 'TEST']:
+                for dialect in [f'DR{i+1}' for i in range(8)]:
+                    dialect_dir = os.path.join(dirpath, folder, dialect)
+                    for speaker in os.listdir(dialect_dir):
+                        speaker_dir = os.path.join(dialect_dir, speaker)
+                        speakers[speaker] = []
+                        for file in os.listdir(speaker_dir):
+                            if file.endswith('.WAV'):
+                                filepath = os.path.join(speaker_dir, file)
+                                speakers[speaker].append(filepath)
         elif prefix == 'libri':
-            male_speakers = []
-            female_speakers = []
-            txt_file = os.path.join(dirpath, 'SPEAKERS.TXT')
-            id_sex_dict = {}
-            with open(txt_file) as f:
-                for line in f.readlines():
-                    if not line.startswith(';'):
-                        id_ = line[:4].rstrip()
-                        sex = line[7]
-                        id_sex_dict[id_] = sex
-            for dset_name in os.listdir(dirpath):
-                dset_path = os.path.join(dirpath, dset_name)
-                if os.path.isdir(dset_path):
-                    for speaker_id in os.listdir(dset_path):
-                        speaker_path = os.path.join(dset_path, speaker_id)
-                        sex = id_sex_dict[speaker_id]
-                        if sex == 'M':
-                            male_speakers.append(speaker_path)
-                        elif sex == 'F':
-                            female_speakers.append(speaker_path)
-                        else:
-                            raise ValueError(f'Bad sex character pulled from '
-                                             f'SPEAKERS.TXT: {sex}')
-            male_speakers.sort(key=lambda x: int(os.path.basename(x)))
-            female_speakers.sort(key=lambda x: int(os.path.basename(x)))
-            output = {}
-            for i, path in enumerate(male_speakers):
-                output[f'm{i}'] = path
-            for i, path in enumerate(female_speakers):
-                output[f'f{i}'] = path
-            return output
+            for split in os.listdir(dirpath):
+                split_path = os.path.join(dirpath, split)
+                if os.path.isdir(split_path):
+                    for speaker in os.listdir(split_path):
+                        speakers[speaker] = []
+                        speaker_path = os.path.join(split_path, speaker)
+                        for subdir in os.listdir(speaker_path):
+                            subdir_path = os.path.join(speaker_path, subdir)
+                            for file in os.listdir(subdir_path):
+                                if file.endswith('.flac'):
+                                    filepath = os.path.join(subdir_path, file)
+                                    speakers[speaker].append(filepath)
+        elif prefix == 'clarity':
+            audio_dir = os.path.join(dirpath, 'audio')
+            for file in os.listdir(audio_dir):
+                speaker = file[:4]
+                if speaker not in speakers.keys():
+                    speakers[speaker] = []
+                filepath = os.path.join(audio_dir, file)
+                speakers[speaker].append(filepath)
+        elif prefix == 'wsj0':
+            audio_dir = os.path.join(dirpath, 'audio')
+            for speaker in os.listdir(audio_dir):
+                speaker_dir = os.path.join(audio_dir, speaker)
+                speakers[speaker] = []
+                for file in os.listdir(speaker_dir):
+                    filepath = os.path.join(speaker_dir, file)
+                    speakers[speaker].append(filepath)
+        elif prefix == 'vctk':
+            for speaker in os.listdir(dirpath):
+                speaker_dir = os.path.join(dirpath, speaker)
+                speakers[speaker] = []
+                for file in os.listdir(speaker_dir):
+                    filepath = os.path.join(speaker_dir, file)
+                    speakers[speaker].append(filepath)
+        else:
+            raise ValueError(f'wrong alias, got {prefix}')
+        for key in list(speakers.keys()):
+            new_key = f'{prefix}_{key}'
+            speakers[new_key] = speakers.pop(key)
+            self._speech_files[new_key] = speakers[new_key]
+        self._speakers[prefix] = speakers
+        return speakers
 
     def get_noise_files(self, noise):
         if noise in self._noise_files.keys():
@@ -209,7 +193,7 @@ class AudioFileLoader:
             regexp = check_regexp(regexp)
             for root, dirs, files in os.walk(dirpath):
                 for file in files:
-                    if file.lower().endswith('.wav'):
+                    if file.lower().endswith(('.wav', '.flac')):
                         noise_type = file.split('-')[0]
                         if re.match(regexp, noise_type):
                             output.append(os.path.join(root, file))
@@ -504,17 +488,19 @@ class AudioFileLoader:
         self._room_angles[room] = angles
         return angles
 
-    def get_duration(self, speaker):
+    def get_duration(self, speaker, reduce_=True):
         files = self.get_speech_files(speaker)
-        duration = 0
+        logging.info(f'Calculating {speaker} duration')
+        duration = []
         for file in files:
-            duration += sf.info(file).duration
+            duration.append(sf.info(file).duration)
+        if reduce_:
+            duration = sum(duration)
         return duration, len(files)
 
     def calc_weights(self, speakers):
         weights = {}
         if len(speakers) > 1:
-            logging.info('Calculating corpus probabilities')
             for speaker in speakers:
                 duration, n_files = self.get_duration(speaker)
                 weights[speaker] = n_files/duration
