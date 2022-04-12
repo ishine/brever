@@ -258,12 +258,12 @@ class BreverTrainer:
     def train(self):
         self.model.train()
         train_loss = 0
-        for data, target in self.train_dataloader:
+        for data, target, lengths in self.train_dataloader:
             if self.cuda:
                 data, target = data.cuda(), target.cuda()
             self.optimizer.zero_grad()
             output = self.model(data)
-            loss = self.criterion(output, target)
+            loss = self.criterion(output, target, lengths)
             loss.backward()
             if self.grad_clip != 0:
                 torch.nn.utils.clip_grad_norm_(
@@ -278,11 +278,11 @@ class BreverTrainer:
         self.model.eval()
         with torch.no_grad():
             val_loss = 0
-            for data, target in self.val_dataloader:
+            for data, target, lengths in self.val_dataloader:
                 if self.cuda:
                     data, target = data.cuda(), target.cuda()
                 output = self.model(data)
-                val_loss += self.criterion(output, target).item()
+                val_loss += self.criterion(output, target, lengths).item()
             val_loss /= len(self.val_dataloader)
         return val_loss
 
@@ -390,7 +390,7 @@ class ConvergenceTracker:
 
 
 class SISNR:
-    def __call__(self, data, target):
+    def __call__(self, data, target, lengths):
         """
         Calculate SI-SNR with PIT.
 
@@ -407,8 +407,13 @@ class SISNR:
             SI-SNR.
         """
         # (B, S, L) = (batch_size, sources, length)
-        data = data - data.mean(dim=2, keepdim=True)
-        target = target - target.mean(dim=2, keepdim=True)
+        lengths = torch.as_tensor(lengths).reshape(-1, 1, 1)
+        data = data - data.sum(dim=2, keepdim=True)/lengths
+        target = target - target.sum(dim=2, keepdim=True)/lengths
+
+        for i, length in enumerate(lengths):
+            data[i, ..., length:] = 0
+            target[i, ..., length:] = 0
 
         s_hat = torch.unsqueeze(data, dim=1)  # (B, 1, S, L)
         s = torch.unsqueeze(target, dim=2)  # (B, S, 1, L)
@@ -431,7 +436,7 @@ class SISNR:
 
 
 class SNR:
-    def __call__(self, data, target):
+    def __call__(self, data, target, lengths):
         """
         Calculate SNR without PIT.
 
@@ -455,10 +460,17 @@ class SNR:
         return loss
 
 
+class MSE:
+    def __call__(self, data, target, lengths):
+        lengths = torch.as_tensor(lengths).reshape(-1, 1)
+        loss = (data-target).pow(2).sum(-1)/lengths
+        return loss.mean()
+
+
 def get_criterion(name):
     if name == 'SISNR':
         return SISNR()
     elif name == 'SNR':
         return SNR()
     else:
-        return getattr(torch.nn, name)()
+        return MSE()

@@ -514,11 +514,12 @@ class BreverDataLoader(torch.utils.data.DataLoader):
         self.batch_sampler.set_epoch(epoch)
 
     def _collate_fn(self, batch):
-        max_length = max(x.shape[-1] for x, _ in batch)
+        lengths = list(x.shape[-1] for x, _ in batch)
+        max_length = max(lengths)
         batch_x, batch_y = [], []
         for x, y in batch:
             assert x.shape[-1] == y.shape[-1]
             padding = max_length - x.shape[-1]
             batch_x.append(F.pad(x, (0, padding)))
             batch_y.append(F.pad(y, (0, padding)))
-        return torch.stack(batch_x), torch.stack(batch_y)
+        return torch.stack(batch_x), torch.stack(batch_y), lengths
