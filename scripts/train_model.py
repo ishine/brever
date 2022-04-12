@@ -9,7 +9,7 @@ import torch
 from brever.config import get_config
 from brever.data import DNNDataset, ConvTasNetDataset
 from brever.logger import set_logger
-from brever.models import DNN, ConvTasNet
+from brever.models import DNN, ConvTasNet, count_params
 from brever.training import BreverTrainer
 
 
@@ -106,6 +106,10 @@ def main():
     # cast to cuda
     if cuda:
         model = model.cuda()
+
+    # print number of parameters
+    num_params = f'{round(count_params(model))/1e6:.2f}M'
+    logging.info(f'Number of parameters: {num_params}')
 
     # initialize trainer
     logging.info('Initializing trainer')
