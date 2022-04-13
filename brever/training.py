@@ -21,17 +21,23 @@ eps = torch.finfo(torch.float32).eps
 
 
 class TrainingTimer:
-    def __init__(self, total_steps):
-        self.total_steps = total_steps
-        self.steps_taken = None
+    def __init__(self, max_steps):
+        self.max_steps = max_steps
+        self.session_steps_taken = None
         self.start_time = None
+        self.time_offset = 0
+        self.step_offset = 0
+
+    def set_offset(self, time_offset, step_offset):
+        self.time_offset = time_offset
+        self.step_offset = step_offset
 
     def start(self):
         self.start_time = time.time()
-        self.steps_taken = 0
+        self.session_steps_taken = 0
 
     def step(self):
-        self.steps_taken += 1
+        self.session_steps_taken += 1
 
     def log(self):
         etl = self.estimated_time_left
@@ -41,21 +47,29 @@ class TrainingTimer:
         logging.info(log)
 
     def final_log(self):
-        total_time = self.elapsed_time
+        total_time = self.total_elapsed_time
         logging.info(f'Time spent: {int(total_time/3600)} h '
                      f'{int(total_time%3600/60)} m {int(total_time%60)} s')
 
     @property
-    def elapsed_time(self):
+    def total_elapsed_time(self):
+        return self.session_elapsed_time + self.time_offset
+
+    @property
+    def session_elapsed_time(self):
         return time.time() - self.start_time
 
     @property
     def time_per_step(self):
-        return self.elapsed_time/self.steps_taken
+        return self.session_elapsed_time/self.session_steps_taken
+
+    @property
+    def total_steps_taken(self):
+        return self.session_steps_taken + self.step_offset
 
     @property
     def steps_left(self):
-        return self.total_steps - self.steps_taken
+        return self.max_steps - self.total_steps_taken
 
     @property
     def estimated_time_left(self):
@@ -141,6 +155,7 @@ class BreverTrainer:
         self.grad_clip = grad_clip
         self.ignore_checkpoint = ignore_checkpoint
         self.epochs_ran = 0
+        self.max_memory_allocated = 0
 
         # batch samplers
         if batch_sampler == 'bucket':
@@ -309,7 +324,12 @@ class BreverTrainer:
             'losses': {
                 'train': self.loss_logger.train_loss,
                 'val': self.loss_logger.val_loss,
-            }
+            },
+            'max_memory_allocated': max(
+                torch.cuda.max_memory_allocated(),
+                self.max_memory_allocated,
+            ),
+            'time_spent': self.timer.total_elapsed_time,
         }
         torch.save(state, self.checkpoint_path)
 
@@ -330,6 +350,8 @@ class BreverTrainer:
         self.loss_logger.train_loss = state['losses']['train']
         self.loss_logger.val_loss = state['losses']['val']
         self.epochs_ran = state['epochs']
+        self.max_memory_allocated = state['max_memory_allocated']
+        self.timer.set_offset(state['time_spent'], state['epochs'])
 
 
 class EarlyStopping:
@@ -487,7 +509,7 @@ def get_criterion(name):
 
 
 def apply_mask(data, target, lengths):
-    mask = torch.zeros(*data.shape)
+    mask = torch.zeros(*data.shape, device=data.device)
     for i, length in enumerate(lengths):
         mask[i, ..., :length:] = 1
     return data*mask, target*mask
