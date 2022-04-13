@@ -407,14 +407,19 @@ class SISNR:
             SI-SNR.
         """
         # (B, S, L) = (batch_size, sources, length)
+
+        # apply mask a first time to get correct normalization statistics
+        data, target = apply_mask(data, target, lengths)
+
+        # normalize
         lengths = torch.as_tensor(lengths).reshape(-1, 1, 1)
         data = data - data.sum(dim=2, keepdim=True)/lengths
         target = target - target.sum(dim=2, keepdim=True)/lengths
 
-        for i, length in enumerate(lengths):
-            data[i, ..., length:] = 0
-            target[i, ..., length:] = 0
+        # apply mask a second time since trailing samples are now non-zero
+        data, target = apply_mask(data, target, lengths)
 
+        # calculate pair-wise snr
         s_hat = torch.unsqueeze(data, dim=1)  # (B, 1, S, L)
         s = torch.unsqueeze(target, dim=2)  # (B, S, 1, L)
         s_target = torch.sum(s_hat*s, dim=3, keepdim=True)*s \
@@ -424,6 +429,7 @@ class SISNR:
             / (torch.sum(e_noise ** 2, dim=3) + eps)  # (B, S, S, L)
         si_snr = 10*torch.log10(si_snr + eps)
 
+        # permute
         S = data.shape[1]
         perms = data.new_tensor(list(permutations(range(S))), dtype=torch.long)
         index = torch.unsqueeze(perms, 2)
@@ -453,6 +459,7 @@ class SNR:
             SNR.
         """
         # (B, S, L) = (batch_size, sources, length)
+        data, target = apply_mask(data, target, lengths)
         snr = torch.sum(target**2, dim=-1) \
             / (torch.sum((target-data)**2, dim=-1) + eps)  # (B, S)
         snr = 10*torch.log10(snr + eps)  # (B, S)
@@ -462,6 +469,7 @@ class SNR:
 
 class MSE:
     def __call__(self, data, target, lengths):
+        data, target = apply_mask(data, target, lengths)
         lengths = torch.as_tensor(lengths).reshape(-1, 1)
         loss = (data-target).pow(2).sum(-1)/lengths
         return loss.mean()
@@ -474,3 +482,10 @@ def get_criterion(name):
         return SNR()
     else:
         return MSE()
+
+
+def apply_mask(data, target, lengths):
+    mask = torch.zeros(*data.shape)
+    for i, length in enumerate(lengths):
+        mask[i, ..., :length:] = 1
+    return data*mask, target*mask
