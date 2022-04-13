@@ -480,8 +480,10 @@ def get_criterion(name):
         return SISNR()
     elif name == 'SNR':
         return SNR()
-    else:
+    elif name == 'MSE':
         return MSE()
+    else:
+        raise ValueError(f'Unrecognized criterion, got {name}')
 
 
 def apply_mask(data, target, lengths):
