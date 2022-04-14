@@ -137,6 +137,7 @@ def main():
         convergence_window=config.TRAINING.CONVERGENCE.WINDOW,
         convergence_threshold=config.TRAINING.CONVERGENCE.THRESHOLD,
         grad_clip=config.TRAINING.GRAD_CLIP,
+        ignore_checkpoint=args.force,
     )
 
     # run
