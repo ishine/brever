@@ -132,6 +132,7 @@ class ModelArgParser(argparse.ArgumentParser):
         'grad_clip': ['TRAINING', 'GRAD_CLIP'],
         'optimizer': ['TRAINING', 'OPTIMIZER'],
         'segment_length': ['TRAINING', 'SEGMENT_LENGTH'],
+        'batch_size': ['TRAINING', 'BATCH_SAMPLER', 'BATCH_SIZE'],
     }
 
     arg_map = {
@@ -210,3 +211,4 @@ class ModelArgParser(argparse.ArgumentParser):
         self.add_argument('--grad-clip', type=float)
         self.add_argument('--optimizer')
         self.add_argument('--segment-length', type=float)
+        self.add_argument('--batch-size', type=float)

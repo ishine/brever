@@ -69,6 +69,7 @@ def test_dnn_args():
         '--grad-clip', '0',
         '--optimizer', 'foo',
         '--segment-length', '0',
+        '--batch-size', '0',
         # model args
         'dnn',
         '--batch-norm', '0',
@@ -110,6 +111,7 @@ def test_convtasnet_args():
         '--grad-clip', '0',
         '--optimizer', 'foo',
         '--segment-length', '0',
+        '--batch-size', '0',
         # model args
         'convtasnet',
         '--filters', '0',
