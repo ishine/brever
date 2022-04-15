@@ -13,9 +13,9 @@ def main():
         'speakers': [
             'timit_.*',
             'libri_.*',
-            'ieee',
-            'arctic',
-            'vctk',
+            'wsj0_.*',
+            'clarity_.*',
+            'vctk_.*',
         ],
         'noises': [
             'dcase_.*',
@@ -87,7 +87,8 @@ def main():
             **kwargs,
         )
 
-    archs = ['dnn', 'convtasnet', 'convtasnet-k=2', 'convtasnet-big']
+    # archs = ['dnn', 'convtasnet', 'convtasnet-k=2', 'convtasnet-big']
+    archs = ['dnn', 'convtasnet', 'convtasnet-k=2']
     dsets = []
     models = []
     evaluations = []

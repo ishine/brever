@@ -23,7 +23,7 @@ TRAINING:
   SEGMENT_LENGTH: 4.0  # 0.0 to disable
   BATCH_SAMPLER:
     WHICH: bucket
-    BATCH_SIZE: 16.0
+    BATCH_SIZE: 128.0
     NUM_BUCKETS: 10
     SORTED: False
 MODEL:
