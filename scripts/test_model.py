@@ -230,5 +230,5 @@ if __name__ == '__main__':
     parser.add_argument('--output-dir',
                         help='where to write signals')
     args = parser.parse_args()
-    for test_path in args.test_path:
+    for test_path in args.test_paths:
         main(test_path)
