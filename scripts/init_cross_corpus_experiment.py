@@ -91,11 +91,14 @@ def main():
     archs = ['dnn', 'convtasnet', 'convtasnet-k=2']
     dsets = []
     models = []
-    evaluations = []
+    evaluations = {}
 
     def add_evals(model, paths):
+        if model not in evaluations.keys():
+            evaluations[model] = []
         for p in paths:
-            evaluations.append(f'bash jobs/test_model.sh {model} {p}\n')
+            if p not in evaluations[model]:
+                evaluations[model].append(p)
 
     for dim, vals in dict_.items():
         # test paths
@@ -129,7 +132,9 @@ def main():
 
     eval_script = 'cross_corpus_eval.sh'
     with open(eval_script, 'w') as f:
-        f.writelines(set(evaluations))
+        for model, test_paths in evaluations.items():
+            f.write(f"bash jobs/test_model.sh {model} {' '.join(test_paths)}")
+            f.write("\n")
 
     for model_id in os.listdir(model_init.dir_):
         model_path = os.path.join(model_init.dir_, model_id)

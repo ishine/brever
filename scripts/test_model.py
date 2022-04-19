@@ -38,7 +38,7 @@ def format_scores(x, figures=4):
     return x
 
 
-def main():
+def main(test_path):
     # check if model exists
     if not os.path.exists(args.input):
         raise FileNotFoundError(f'model does not exist: {args.input}')
@@ -62,7 +62,7 @@ def main():
     logging.info('Initializing dataset')
     if config.ARCH == 'dnn':
         dataset = DNNDataset(
-            path=args.test_path,
+            path=test_path,
             features=config.MODEL.FEATURES,
             stacks=config.MODEL.STACKS,
             decimation=1,
@@ -74,7 +74,7 @@ def main():
         )
     elif config.ARCH == 'convtasnet':
         dataset = ConvTasNetDataset(
-            path=args.test_path,
+            path=test_path,
             components=config.MODEL.SOURCES,
         )
     else:
@@ -117,7 +117,7 @@ def main():
     if os.path.exists(scores_path):
         with open(scores_path) as f:
             saved_scores = json.load(f)
-        if args.test_path in saved_scores.keys() and not args.force:
+        if test_path in saved_scores.keys() and not args.force:
             raise FileExistsError('model already tested on this dataset')
 
     scores = {
@@ -214,7 +214,7 @@ def main():
             saved_scores = json.load(f)
     else:
         saved_scores = {}
-    saved_scores[args.test_path] = format_scores(scores)
+    saved_scores[test_path] = format_scores(scores)
     with open(scores_path, 'w') as f:
         json.dump(saved_scores, f)
 
@@ -223,11 +223,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='test a model')
     parser.add_argument('input',
                         help='model directory')
-    parser.add_argument('test_path', type=arg_type_path,
-                        help='test dataset path')
+    parser.add_argument('test_paths', type=arg_type_path, nargs='+',
+                        help='test dataset paths')
     parser.add_argument('-f', '--force', action='store_true',
                         help='test even if already tested')
     parser.add_argument('--output-dir',
                         help='where to write signals')
     args = parser.parse_args()
-    main()
+    for test_path in args.test_path:
+        main(test_path)

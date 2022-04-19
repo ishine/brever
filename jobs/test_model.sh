@@ -65,13 +65,13 @@ then
     echo "---End of file---"
 fi
 
-if [ $# != 2 ]
+if [ $# -lt 2 ]
 then
-    echo "ERROR: 2 positional arguments are required"
+    echo "ERROR: at least 2 positional arguments are required"
     exit 1
 fi
 
-COMMAND="python scripts/test_model.py $1 $2"
+COMMAND="python scripts/test_model.py $1 ${@:2}"
 if [ ${FORCE} = true ]
 then
     COMMAND="${COMMAND} -f"
