@@ -63,6 +63,8 @@ def main(test_path):
     if config.ARCH == 'dnn':
         dataset = DNNDataset(
             path=test_path,
+            segment_length=0.0,
+            fs=config.FS,
             features=config.MODEL.FEATURES,
             stacks=config.MODEL.STACKS,
             decimation=1,
@@ -70,11 +72,12 @@ def main(test_path):
             stft_hop_length=config.MODEL.STFT.HOP_LENGTH,
             stft_window=config.MODEL.STFT.WINDOW,
             mel_filters=config.MODEL.MEL_FILTERS,
-            fs=config.FS,
         )
     elif config.ARCH == 'convtasnet':
         dataset = ConvTasNetDataset(
             path=test_path,
+            segment_length=0.0,
+            fs=config.FS,
             components=config.MODEL.SOURCES,
         )
     else:
@@ -192,10 +195,12 @@ def main(test_path):
         snr_model = -SNR()(
             torch.from_numpy(output.copy()),
             torch.from_numpy(target.copy()),
+            [data.shape[-1]],
         ).item()
         snr_ref = -SNR()(
             torch.from_numpy(data.copy()),
             torch.from_numpy(target.copy()),
+            [data.shape[-1]],
         ).item()
         scores['model']['SNR'].append(snr_model)
         scores['ref']['SNR'].append(snr_ref)

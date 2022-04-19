@@ -509,6 +509,7 @@ def get_criterion(name):
 
 
 def apply_mask(data, target, lengths):
+    assert len(lengths) == data.size(-1)
     mask = torch.zeros(*data.shape, device=data.device)
     for i, length in enumerate(lengths):
         mask[i, ..., :length:] = 1
