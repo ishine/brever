@@ -34,9 +34,9 @@ def main():
         'speakers': [
             'timit_.*',
             'libri_.*',
-            'ieee',
-            'arctic',
-            'vctk',
+            'wsj0_.*',
+            'clarity_.*',
+            'vctk_.*',
         ],
         'noises': [
             'dcase_.*',
