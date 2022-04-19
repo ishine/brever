@@ -434,7 +434,7 @@ class SISNR:
         data, target = apply_mask(data, target, lengths)
 
         # normalize
-        lengths = torch.as_tensor(lengths).reshape(-1, 1, 1)
+        lengths = torch.as_tensor(lengths, device=data.device).view(-1, 1, 1)
         data = data - data.sum(dim=2, keepdim=True)/lengths
         target = target - target.sum(dim=2, keepdim=True)/lengths
 
@@ -492,7 +492,7 @@ class SNR:
 class MSE:
     def __call__(self, data, target, lengths):
         data, target = apply_mask(data, target, lengths)
-        lengths = torch.as_tensor(lengths).reshape(-1, 1)
+        lengths = torch.as_tensor(lengths, device=data.device).view(-1, 1, 1)
         loss = (data-target).pow(2).sum(-1)/lengths
         return loss.mean()
 
