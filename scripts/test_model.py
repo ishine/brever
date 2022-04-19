@@ -146,32 +146,32 @@ def main(test_path):
         logging.info(f'Evaluating on mixture {i}/{len(dataset)}')
 
         if config.ARCH == 'dnn':
-            data, target = dataset.load_segment(i)
-            output, mask = model.enhance(data, dataset, True)
-            target = target[0]
+            data, target = dataset.load_segment(i)  # (2, L) and (S, 2, L)
+            output, mask = model.enhance(data, dataset, True)  # (2, L)
+            target = target[0]  # (2, L)
+            data = data.mean(dim=0)  # (L)
+            output = output.mean(dim=0)  # (L)
+            target = target.mean(dim=0)  # (L)
         elif config.ARCH == 'convtasnet':
-            data, target = dataset[i]
-            output = model(data.unsqueeze(0))
-            output = output.squeeze(0)
-            data = data.unsqueeze(0)
-            target = target[:1]
+            data, target = dataset[i]  # (L) and (S, L)
+            output = model(data.unsqueeze(0))  # (1, S, L)
+            output = output.squeeze(0)  # (S, L)
+            output = output[0]  # (L)
+            target = target[0]  # (L)
         else:
             raise ValueError(f'wrong model architecture, got {config.ARCH}')
-        output = output.numpy()
-        target = target.numpy()
-        data = data.numpy()
 
         # pesq
         pesq_model = pesq(
             config.FS,
-            target.mean(axis=0),
-            output.mean(axis=0),
+            target.numpy(),
+            output.numpy(),
             'wb',
         )
         pesq_ref = pesq(
             config.FS,
-            target.mean(axis=0),
-            data.mean(axis=0),
+            target.numpy(),
+            data.numpy(),
             'wb',
         )
         scores['model']['PESQ'].append(pesq_model)
@@ -179,13 +179,13 @@ def main(test_path):
 
         # stoi
         stoi_model = stoi(
-            target.mean(axis=0),
-            output.mean(axis=0),
+            target.numpy(),
+            output.numpy(),
             config.FS,
         )
         stoi_ref = stoi(
-            target.mean(axis=0),
-            data.mean(axis=0),
+            target.numpy(),
+            data.numpy(),
             config.FS,
         )
         scores['model']['STOI'].append(stoi_model)
@@ -193,13 +193,13 @@ def main(test_path):
 
         # snr
         snr_model = -SNR()(
-            torch.from_numpy(output.copy()),
-            torch.from_numpy(target.copy()),
+            output.unsqueeze(0),
+            target.unsqueeze(0),
             [data.shape[-1]],
         ).item()
         snr_ref = -SNR()(
-            torch.from_numpy(data.copy()),
-            torch.from_numpy(target.copy()),
+            data.unsqueeze(0),
+            target.unsqueeze(0),
             [data.shape[-1]],
         ).item()
         scores['model']['SNR'].append(snr_model)
