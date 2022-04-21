@@ -62,7 +62,7 @@ def main():
             'batch_sampler': 'bucket',
         },
         {
-            'batch_size': 1.0,
+            'batch_size': 4.0,
             'segment_length': 4.0,
             'batch_sampler': 'bucket',
         },

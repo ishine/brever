@@ -34,6 +34,7 @@ class BreverDataset(torch.utils.data.Dataset):
         self.segment_strategy = segment_strategy
         self.segment_info = self.get_segment_info()
         self.preloaded_data = None
+        self._item_lengths = None
 
     def build_paths(self, mix_idx):
         mix_dir = os.path.join(self.path, 'audio')
@@ -55,6 +56,16 @@ class BreverDataset(torch.utils.data.Dataset):
             for mix_idx, mix_length in enumerate(mix_lengths):
                 self._add_segment_info(segment_info, mix_idx, mix_length)
         return segment_info
+
+    def get_item_lengths(self):
+        item_lengths = []
+        for _, (start, end) in self.segment_info:
+            item_lengths.append(self.segment_to_item_length(end-start))
+        return item_lengths
+
+    def segment_to_item_length(self, segment_length):
+        # return segment_length
+        raise NotImplementedError
 
     def _add_segment_info(self, segment_info, mix_idx, mix_length):
         # shift length
@@ -120,7 +131,8 @@ class BreverDataset(torch.utils.data.Dataset):
         return data, target
 
     def post_proc(self, data, target):
-        return data, target
+        # return data, target
+        raise NotImplementedError
 
     def load_segment(self, index):
         if not 0 <= index < len(self):
@@ -147,7 +159,9 @@ class BreverDataset(torch.utils.data.Dataset):
 
     @property
     def item_lengths(self):
-        return [end-start for _, (start, end) in self.segment_info]
+        if self._item_lengths is None:
+            self._item_lengths = self.get_item_lengths()
+        return self._item_lengths
 
     def preload(self, cuda):
         preloaded_data = []
@@ -195,6 +209,9 @@ class DNNDataset(BreverDataset):
             fs=self.fs,
         )
 
+    def segment_to_item_length(self, item_length):
+        return self.stft.frame_count(item_length)
+
     def post_proc(self, data, target, return_stft_output=False):
         x = torch.stack([data, *target])  # (sources, channels, samples)
         mag, phase = self.stft.analyze(x)  # (sources, channels, bins, frames)
@@ -235,10 +252,6 @@ class DNNDataset(BreverDataset):
         return data[:, ::self.decimation]
 
     @property
-    def item_lengths(self):
-        return [self.stft.frame_count(n) for n in super().item_lengths]
-
-    @property
     def n_features(self):
         data, _ = self[0]
         return data.shape[0]
@@ -268,6 +281,9 @@ class ConvTasNetDataset(BreverDataset):
         **kwargs,
     ):
         super().__init__(path, **kwargs)
+
+    def segment_to_item_length(self, item_length):
+        return item_length
 
     def post_proc(self, data, target):
         data = data.mean(axis=-2)
@@ -332,6 +348,11 @@ class BreverBatchSampler(torch.utils.data.Sampler):
         else:
             lengths = list(enumerate(self.dataset.item_lengths))
         return lengths
+
+    def segment_to_item_length(self, segment_length):
+        if isinstance(self.dataset, torch.utils.data.Subset):
+            dataset = self.dataset.dataset
+        return dataset.segment_to_item_length(segment_length)
 
     def calc_batch_stats(self):
         batch_sizes = []
@@ -401,6 +422,7 @@ class DynamicSimpleBatchSampler(BreverBatchSampler):
     def __init__(self, dataset, max_batch_size, drop_last=False, shuffle=True,
                  seed=0):
         super().__pre_init__(dataset, drop_last, shuffle, seed, sort=False)
+        max_batch_size = self.segment_to_item_length(max_batch_size)
         self.max_batch_size = max_batch_size
         self.generate_batches()
 
@@ -452,6 +474,7 @@ class DynamicSortedBatchSampler(DynamicSimpleBatchSampler):
     def __init__(self, dataset, max_batch_size, drop_last=False,
                  shuffle=True, seed=0):
         super().__pre_init__(dataset, drop_last, shuffle, seed, sort=True)
+        max_batch_size = self.segment_to_item_length(max_batch_size)
         self.max_batch_size = max_batch_size
         self.generate_batches()
 
@@ -465,6 +488,12 @@ class BucketBatchSampler(BreverBatchSampler):
     def __init__(self, dataset, max_batch_size, max_item_length,
                  num_buckets=10, drop_last=False, shuffle=True, seed=0):
         super().__pre_init__(dataset, drop_last, shuffle, seed, sort=False)
+        if max_batch_size < max_item_length:
+            raise ValueError('cannot have max_batch_size < max_item_length, '
+                             f'got max_batch_size={max_batch_size} '
+                             f'and max_item_length={max_item_length}')
+        max_batch_size = self.segment_to_item_length(max_batch_size)
+        max_item_length = self.segment_to_item_length(max_item_length)
         self.max_batch_size = max_batch_size
         self.max_item_length = max_item_length
         self.num_buckets = num_buckets
@@ -489,12 +518,15 @@ class BucketBatchSampler(BreverBatchSampler):
                     bucket_idx -= 1
                 else:
                     raise ValueError('found an item that is longer than the '
-                                     'maximum batch size')
+                                     'maximum item length')
             bucket_batches[bucket_idx].append((item_idx, item_length))
             if len(bucket_batches[bucket_idx]) \
-                    >= self.bucket_batch_lengths[bucket_idx]:
+                    == self.bucket_batch_lengths[bucket_idx]:
                 self.batches.append(bucket_batches[bucket_idx])
                 bucket_batches[bucket_idx] = []
+            elif len(bucket_batches[bucket_idx]) \
+                    > self.bucket_batch_lengths[bucket_idx]:
+                raise ValueError('bucket maximum number of items exceeded')
         if not self.drop_last:
             for batch in bucket_batches:
                 if len(batch) > 0:
