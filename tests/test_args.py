@@ -70,6 +70,7 @@ def test_dnn_args():
         '--optimizer', 'foo',
         '--segment-length', '0',
         '--batch-size', '0',
+        '--batch-sampler', 'foo',
         # model args
         'dnn',
         '--batch-norm', '0',
@@ -112,6 +113,7 @@ def test_convtasnet_args():
         '--optimizer', 'foo',
         '--segment-length', '0',
         '--batch-size', '0',
+        '--batch-sampler', 'foo',
         # model args
         'convtasnet',
         '--filters', '0',

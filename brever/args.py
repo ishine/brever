@@ -79,39 +79,39 @@ class DatasetArgParser(argparse.ArgumentParser):
         group.add_argument('--components', nargs='+', action=SetAction)
 
         group = self.add_argument_group('target options')
-        group.add_argument('--snr-dist-name')
+        group.add_argument('--snr-dist-name', type=str)
         group.add_argument('--snr-dist-args', type=float, nargs=2)
         group.add_argument('--target-angle', type=float, nargs=2)
 
         group = self.add_argument_group('noise options')
         group.add_argument('--noise-num', type=int, nargs=2)
         group.add_argument('--noise-angle', type=float, nargs=2)
-        group.add_argument('--ndr-dist-name')
+        group.add_argument('--ndr-dist-name', type=str)
         group.add_argument('--ndr-dist-args', type=float, nargs=2)
 
         group = self.add_argument_group('diffuse noise options')
         group.add_argument('--diffuse', type=arg_type_bool)
-        group.add_argument('--diffuse-color')
+        group.add_argument('--diffuse-color', type=str)
         group.add_argument('--ltas-eq', type=arg_type_bool)
 
         group = self.add_argument_group('decay options')
         group.add_argument('--decay', type=arg_type_bool)
-        group.add_argument('--decay-color')
-        group.add_argument('--rt60-dist-name')
+        group.add_argument('--decay-color', type=str)
+        group.add_argument('--rt60-dist-name', type=str)
         group.add_argument('--rt60-dist-args', type=float, nargs=2)
-        group.add_argument('--delay-dist-name')
+        group.add_argument('--delay-dist-name', type=str)
         group.add_argument('--delay-dist-args', type=float, nargs=2)
-        group.add_argument('--drr-dist-name')
+        group.add_argument('--drr-dist-name', type=str)
         group.add_argument('--drr-dist-args', type=float, nargs=2)
 
         group = self.add_argument_group('rms jitter options')
-        group.add_argument('--rms-jitter-dist-name')
+        group.add_argument('--rms-jitter-dist-name', type=str)
         group.add_argument('--rms-jitter-dist-args', type=float, nargs=2)
 
         group = self.add_argument_group('file limit options')
         group.add_argument('--speech-files', type=float, nargs=2)
         group.add_argument('--noise-files', type=float, nargs=2)
-        group.add_argument('--room-files')
+        group.add_argument('--room-files', type=str)
 
 
 class ModelArgParser(argparse.ArgumentParser):
@@ -133,6 +133,7 @@ class ModelArgParser(argparse.ArgumentParser):
         'optimizer': ['TRAINING', 'OPTIMIZER'],
         'segment_length': ['TRAINING', 'SEGMENT_LENGTH'],
         'batch_size': ['TRAINING', 'BATCH_SAMPLER', 'BATCH_SIZE'],
+        'batch_sampler': ['TRAINING', 'BATCH_SAMPLER', 'WHICH'],
     }
 
     arg_map = {
@@ -177,7 +178,7 @@ class ModelArgParser(argparse.ArgumentParser):
         sub.add_argument('--batch-norm', type=arg_type_bool)
         sub.add_argument('--dropout', type=float)
         sub.add_argument('--hidden-layers', type=int, nargs='+')
-        sub.add_argument('--norm-type')
+        sub.add_argument('--norm-type', type=str)
         sub.add_argument('--group-norm', type=arg_type_bool)
         sub.add_argument('--features', nargs='+', action=SetAction)
         sub.add_argument('--decimation', type=int)
@@ -194,7 +195,7 @@ class ModelArgParser(argparse.ArgumentParser):
         sub.add_argument('--kernel-size', type=int)
         sub.add_argument('--layers', type=int)
         sub.add_argument('--repeats', type=int)
-        sub.add_argument('--sources', nargs='+')
+        sub.add_argument('--sources', type=str, nargs='+')
 
         self.add_argument('--cuda', type=arg_type_bool)
         self.add_argument('--early-stop', type=arg_type_bool)
@@ -206,9 +207,10 @@ class ModelArgParser(argparse.ArgumentParser):
         self.add_argument('--train-path', type=arg_type_path, required=req)
         self.add_argument('--seed', type=int)
         self.add_argument('--val-size', type=float)
-        self.add_argument('--criterion')
+        self.add_argument('--criterion', type=str)
         self.add_argument('--preload', type=arg_type_bool)
         self.add_argument('--grad-clip', type=float)
-        self.add_argument('--optimizer')
+        self.add_argument('--optimizer', type=str)
         self.add_argument('--segment-length', type=float)
         self.add_argument('--batch-size', type=float)
+        self.add_argument('--batch-sampler', type=str)
