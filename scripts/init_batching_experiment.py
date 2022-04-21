@@ -84,14 +84,15 @@ def main():
     ]
 
     evaluations = []
-    for kwargs in hyperparams:
-        m = model_init.init_from_kwargs(
-            arch='dnn',
-            train_path=arg_type_path(p_train),
-            force=args.force,
-            **kwargs,
-        )
-        evaluations.append(f'bash jobs/test_model.sh {m} {p_test}\n')
+    for arch in ['dnn', 'convtasnet']:
+        for kwargs in hyperparams:
+            m = model_init.init_from_kwargs(
+                arch=arch,
+                train_path=arg_type_path(p_train),
+                force=args.force,
+                **kwargs,
+            )
+            evaluations.append(f'bash jobs/test_model.sh {m} {p_test}\n')
 
     eval_script = 'conv_tasnet_eval.sh'
     with open(eval_script, 'w') as f:
