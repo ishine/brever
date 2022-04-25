@@ -75,6 +75,7 @@ def main():
         state = torch.load(os.path.join(model, 'checkpoint.pt'))
         summary[model]['training time'] = fmt_time(state['time_spent'])
         summary[model]['GPU usage'] = fmt_memory(state['max_memory_allocated'])
+        summary[model]['min val loss'] = f"{min(data['val']):.2e}"
 
     lines = [
         Line2D([], [], color='k', linestyle='-'),
