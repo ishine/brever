@@ -88,7 +88,7 @@ def main():
         )
 
     # archs = ['dnn', 'convtasnet', 'convtasnet-k=2', 'convtasnet-big']
-    archs = ['dnn', 'convtasnet', 'convtasnet-k=2']
+    archs = ['dnn', 'convtasnet']
     dsets = []
     models = []
     evaluations = {}
