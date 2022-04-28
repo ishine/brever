@@ -4,6 +4,8 @@ import logging
 import os
 import random
 import shutil
+import tarfile
+import tempfile
 import time
 
 import soundfile as sf
@@ -29,11 +31,16 @@ def main():
     logging.info(f'Creating {args.input}')
     logging.info(config.to_dict())
 
-    # output directory
-    mixtures_dir = os.path.join(args.input, 'audio')
-    if os.path.exists(mixtures_dir):
-        shutil.rmtree(mixtures_dir)
-    os.mkdir(mixtures_dir)
+    # output directory or archive
+    mix_dirname = 'audio'
+    if args.no_tar:
+        mix_dirpath = os.path.join(args.input, mix_dirname)
+        if os.path.exists(mix_dirpath):
+            shutil.rmtree(mix_dirpath)
+        os.mkdir(mix_dirpath)
+    else:
+        archive_path = os.path.join(args.input, f'{mix_dirname}.tar')
+        archive = tarfile.open(archive_path, 'w')
 
     # seed for reproducibility
     random.seed(config.SEED)
@@ -100,8 +107,20 @@ def main():
         mixObject, metadata = randomMixtureMaker.make()
         for name in config.COMPONENTS:
             filename = f'{i:05d}_{name}.flac'
-            filepath = os.path.join(mixtures_dir, filename)
-            sf.write(filepath, getattr(mixObject, name), config.FS)
+            if args.no_tar:
+                filepath = os.path.join(mix_dirpath, filename)
+                sf.write(filepath, getattr(mixObject, name), config.FS)
+            else:
+                temp = tempfile.NamedTemporaryFile(
+                    prefix='brever_',
+                    suffix='.flac',
+                    delete=False,
+                )
+                sf.write(temp, getattr(mixObject, name), config.FS)
+                temp.close()
+                arcname = os.path.join(mix_dirname, filename)
+                archive.add(temp.name, arcname=arcname)
+                os.remove(temp.name)
         metadatas.append(metadata)
 
         # update duration and time spent
@@ -120,5 +139,7 @@ if __name__ == '__main__':
                         help='dataset directory')
     parser.add_argument('-f', '--force', action='store_true',
                         help='overwrite if already exists')
+    parser.add_argument('--no-tar', action='store_true',
+                        help='do not save mixtures in tar archive')
     args = parser.parse_args()
     main()

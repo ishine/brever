@@ -1,16 +1,42 @@
 import json
 import os
 import random
+import tarfile
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 import torchaudio
+import soundfile as sf
 
 from .features import FeatureExtractor
 from .filters import STFT, MelFB
 
 eps = np.finfo(float).eps
+
+
+class TarArchiveInterface:
+    """
+    Hats off to João F. Henriques for his tarfile PyTorch dataset available
+    under a BSD-3-Clause License: https://github.com/jotaf98/simple-tar-dataset
+
+    The difficulty comes from the fact that TarFile is not thread safe, so
+    when using multiple workers, each worker should have its own file handle.
+    """
+    def __init__(self, archive):
+        worker = torch.utils.data.get_worker_info()
+        worker = worker.id if worker else None
+        self.tar_obj = {worker: tarfile.open(archive)}
+        self.archive = archive
+        self.members = {m.name: m for m in self.tar_obj[worker].getmembers()}
+
+    def get_file(self, name):
+        # ensure a unique file handle per worker
+        worker = torch.utils.data.get_worker_info()
+        worker = worker.id if worker else None
+        if worker not in self.tar_obj:
+            self.tar_obj[worker] = tarfile.open(self.archive)
+        return self.tar_obj[worker].extractfile(self.members[name])
 
 
 class BreverDataset(torch.utils.data.Dataset):
@@ -25,19 +51,30 @@ class BreverDataset(torch.utils.data.Dataset):
     """
     def __init__(self, path, segment_length=4.0, overlap_length=0.0, fs=16e3,
                  components=['foreground', 'background'],
-                 segment_strategy='pass'):
+                 segment_strategy='pass', tar=True):
         self.path = path
         self.segment_length = round(segment_length*fs)
         self.overlap_length = round(overlap_length*fs)
         self.fs = fs
         self.components = components
         self.segment_strategy = segment_strategy
+        if tar:
+            self.archive = TarArchiveInterface(os.path.join(path, 'audio.tar'))
+        else:
+            self.archive = None
         self.segment_info = self.get_segment_info()
         self.preloaded_data = None
         self._item_lengths = None
 
+    def get_file(self, name):
+        if self.archive is None:
+            file = open(os.path.join(self.path, name), 'rb')
+        else:
+            file = self.archive.get_file(name)
+        return file
+
     def build_paths(self, mix_idx):
-        mix_dir = os.path.join(self.path, 'audio')
+        mix_dir = 'audio'
         mix_path = os.path.join(mix_dir, f'{mix_idx:05d}_mixture.flac')
         comp_paths = []
         for comp in self.components:
@@ -47,7 +84,6 @@ class BreverDataset(torch.utils.data.Dataset):
 
     def get_segment_info(self):
         mix_lengths = self.get_mix_lengths()
-        self._duration = sum(mix_lengths)
         segment_info = []
         if self.segment_length == 0:
             for mix_idx, mix_length in enumerate(mix_lengths):
@@ -64,7 +100,6 @@ class BreverDataset(torch.utils.data.Dataset):
         return item_lengths
 
     def segment_to_item_length(self, segment_length):
-        # return segment_length
         raise NotImplementedError
 
     def _add_segment_info(self, segment_info, mix_idx, mix_length):
@@ -83,7 +118,7 @@ class BreverDataset(torch.utils.data.Dataset):
         if n_segments <= 0:
             end = 0
         if self.segment_strategy == 'drop':
-            self._drop_amount += mix_length - end
+            pass
         elif self.segment_strategy == 'pass':
             if end != mix_length:
                 segment_idx = n_segments
@@ -113,10 +148,12 @@ class BreverDataset(torch.utils.data.Dataset):
         mix_lengths = []
         for i in range(n_mix):
             mix_path, comp_paths = self.build_paths(i)
-            mix_metadata = torchaudio.info(mix_path)
+            mix_file = self.get_file(mix_path)
+            mix_metadata = torchaudio.info(mix_file)
             mix_length = mix_metadata.num_frames
             for comp_path in comp_paths:
-                comp_metadata = torchaudio.info(comp_path)
+                comp_file = self.get_file(mix_path)
+                comp_metadata = torchaudio.info(comp_file)
                 comp_length = comp_metadata.num_frames
                 assert mix_length == comp_length
             mix_lengths.append(mix_length)
@@ -131,15 +168,28 @@ class BreverDataset(torch.utils.data.Dataset):
         return data, target
 
     def post_proc(self, data, target):
-        # return data, target
         raise NotImplementedError
+
+    def load_file(self, path):
+        file = self.get_file(path)
+        # x, _ = torchaudio.load(file)
+        # torchaudio.load is BROKEN for file-like objects from FLAC files!
+        # https://github.com/pytorch/audio/issues/2356
+        # use soundfile instead
+        x, fs = sf.read(file, dtype='float32')
+        if x.ndim == 1:
+            x = x.reshape(1, -1)
+        else:
+            x = x.T
+        x = torch.from_numpy(x)
+        return x, fs
 
     def load_segment(self, index):
         if not 0 <= index < len(self):
             raise IndexError
         mix_idx, (start, end) = self.segment_info[index]
         mix_path, comp_paths = self.build_paths(mix_idx)
-        mix, _ = torchaudio.load(mix_path)
+        mix, _ = self.load_file(mix_path)
         if end > mix.shape[-1]:
             if self.segment_strategy != 'pad':
                 raise ValueError('attempting to load a segment outside of '
@@ -149,7 +199,7 @@ class BreverDataset(torch.utils.data.Dataset):
         mix = mix[:, start:end]
         components = []
         for comp_path in comp_paths:
-            component, _ = torchaudio.load(comp_path)
+            component, _ = self.load_file(comp_path)
             component = component[:, start:end]
             components.append(component)
         return mix, torch.stack(components)
@@ -331,7 +381,7 @@ class BreverBatchSampler(torch.utils.data.Sampler):
                 randomizer.shuffle(indices)
         return indices
 
-    def _generate_batches(self):
+    def _generate_batches(self, indices):
         raise NotImplementedError
 
     def shuffle_batches(self):
@@ -484,6 +534,9 @@ class BucketBatchSampler(BreverBatchSampler):
     Items of similar length are grouped into buckets. Batches are formed with
     items from the same bucket. This attempts to minize both the batch size
     variability and the amount of padding while keeping some randomness.
+
+    Inspired from code by Speechbrain under Apache-2.0 License:
+    https://github.com/speechbrain/speechbrain/blob/b5d2836e3d0eabb541c5bdbca16fb00c49cb62a3/speechbrain/dataio/sampler.py#L305
     """
     def __init__(self, dataset, max_batch_size, max_item_length,
                  num_buckets=10, drop_last=False, shuffle=True, seed=0):
