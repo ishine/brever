@@ -4,6 +4,14 @@ import torch.nn.functional as F
 
 
 class ConvTasNet(nn.Module):
+    """
+    Implementation inspired from:
+    - Code provided by original authors Y. Luo and N. Mesgarani (2019) under a
+    Creative Commons Attribution-NonCommercial-ShareAlike 3.0 United States
+    License: https://github.com/naplab/Conv-TasNet.
+    - Code by Kaituo Xu under MIT License:
+    https://github.com/kaituoxu/Conv-TasNet
+    """
     def __init__(self, filters=512, filter_length=16, bottleneck_channels=128,
                  hidden_channels=512, skip_channels=128, kernel_size=3,
                  layers=8, repeats=3, sources=2, norm='cLN'):
