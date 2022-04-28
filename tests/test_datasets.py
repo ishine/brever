@@ -1,65 +1,61 @@
-from brever.data import (BreverDataset, BreverBatchSampler, BreverDataLoader,
-                         DNNDataset)
+from brever.data import DNNDataset
 
 
-def test_audio_dataset():
-    dataset = BreverDataset('tests/test_dataset')
-    assert len(dataset) == 10
-
-    batch_sampler = BreverBatchSampler(dataset, 3)
-    dataloader = BreverDataLoader(dataset, batch_sampler=batch_sampler)
-    assert len(dataloader) == 4
-    for data, target in dataloader:
-        pass
-
-    batch_sampler = BreverBatchSampler(dataset, 3, drop_last=True)
-    dataloader = BreverDataLoader(dataset, batch_sampler=batch_sampler)
-    assert len(dataloader) == 3
-    for data, target in dataloader:
-        pass
-
-    strats = ['drop', 'pass', 'pad', 'overlap']
-    lengths = [121, 131, 131, 131]
-    for strat, length in zip(strats, lengths):
-        dataset = BreverDataset('tests/test_dataset', segment_length=0.25,
-                                segment_strategy=strat)
-        for x in dataset:
-            pass
+def test_dnn_dataset_segment_strategies():
+    segment_strategies = [
+        'drop',
+        'pass',
+        'pad',
+        'overlap',
+    ]
+    lengths = [
+        125,
+        136,
+        136,
+        136,
+    ]
+    kwargs = {
+        'segment_length': 0.25,
+        'decimation': 1,
+        'stft_frame_length': 512,
+        'stft_hop_length': 256,
+    }
+    for segment_strategy, length in zip(segment_strategies, lengths):
+        dataset = DNNDataset(
+            'tests/test_dataset',
+            segment_strategy=segment_strategy,
+            **kwargs,
+        )
         assert len(dataset) == length
-
-    dataset = BreverDataset('tests/test_dataset', segment_length=0.25)
-    batch_sampler = BreverBatchSampler(dataset, 3)
-    dataloader = BreverDataLoader(dataset, batch_sampler=batch_sampler)
-    assert len(dataloader) == 41
-    for data, target in dataloader:
-        pass
-
-    batch_sampler = BreverBatchSampler(dataset, 3, drop_last=True)
-    dataloader = BreverDataLoader(dataset, batch_sampler=batch_sampler)
-    assert len(dataloader) == 40
-    for data, target in dataloader:
-        pass
+        for x, y in dataset:
+            break
 
 
-def test_dnn_dataset():
-    dataset = DNNDataset('tests/test_dataset', segment_length=0.25,
-                         segment_strategy='pass')
-    assert len(dataset) == 131
-
-    dataset = DNNDataset('tests/test_dataset', features={'logfbe'})
-    assert len(dataset) == 10
-
-    batch_sampler = BreverBatchSampler(dataset, 3)
-    dataloader = BreverDataLoader(dataset, batch_sampler=batch_sampler)
-    assert len(dataloader) == 4
-    for data, target in dataloader:
-        pass
-
-    dataset = BreverDataset('tests/test_dataset', segment_length=0.25)
-    assert len(dataset) == 121
-
-    batch_sampler = BreverBatchSampler(dataset, 3, drop_last=True)
-    dataloader = BreverDataLoader(dataset, batch_sampler=batch_sampler)
-    assert len(dataloader) == 40
-    for data, target in dataloader:
-        pass
+def test_dnn_dataset_segment_length():
+    segment_lengths = [
+        0.25,
+        0.50,
+        1.00,
+        2.00,
+    ]
+    lengths = [
+        136,
+        72,
+        39,
+        23,
+    ]
+    kwargs = {
+        'segment_strategy': 'pass',
+        'decimation': 1,
+        'stft_frame_length': 512,
+        'stft_hop_length': 256,
+    }
+    for segment_length, length in zip(segment_lengths, lengths):
+        dataset = DNNDataset(
+            'tests/test_dataset',
+            segment_length=segment_length,
+            **kwargs,
+        )
+        assert len(dataset) == length
+        for x, y in dataset:
+            break
