@@ -1,5 +1,6 @@
 import argparse
 import os
+import json
 
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
@@ -42,6 +43,10 @@ def fmt_memory(memory):
     return f'{memory:>5} GB'
 
 
+def fmt_score(score):
+    return f"{score:.2e}"
+
+
 def main():
     plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True)
     plt.rc('grid', color='w', linestyle='solid')
@@ -49,8 +54,18 @@ def main():
     summary = {}
 
     fig, ax = plt.subplots()
-    for model in args.inputs:
+
+    if args.test_path is not None:
+        fig_test, axes_test = plt.subplots(1, 3, figsize=(10, 3))
+        axes_test[0].set_title('PESQi')
+        axes_test[1].set_title('STOIi')
+        axes_test[2].set_title('SNRi')
+
+    for i, model in enumerate(args.inputs):
         path = os.path.join(model, 'losses.npz')
+        if not os.path.exists(path):
+            print(f"WARNING: {path} not found, skipping")
+            continue
         data = np.load(path)
 
         summary[model] = {}
@@ -72,10 +87,28 @@ def main():
         l, = ax.plot(data['train'], label=label)
         _, = ax.plot(data['val'], '--', color=l.get_color())
 
-        state = torch.load(os.path.join(model, 'checkpoint.pt'))
-        summary[model]['training time'] = fmt_time(state['time_spent'])
+        state = torch.load(os.path.join(model, 'checkpoint.pt'),
+                           map_location='cpu')
+        summary[model]['Training time'] = fmt_time(state['time_spent'])
         summary[model]['GPU usage'] = fmt_memory(state['max_memory_allocated'])
-        summary[model]['min val loss'] = f"{min(data['val']):.2e}"
+        summary[model]['Min. val. loss'] = fmt_score(min(data['val']))
+
+        if args.test_path is not None:
+            score_file = os.path.join(model, 'scores.json')
+            with open(score_file) as f:
+                scores = json.load(f)
+            pesq = np.mean(scores[args.test_path]['model']['PESQ'])
+            stoi = np.mean(scores[args.test_path]['model']['STOI'])
+            snr = np.mean(scores[args.test_path]['model']['SNR'])
+            pesq -= np.mean(scores[args.test_path]['ref']['PESQ'])
+            stoi -= np.mean(scores[args.test_path]['ref']['STOI'])
+            snr -= np.mean(scores[args.test_path]['ref']['SNR'])
+            summary[model]['Test PESQi'] = fmt_score(pesq)
+            summary[model]['Test STOIi'] = fmt_score(stoi)
+            summary[model]['Test SNRi'] = fmt_score(snr)
+            axes_test[0].bar([i], [pesq], width=1, label=label)
+            axes_test[1].bar([i], [stoi], width=1, label=label)
+            axes_test[2].bar([i], [snr], width=1, label=label)
 
     lines = [
         Line2D([], [], color='k', linestyle='-'),
@@ -89,6 +122,8 @@ def main():
 
     pretty_table(summary)
 
+    fig_test.tight_layout()
+
     plt.show()
 
 
@@ -98,6 +133,8 @@ if __name__ == '__main__':
                         help='paths to model directories')
     parser.add_argument('--legend-params', nargs='+',
                         help='hyperparameters to use to label curves')
+    parser.add_argument('--test-path',
+                        help='a test directory to check scores')
     parser.add_argument('--ymin', type=float)
     parser.add_argument('--ymax', type=float)
     args = parser.parse_args()
