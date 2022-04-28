@@ -42,26 +42,6 @@ def main():
             'batch_sampler': 'simple',
         },
         {
-            'batch_size': 1.0,
-            'segment_length': 1.0,
-            'batch_sampler': 'bucket',
-        },
-        {
-            'batch_size': 8.0,
-            'segment_length': 1.0,
-            'batch_sampler': 'bucket',
-        },
-        {
-            'batch_size': 32.0,
-            'segment_length': 1.0,
-            'batch_sampler': 'bucket',
-        },
-        {
-            'batch_size': 128.0,
-            'segment_length': 1.0,
-            'batch_sampler': 'bucket',
-        },
-        {
             'batch_size': 4.0,
             'segment_length': 4.0,
             'batch_sampler': 'bucket',
@@ -72,7 +52,17 @@ def main():
             'batch_sampler': 'bucket',
         },
         {
+            'batch_size': 16.0,
+            'segment_length': 4.0,
+            'batch_sampler': 'bucket',
+        },
+        {
             'batch_size': 32.0,
+            'segment_length': 4.0,
+            'batch_sampler': 'bucket',
+        },
+        {
+            'batch_size': 64.0,
             'segment_length': 4.0,
             'batch_sampler': 'bucket',
         },
@@ -94,7 +84,7 @@ def main():
             )
             evaluations.append(f'bash jobs/test_model.sh {m} {p_test}\n')
 
-    eval_script = 'conv_tasnet_eval.sh'
+    eval_script = 'batching_eval.sh'
     with open(eval_script, 'w') as f:
         f.writelines(set(evaluations))
 
