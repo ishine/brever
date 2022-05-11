@@ -122,7 +122,8 @@ def main():
 
     pretty_table(summary)
 
-    fig_test.tight_layout()
+    if args.test_path is not None:
+        fig_test.tight_layout()
 
     plt.show()
 
