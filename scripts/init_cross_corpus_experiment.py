@@ -130,6 +130,27 @@ def main():
             models.append(m3)
             add_evals(m3, test_paths)
 
+    # finally add a model trained on everything and tested on everything
+    test_paths = []
+    for dim, vals in dict_.items():  # first one test dataset per database
+        for val in vals:
+            p = init_test_dset(**{dim: {val}})
+            dsets.append(p)
+            test_paths.append(p)
+    # then one test dataset mixing everything
+    p = init_test_dset(**{dim: set(vals) for dim, vals in dict_.items()})
+    dsets.append(p)
+    test_paths.append(p)
+    # now one train dataset mixing everything
+    p0 = init_train_dset(**{dim: set(vals) for dim, vals in dict_.items()})
+    dsets.append(p0)
+    # finally models
+    for arch in archs:
+        m0 = init_model(arch, p0)
+        models.append(m0)
+        # evaluation
+        add_evals(m0, test_paths)
+
     eval_script = 'cross_corpus_eval.sh'
     with open(eval_script, 'w') as f:
         for model, test_paths in evaluations.items():
