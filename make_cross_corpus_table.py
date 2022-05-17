@@ -103,14 +103,9 @@ def get_test_dset(
 
 
 def get_model(arch, train_path):
-    kwargs = {}
-    if arch == 'convtasnet-k=2':
-        arch = 'convtasnet'
-        kwargs['sources'] = ['foreground', 'background']
     return model_init.get_path_from_kwargs(
         arch=arch,
         train_path=arg_type_path(train_path),
-        **kwargs,
     )
 
 
