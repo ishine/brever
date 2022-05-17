@@ -235,5 +235,10 @@ if __name__ == '__main__':
     parser.add_argument('--output-dir',
                         help='where to write signals')
     args = parser.parse_args()
+
+    import traceback
     for test_path in args.test_paths:
-        main(test_path)
+        try:
+            main(test_path)
+        except FileExistsError:
+            traceback.print_exc()
