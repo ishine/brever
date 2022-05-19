@@ -64,7 +64,7 @@ def main():
             force=args.force,
         )
 
-    archs = ['dnn', 'convtasnet']
+    archs = ['convtasnet']
     dsets = []
     models = []
     evaluations = {}
