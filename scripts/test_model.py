@@ -6,8 +6,8 @@ import json
 import numpy as np
 from pesq import pesq
 from pystoi import stoi
-import soundfile as sf
 import torch
+import torchaudio
 
 from brever.args import arg_type_path
 from brever.config import get_config
@@ -210,8 +210,10 @@ def main(test_path):
         logging.info(f'SNRi: {significant_figures(snr_model - snr_ref)}')
 
         if args.output_dir is not None:
+            input_path = os.path.join(args.output_dir, f'{i:05d}_input.flac')
             output_path = os.path.join(args.output_dir, f'{i:05d}_output.flac')
-            sf.write(output_path, output.T, config.FS)
+            torchaudio.save(input_path, data.unsqueeze(0), config.FS)
+            torchaudio.save(output_path, output.unsqueeze(0), config.FS)
 
     # update scores file
     if os.path.exists(scores_path):

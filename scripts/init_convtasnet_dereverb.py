@@ -10,20 +10,6 @@ def main():
     model_init = ModelInitializer(batch_mode=True)
 
     dict_ = {
-        'speakers': [
-            'timit_.*',
-            'libri_.*',
-            'wsj0_.*',
-            'clarity_.*',
-            'vctk_.*',
-        ],
-        'noises': [
-            'dcase_.*',
-            'noisex_.*',
-            'icra_.*',
-            'demand',
-            'arte',
-        ],
         'rooms': [
             'surrey_.*',
             'ash_.*',
@@ -49,6 +35,7 @@ def main():
             duration=36000,
             seed=0,
             force=args.force,
+            noise_num=[0, 0],
         )
 
     def init_test_dset(
@@ -67,6 +54,7 @@ def main():
             duration=3600,
             seed=42,
             force=args.force,
+            noise_num=[0, 0],
         )
 
     def init_model(arch, train_path):
@@ -110,53 +98,12 @@ def main():
                 # evaluations
                 add_evals(m1, test_paths)
                 add_evals(m2, test_paths)
-        # models for alternative definition of generalization gap
-        p3 = init_train_dset(**{dim: set(vals)})
-        dsets.append(p3)
-        for arch in archs:
-            m3 = init_model(arch, p3)
-            models.append(m3)
-            add_evals(m3, test_paths)
-
-    # finally add a model trained on everything and tested on everything
-    test_paths = []
-    for dim, vals in dict_.items():  # first one test dataset per database
-        for val in vals:
-            p = init_test_dset(**{dim: {val}})
-            dsets.append(p)
-            test_paths.append(p)
-    # then one test dataset mixing everything
-    p = init_test_dset(**{dim: set(vals) for dim, vals in dict_.items()})
-    dsets.append(p)
-    test_paths.append(p)
-    # now one train dataset mixing everything
-    p0 = init_train_dset(**{dim: set(vals) for dim, vals in dict_.items()})
-    dsets.append(p0)
-    # finally models
-    for arch in archs:
-        m0 = init_model(arch, p0)
-        models.append(m0)
-        # evaluation
-        add_evals(m0, test_paths)
 
     eval_script = 'cross_corpus_eval.sh'
     with open(eval_script, 'w') as f:
         for model, test_paths in evaluations.items():
             f.write(f"bash jobs/test_model.sh {model} {' '.join(test_paths)}")
             f.write("\n")
-
-    for model_id in os.listdir(model_init.dir_):
-        model_path = os.path.join(model_init.dir_, model_id)
-        if model_path not in models:
-            print('the following model was found in the system and was '
-                  f'not attempted to be initialized: {model_path}')
-    for kind in ['test', 'train']:
-        subdir = os.path.join(dset_init.dir_, kind)
-        for dset_id in os.listdir(subdir):
-            dset_path = os.path.join(subdir, dset_id).replace('\\', '/')
-            if dset_path not in dsets:
-                print('the following dataset was found in the system and was '
-                      f'not attempted to be initialized: {dset_path}')
 
 
 if __name__ == '__main__':

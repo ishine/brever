@@ -942,6 +942,9 @@ class RandomMixtureMaker:
         number = self.noise_nums.get()
         angles = angles[:number]
         noises = self.noises.get()[:number]
+        # exit function if number < 1 AFTER calling .get() to reset the roll
+        if number < 1:
+            return
         xs, files, idxs = self.make_noises(noises)
         brirs, _ = self.loader.load_brirs(self.room, angles)
         brirs = [self.decayer.run(brir) for brir in brirs]
