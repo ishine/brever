@@ -2,7 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+plt.rcParams['svg.fonttype'] = 'none'
+plt.rcParams['font.size'] = 6.2
+plt.rcParams['figure.dpi'] = 300
+plt.rcParams['axes.linewidth'] = .2
+plt.rcParams['lines.linewidth'] = .8
 plt.rcParams['lines.markersize'] = 1
+
+FIGSIZE = (4*0.9, 2.3*0.9)
 
 
 def _pol_to_car(r, phi, center):
@@ -136,12 +143,12 @@ def main():
     gen = RandomGenerator()
     draw = Drawer()
 
-    fig, axes = plt.subplots(1, 3, figsize=(8, 5))
+    fig, axes = plt.subplots(1, 3, figsize=FIGSIZE)
 
     r = 1.0
-    h = 5
-    w = 3
-    density = 250.0
+    h = 4.65
+    w = 3.06
+    density = 150.0
     n_circle = round(3.1416*r**2*density)
     n_square = round(h*w*density)
     in_r = 0.67
@@ -156,24 +163,24 @@ def main():
     x, y = gen.anti_circle(radius=r, height=h, width=w, size=n_anti_circle)
     x2, y2 = gen.moon(inner_center=in_c, inner_radius=in_r, size=n_moon)
     x, y = np.concatenate((x, x2)), np.concatenate((y, y2))
-    l1, = ax.plot(x, y, '.')
+    l1, = ax.plot(x, y, '.', alpha=.8)
     x, y = gen.moon(inner_center=in_c, inner_radius=in_r, size=n_moon)
-    l2, = ax.plot(x, y, '.')
+    l2, = ax.plot(x, y, '.', alpha=.8)
     accuracy = (n_anti_circle+n_moon)/(n_anti_circle+n_moon+n_moon)
     accuracies.append((accuracy, accuracy))
 
     ax = axes[1]
     x, y = gen.anti_circle(radius=r, height=h, width=w, size=n_anti_circle)
-    ax.plot(x, y, '.')
+    ax.plot(x, y, '.', alpha=.8)
     x, y = gen.moon(inner_center=in_c, inner_radius=in_r, size=n_moon)
-    ax.plot(x, y, '.')
+    ax.plot(x, y, '.', alpha=.8)
     accuracies.append((1.0, 1.0))
 
     ax = axes[2]
     x, y = gen.square(height=h, width=w, size=n_square)
-    ax.plot(x, y, '.')
+    ax.plot(x, y, '.', alpha=.8)
     x, y = gen.circle(radius=r, size=n_circle)
-    ax.plot(x, y, '.')
+    ax.plot(x, y, '.', alpha=.8)
     acc1 = (n_anti_circle + n_circle)/(n_square+n_circle)
     acc2 = (n_anti_circle + n_moon)/(n_square+n_circle)
     accuracies.append((acc1, acc2))
@@ -187,29 +194,12 @@ def main():
         ax.axis('equal')
         ax.set_xlim(-1.2, 1.2)
         ax.set_ylim(-1.2, 1.2)
-        # ax.set_yticklabels([])
-        # ax.set_xticklabels([])
+        ax.set_yticks([])
+        ax.set_xticks([])
         ax.legend([l1, l2], [
             f'Accuracy: {round(accuracy[0]*100)}%',
             f'Accuracy: {round(accuracy[1]*100)}%',
-        ], loc="lower right")
-
-    axes[0].set_title(
-        '(a) Both models are trained on a dataset\nwhere the realizations '
-        'do not fully\nrepresent the true distribution',
-        fontsize=8,
-    )
-    axes[1].set_title(
-        '(b) The red model can show a higher\nscore even though it did not '
-        'learn the\nright distribution, if the test dataset is\neasier '
-        'compared to (a)',
-        fontsize=8,
-    )
-    axes[2].set_title(
-        '(c) When presented with the real\ndistribution, '
-        'the red model collapses',
-        fontsize=8,
-    )
+        ], loc="lower center")
 
     handles = ax.get_lines()
     labels = [
@@ -218,8 +208,10 @@ def main():
         "Robust decision boundary",
         "Naive decision boundary",
     ]
-    fig.legend(handles, labels, loc='lower center', ncol=2)
-    fig.tight_layout(rect=(0, 0.1, 1, 1))
+    fig.legend(handles, labels, loc='upper center', ncol=2)
+    fig.tight_layout(rect=(0, 0, 1, 0.85))
+    plt.subplots_adjust(wspace=0.1)
+    fig.patch.set_visible(False)
 
     plt.show()
 
