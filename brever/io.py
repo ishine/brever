@@ -542,7 +542,7 @@ class AudioFileLoader:
         # TODO: implement distance option to reduce huddersfield and air rooms
         # TODO: check huddersfield support
         avail_rooms = [
-            'surrey_anechoic',
+            # 'surrey_anechoic',
             'surrey_room_a',
             'surrey_room_b',
             'surrey_room_c',
