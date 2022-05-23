@@ -1,5 +1,7 @@
 import argparse
 import os
+import itertools
+import random
 
 from brever.args import arg_type_path
 from brever.config import DatasetInitializer, ModelInitializer
@@ -88,6 +90,7 @@ def main():
             if p not in evaluations[model]:
                 evaluations[model].append(p)
 
+    # single mismatch
     for dim, vals in dict_.items():
         # test paths
         test_paths = []
@@ -117,6 +120,94 @@ def main():
             m3 = init_model(arch, p3)
             models.append(m3)
             add_evals(m3, test_paths)
+
+    # double mismatch
+    random.seed(0)
+    for dim in dict_.keys():
+        random.shuffle(dict_[dim])
+    for dims in itertools.combinations(dict_.keys(), 2):
+        # test paths
+        test_paths = []
+        for vals in zip(dict_[dims[0]], dict_[dims[1]]):
+            kwargs = {dim: {val} for dim, val in zip(dims, vals)}
+            p = init_test_dset(**kwargs)
+            dsets.append(p)
+            test_paths.append(p)
+        # train paths
+        for vals in zip(dict_[dims[0]], dict_[dims[1]]):
+            kwargs = {dim: {val} for dim, val in zip(dims, vals)}
+            p1 = init_train_dset(**kwargs)
+            kwargs = {
+                dims[0]: {v for v in dict_[dims[0]] if v != vals[0]},
+                dims[1]: {v for v in dict_[dims[1]] if v != vals[1]},
+            }
+            p2 = init_train_dset(**kwargs)
+            dsets.append(p1)
+            dsets.append(p2)
+            # models
+            for arch in archs:
+                m1 = init_model(arch, p1)
+                m2 = init_model(arch, p2)
+                models.append(m1)
+                models.append(m2)
+                # evaluations
+                add_evals(m1, test_paths)
+                add_evals(m2, test_paths)
+        # models for alternative definition of generalization gap
+        kwargs = {
+            dims[0]: set(dict_[dims[0]]),
+            dims[1]: set(dict_[dims[1]]),
+        }
+        p3 = init_train_dset(**kwargs)
+        dsets.append(p3)
+        for arch in archs:
+            m3 = init_model(arch, p3)
+            models.append(m3)
+            add_evals(m3, test_paths)
+
+    # triple mismatch
+    random.seed(42)
+    for dim in dict_.keys():
+        random.shuffle(dict_[dim])
+    # test paths
+    test_paths = []
+    for vals in zip(*dict_.values()):
+        kwargs = {dim: {val} for dim, val in zip(dict_.keys(), vals)}
+        p = init_test_dset(**kwargs)
+        dsets.append(p)
+        test_paths.append(p)
+    # train paths
+    for vals in zip(*dict_.values()):
+        kwargs = {dim: {val} for dim, val in zip(dict_.keys(), vals)}
+        p1 = init_train_dset(**kwargs)
+        kwargs = {
+            dim: {v for v in dict_[dim] if v != val}
+            for dim, val in zip(dict_.keys(), vals)
+        }
+        p2 = init_train_dset(**kwargs)
+        dsets.append(p1)
+        dsets.append(p2)
+        # models
+        for arch in archs:
+            m1 = init_model(arch, p1)
+            m2 = init_model(arch, p2)
+            models.append(m1)
+            models.append(m2)
+            # evaluations
+            add_evals(m1, test_paths)
+            add_evals(m2, test_paths)
+    # models for alternative definition of generalization gap
+    kwargs = {
+        dim: set(vals)
+        for dim, vals in dict_.items()
+    }
+    print(kwargs)
+    p3 = init_train_dset(**kwargs)
+    dsets.append(p3)
+    for arch in archs:
+        m3 = init_model(arch, p3)
+        models.append(m3)
+        add_evals(m3, test_paths)
 
     # finally add a model trained on everything and tested on everything
     test_paths = []
