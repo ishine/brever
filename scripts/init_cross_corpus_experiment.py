@@ -201,7 +201,6 @@ def main():
         dim: set(vals)
         for dim, vals in dict_.items()
     }
-    print(kwargs)
     p3 = init_train_dset(**kwargs)
     dsets.append(p3)
     for arch in archs:
