@@ -79,7 +79,7 @@ def get_train_dset(
         speech_files=[0.0, 0.8],
         noise_files=[0.0, 0.8],
         room_files='even',
-        duration=36000,
+        duration=3*36000,
         seed=0,
     )
 
