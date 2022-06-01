@@ -2,6 +2,7 @@ import json
 import os
 import random
 import tarfile
+import logging
 
 import numpy as np
 import torch
@@ -608,3 +609,45 @@ class BreverDataLoader(torch.utils.data.DataLoader):
             batch_x.append(F.pad(x, (0, padding)))
             batch_y.append(F.pad(y, (0, padding)))
         return torch.stack(batch_x), torch.stack(batch_y), lengths
+
+
+def initialize_dataset(config, cuda):
+    # initialize dataset
+    logging.info('Initializing dataset')
+    print(config.TRAINING.PATH)
+    if config.ARCH == 'dnn':
+        dataset = DNNDataset(
+            path=config.TRAINING.PATH,
+            segment_length=config.TRAINING.SEGMENT_LENGTH,
+            fs=config.FS,
+            features=config.MODEL.FEATURES,
+            stacks=config.MODEL.STACKS,
+            decimation=config.MODEL.DECIMATION,
+            stft_frame_length=config.MODEL.STFT.FRAME_LENGTH,
+            stft_hop_length=config.MODEL.STFT.HOP_LENGTH,
+            stft_window=config.MODEL.STFT.WINDOW,
+            mel_filters=config.MODEL.MEL_FILTERS,
+        )
+    elif config.ARCH == 'convtasnet':
+        dataset = ConvTasNetDataset(
+            path=config.TRAINING.PATH,
+            segment_length=config.TRAINING.SEGMENT_LENGTH,
+            fs=config.FS,
+            components=config.MODEL.SOURCES,
+        )
+    else:
+        raise ValueError(f'wrong model architecture, got {config.ARCH}')
+
+    # preload data
+    if config.TRAINING.PRELOAD:
+        logging.info('Preloading data')
+        dataset.preload(cuda)
+
+    # train val split
+    val_length = int(len(dataset)*config.TRAINING.VAL_SIZE)
+    train_length = len(dataset) - val_length
+    train_split, val_split = torch.utils.data.random_split(
+        dataset, [train_length, val_length]
+    )
+
+    return dataset, train_split, val_split
