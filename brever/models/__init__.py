@@ -40,6 +40,7 @@ def initialize_model(config, dataset=None, train_split=None):
         )
     else:
         raise ValueError(f'wrong model architecture, got {config.ARCH}')
+    return model
 
 
 def count_params(model):

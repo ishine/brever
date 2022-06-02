@@ -71,7 +71,7 @@ class BreverDataset(torch.utils.data.Dataset):
         if self.archive is None:
             file = open(os.path.join(self.path, name), 'rb')
         else:
-            file = self.archive.get_file(name)
+            file = self.archive.get_file(name.replace('\\', '/'))
         return file
 
     def build_paths(self, mix_idx):
