@@ -113,7 +113,7 @@ class FeatureExtractor:
             i_start = i_end
         return torch.cat(output)
 
-    def _get_feat_info(self, feature):
+    def _get_feature_info(self, feature):
         try:
             out = self._feature_dict[feature]
         except KeyError:

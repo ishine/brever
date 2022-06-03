@@ -26,6 +26,7 @@ class DNN(BreverBaseModel):
         batchnorm_momentum=0.1,
         normalization='static',
     ):
+        super().__init__()
         self.stacks = stacks
         self.decimation = decimation
         self.stft = STFT(
@@ -44,15 +45,23 @@ class DNN(BreverBaseModel):
             hop_length=stft_hop_length,
             fs=fs,
         )
+        input_size = self.feature_extractor.n_features*(stacks+1)
+        output_size = mel_filters
         self.dnn = _DNN(
-            input_size=self.feature_extractor.n_features*(stacks-1),
-            output_size=mel_filters,
+            input_size=input_size,
+            output_size=output_size,
             hidden_layers=[1024, 1024],
             dropout=0.2,
             batchnorm=False,
             batchnorm_momentum=0.1,
-            normalization='static',
         )
+        if normalization == 'static':
+            self.normalization = StaticNormalizer(input_size)
+        elif normalization == 'cumulative':
+            self.normalization = CumulativeNormalizer()
+        else:
+            raise ValueError('unrecognized normalization type, got '
+                             f'{normalization}')
 
     def forward(self, x):
         return self.dnn(x)
@@ -68,6 +77,7 @@ class DNN(BreverBaseModel):
         data = self.feature_extractor((mix_mag, mix_phase))  # (feats, frames)
         data = self.stack(data)
         data = self.decimate(data)
+        data = self.normalization(data)
         # labels
         target = self.irm(fg_mag, bg_mag)  # (labels, frames)
         target = self.decimate(target)
@@ -83,11 +93,11 @@ class DNN(BreverBaseModel):
         mag, phase = self.stft.analyze(x.unsqueeze(0))
         features = self.feature_extractor((mag.squeeze(0), phase.squeeze(0)))
         features = self.stack(features)
+        features = self.normalization(features)
         mask = self.dnn(features.unsqueeze(0))
         mask_extrapolated = self.mel_fb.extrapolate(mask)
         mag *= mask_extrapolated
         x = self.stft.synthesize((mag, phase))[..., :x.shape[-1]]
-        breakpoint()
         x, mask = x.squeeze(0), mask.squeeze(0)
         x = x.mean(dim=0)  # return monaural signal
         if return_mask:
@@ -118,8 +128,7 @@ class DNN(BreverBaseModel):
 
 class _DNN(nn.Module):
     def __init__(self, input_size, output_size, hidden_layers=[1024, 1024],
-                 dropout=0.2, batchnorm=False, batchnorm_momentum=0.1,
-                 normalization='static'):
+                 dropout=0.2, batchnorm=False, batchnorm_momentum=0.1):
         super().__init__()
         self.operations = nn.ModuleList()
         start_size = input_size
@@ -135,16 +144,8 @@ class _DNN(nn.Module):
             start_size = end_size
         self.operations.append(nn.Linear(start_size, output_size))
         self.operations.append(nn.Sigmoid())
-        if normalization == 'static':
-            self.normalization = StaticNormalizer(input_size)
-        elif normalization == 'cumulative':
-            self.normalization = CumulativeNormalizer()
-        else:
-            raise ValueError('unrecognized normalization type, got '
-                             f'{normalization}')
 
     def forward(self, x):
-        x = self.normalization(x)
         x = x.transpose(1, 2)
         for operation in self.operations:
             x = operation(x)

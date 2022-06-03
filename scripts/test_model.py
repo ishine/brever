@@ -62,12 +62,15 @@ def main(test_path):
     model = initialize_model(config)
 
     # initialize dataset
+    kwargs = {}
+    if hasattr(config.MODEL, 'SOURCES'):
+        kwargs['components'] = config.MODEL.SOURCES
     dataset = BreverDataset(
         path=config.TRAINING.PATH,
         segment_length=0.0,
         fs=config.FS,
-        components=config.MODEL.SOURCES,
         model=model,
+        **kwargs,
     )
 
     # load checkpoint
