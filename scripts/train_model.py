@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from brever.config import get_config
-from brever.data import initialize_dataset
+from brever.data import initialize_train_dataset
 from brever.logger import set_logger
 from brever.models import initialize_model, count_params
 from brever.training import BreverTrainer
@@ -35,8 +35,8 @@ def main():
     np.random.seed(config.TRAINING.SEED)
     torch.manual_seed(config.TRAINING.SEED)
 
-    # initialize datasets
-    dataset, train_split, val_split = initialize_dataset(config, cuda)
+    # initialize dataset
+    dataset, train_split, val_split = initialize_train_dataset(config, cuda)
 
     # initialize model
     model = initialize_model(config, dataset, train_split)

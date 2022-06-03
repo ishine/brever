@@ -611,10 +611,9 @@ class BreverDataLoader(torch.utils.data.DataLoader):
         return torch.stack(batch_x), torch.stack(batch_y), lengths
 
 
-def initialize_dataset(config, cuda):
+def initialize_train_dataset(config, cuda):
     # initialize dataset
     logging.info('Initializing dataset')
-    print(config.TRAINING.PATH)
     if config.ARCH == 'dnn':
         dataset = DNNDataset(
             path=config.TRAINING.PATH,
@@ -651,3 +650,31 @@ def initialize_dataset(config, cuda):
     )
 
     return dataset, train_split, val_split
+
+
+def initialize_test_dataset(config, path):
+    # initialize dataset
+    logging.info('Initializing dataset')
+    if config.ARCH == 'dnn':
+        dataset = DNNDataset(
+            path=path,
+            segment_length=0.0,
+            fs=config.FS,
+            features=config.MODEL.FEATURES,
+            stacks=config.MODEL.STACKS,
+            decimation=1,
+            stft_frame_length=config.MODEL.STFT.FRAME_LENGTH,
+            stft_hop_length=config.MODEL.STFT.HOP_LENGTH,
+            stft_window=config.MODEL.STFT.WINDOW,
+            mel_filters=config.MODEL.MEL_FILTERS,
+        )
+    elif config.ARCH == 'convtasnet':
+        dataset = ConvTasNetDataset(
+            path=path,
+            segment_length=0.0,
+            fs=config.FS,
+            components=config.MODEL.SOURCES,
+        )
+    else:
+        raise ValueError(f'wrong model architecture, got {config.ARCH}')
+    return dataset
