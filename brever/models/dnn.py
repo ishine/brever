@@ -1,8 +1,122 @@
 import torch.nn as nn
 import torch
+import numpy as np
+
+from .base import BreverBaseModel
+from ..filters import STFT, MelFB
+from ..features import FeatureExtractor
+
+eps = np.finfo(float).eps
 
 
-class DNN(nn.Module):
+class DNN(BreverBaseModel):
+    def __init__(
+        self,
+        fs=16000,
+        features={'logfbe'},
+        stacks=0,
+        decimation=1,
+        stft_frame_length=512,
+        stft_hop_length=256,
+        stft_window='hann',
+        mel_filters=64,
+        hidden_layers=[1024, 1024],
+        dropout=0.2,
+        batchnorm=False,
+        batchnorm_momentum=0.1,
+        normalization='static',
+    ):
+        self.stacks = stacks
+        self.decimation = decimation
+        self.stft = STFT(
+            frame_length=stft_frame_length,
+            hop_length=stft_hop_length,
+            window=stft_window,
+        )
+        self.mel_fb = MelFB(
+            n_filters=mel_filters,
+            n_fft=stft_frame_length,
+            fs=fs,
+        )
+        self.feature_extractor = FeatureExtractor(
+            features=features,
+            mel_fb=self.mel_fb,
+            hop_length=stft_hop_length,
+            fs=fs,
+        )
+        self.dnn = _DNN(
+            input_size=self.feature_extractor.n_features*(stacks-1),
+            output_size=mel_filters,
+            hidden_layers=[1024, 1024],
+            dropout=0.2,
+            batchnorm=False,
+            batchnorm_momentum=0.1,
+            normalization='static',
+        )
+
+    def forward(self, x):
+        return self.dnn(x)
+
+    def pre_proc(self, data, target, return_stft_output=False):
+        x = torch.stack([data, *target])  # (sources, channels, samples)
+        mag, phase = self.stft.analyze(x)  # (sources, channels, bins, frames)
+        mix_mag = mag[0, :, :, :]  # (channels, bins, frames)
+        mix_phase = phase[0, :, :, :]  # (channels, bins, frames)
+        fg_mag = mag[1, :, :, :]  # (channels, bins, frames)
+        bg_mag = mag[2, :, :, :]  # (channels, bins, frames)
+        # features
+        data = self.feature_extractor((mix_mag, mix_phase))  # (feats, frames)
+        data = self.stack(data)
+        data = self.decimate(data)
+        # labels
+        target = self.irm(fg_mag, bg_mag)  # (labels, frames)
+        target = self.decimate(target)
+        if return_stft_output:
+            return data, target, mix_mag, mix_phase
+        else:
+            return data, target
+
+    def segment_to_item_length(self, segment_length):
+        return self.stft.frame_count(segment_length)
+
+    def enhance(self, x, return_mask=False):
+        mag, phase = self.stft.analyze(x.unsqueeze(0))
+        features = self.feature_extractor((mag.squeeze(0), phase.squeeze(0)))
+        features = self.stack(features)
+        mask = self.dnn(features.unsqueeze(0))
+        mask_extrapolated = self.mel_fb.extrapolate(mask)
+        mag *= mask_extrapolated
+        x = self.stft.synthesize((mag, phase))[..., :x.shape[-1]]
+        breakpoint()
+        x, mask = x.squeeze(0), mask.squeeze(0)
+        x = x.mean(dim=0)  # return monaural signal
+        if return_mask:
+            return x, mask
+        else:
+            return x
+
+    def irm(self, fg_mag, bg_mag):
+        # (sources, channels, bins, frames)
+        fg_energy = fg_mag.pow(2).mean(0)  # (bins, frames)
+        bg_energy = bg_mag.pow(2).mean(0)  # (bins, frames)
+        fg_energy = self.mel_fb(fg_energy)
+        bg_energy = self.mel_fb(bg_energy)
+        irm = (1 + bg_energy/(fg_energy+eps)).pow(-0.5)
+        return irm
+
+    def stack(self, data):
+        out = [data]
+        for i in range(self.stacks):
+            rolled = data.roll(i+1, -1)
+            rolled[:, :i+1] = data[:, :1]
+            out.append(rolled)
+        return torch.cat(out)
+
+    def decimate(self, data):
+        return data[:, ::self.decimation]
+
+
+class _DNN(nn.Module):
     def __init__(self, input_size, output_size, hidden_layers=[1024, 1024],
                  dropout=0.2, batchnorm=False, batchnorm_momentum=0.1,
                  normalization='static'):
@@ -35,19 +149,6 @@ class DNN(nn.Module):
         for operation in self.operations:
             x = operation(x)
         return x.transpose(1, 2)
-
-    def enhance(self, x, dset, return_mask=False):
-        mag, phase = dset.stft.analyze(x.unsqueeze(0))
-        features = dset.feature_extractor((mag.squeeze(0), phase.squeeze(0)))
-        features = dset.stack(features)
-        mask = self.forward(features.unsqueeze(0))
-        mask_extra = dset.mel_fb.extrapolate(mask)
-        mag *= mask_extra
-        x = dset.stft.synthesize((mag, phase))[..., :x.shape[-1]]
-        if return_mask:
-            return x.squeeze(0), mask.squeeze(0)
-        else:
-            x.squeeze(0)
 
 
 class StaticNormalizer(nn.Module):

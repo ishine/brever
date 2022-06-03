@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from brever.config import get_config
-from brever.data import initialize_train_dataset
+from brever.data import BreverDataset
 from brever.logger import set_logger
 from brever.models import initialize_model, count_params
 from brever.training import BreverTrainer
@@ -35,11 +35,44 @@ def main():
     np.random.seed(config.TRAINING.SEED)
     torch.manual_seed(config.TRAINING.SEED)
 
-    # initialize dataset
-    dataset, train_split, val_split = initialize_train_dataset(config, cuda)
-
     # initialize model
-    model = initialize_model(config, dataset, train_split)
+    logging.info('Initializing model')
+    model = initialize_model(config)
+
+    # initialize dataset
+    logging.info('Initializing dataset')
+    kwargs = {}
+    if hasattr(config.MODEL, 'SOURCES'):
+        kwargs['components'] = config.MODEL.SOURCES
+    dataset = BreverDataset(
+        path=config.TRAINING.PATH,
+        segment_length=config.TRAINING.SEGMENT_LENGTH,
+        fs=config.FS,
+        model=model,
+        **kwargs,
+    )
+
+    # preload data
+    if config.TRAINING.PRELOAD:
+        logging.info('Preloading data')
+        dataset.preload(cuda)
+
+    # train val split
+    val_length = int(len(dataset)*config.TRAINING.VAL_SIZE)
+    train_length = len(dataset) - val_length
+    train_split, val_split = torch.utils.data.random_split(
+        dataset, [train_length, val_length]
+    )
+
+    # set normalization statistics
+    if hasattr(config.MODEL, 'NORMALIZATION'):
+        if config.MODEL.NORMALIZATION.TYPE == 'static':
+            logging.info('Calculating training statistics')
+            mean, std = train_split.dataset.get_statistics()
+            model.normalization.set_statistics(mean, std)
+        else:
+            raise ValueError('Unrecognized normalization type, got '
+                             f'{config.MODEL.NORMALIZATION.TYPE}')
 
     # cast to cuda
     if cuda:

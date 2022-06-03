@@ -11,7 +11,7 @@ import torchaudio
 
 from brever.args import arg_type_path
 from brever.config import get_config
-from brever.data import initialize_test_dataset
+from brever.data import BreverDataset
 from brever.models import initialize_model
 from brever.logger import set_logger
 from brever.training import SNR
@@ -58,11 +58,17 @@ def main(test_path):
     logging.info(f'Testing {args.input}')
     logging.info(config.to_dict())
 
-    # initialize dataset
-    dataset = initialize_test_dataset(config, test_path)
-
     # initialize model
-    model = initialize_model(config, dataset)
+    model = initialize_model(config)
+
+    # initialize dataset
+    dataset = BreverDataset(
+        path=config.TRAINING.PATH,
+        segment_length=0.0,
+        fs=config.FS,
+        components=config.MODEL.SOURCES,
+        model=model,
+    )
 
     # load checkpoint
     checkpoint = os.path.join(args.input, 'checkpoint.pt')
@@ -99,21 +105,11 @@ def main(test_path):
 
         logging.info(f'Evaluating on mixture {i}/{len(dataset)}')
 
-        if config.ARCH == 'dnn':
-            data, target = dataset.load_segment(i)  # (2, L) and (S, 2, L)
-            output, mask = model.enhance(data, dataset, True)  # (2, L)
-            target = target[0]  # (2, L)
-            data = data.mean(dim=0)  # (L)
-            output = output.mean(dim=0)  # (L)
-            target = target.mean(dim=0)  # (L)
-        elif config.ARCH == 'convtasnet':
-            data, target = dataset[i]  # (L) and (S, L)
-            output = model(data.unsqueeze(0))  # (1, S, L)
-            output = output.squeeze(0)  # (S, L)
-            output = output[0]  # (L)
-            target = target[0]  # (L)
-        else:
-            raise ValueError(f'wrong model architecture, got {config.ARCH}')
+        data, target = dataset.load_segment(i)  # (2, L) and (S, 2, L)
+        output = model.enhance(data)  # (L)
+        target = target[0]  # (2, L)
+        data = data.mean(dim=0)  # (L)
+        target = target.mean(dim=0)  # (L)
 
         # pesq
         pesq_model = pesq(

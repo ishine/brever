@@ -2,8 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .base import BreverBaseModel
 
-class ConvTasNet(nn.Module):
+
+class ConvTasNet(BreverBaseModel):
     """
     Implementation inspired from:
     - Code provided by original authors Y. Luo and N. Mesgarani (2019) under a
@@ -31,25 +33,28 @@ class ConvTasNet(nn.Module):
         )
         self.masks = None
 
-    def forward(self, x, return_masks=False):
+    def forward(self, x):
         length = x.shape[-1]
         x = self.encoder(x)
         masks = self.tcn(x)
         x = self.decoder(x, masks)
         x = x[:, :, :length]
-        if return_masks:
-            return x, masks
-        else:
-            return x
+        return x
 
-    def apply_masks(self, x, masks):
-        self.eval()
-        with torch.no_grad():
-            length = x.shape[-1]
-            x = self.encoder(x)
-            x = self.decoder(x, masks)
-            x = x[:, :, :length]
-            return x
+    def pre_proc(self, data, target):
+        data = data.mean(axis=-2)
+        target = target.mean(axis=-2)
+        return data, target
+
+    def segment_to_item_length(self, item_length):
+        return item_length
+
+    def enhance(self, x):
+        x = x.mean(axis=-2)
+        x = self.forward(x.unsqueeze(0))
+        x = x.squeeze(0)
+        x = x[0]  # speech signal is the first separated source
+        return x
 
 
 class Encoder(nn.Module):

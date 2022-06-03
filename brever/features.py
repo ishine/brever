@@ -18,6 +18,88 @@ class FeatureExtractor:
         self.hop_length = hop_length
         self.fs = fs
         self.indices = None
+        # _feature_dict is a map containing which function to call and how many
+        #  features there are for each feature name
+        self._feature_dict = {
+            'ild': {
+                'func': self.ild,
+                'n': self.mel_fb.n_filters,
+            },
+            'ipd': {
+                'func': self.ipd,
+                'n': self.mel_fb.n_filters,
+            },
+            'ic': {
+                'func': self.ic,
+                'n': self.mel_fb.n_filters,
+            },
+            'fbe': {
+                'func': self.fbe,
+                'n': self.mel_fb.n_filters,
+            },
+            'logfbe': {
+                'func': lambda x: self.fbe(
+                    x,
+                    compression='log',
+                ),
+                'n': self.mel_fb.n_filters,
+            },
+            'cubicfbe': {
+                'func': lambda x: self.fbe(
+                    x,
+                    compression='cubic',
+                ),
+                'n': self.mel_fb.n_filters,
+            },
+            'pdf': {
+                'func': lambda x: self.fbe(
+                    x,
+                    normalization=True,
+                ),
+                'n': self.mel_fb.n_filters,
+            },
+            'logpdf': {
+                'func': lambda x: self.fbe(
+                    x,
+                    normalization=True,
+                    compression='log',
+                ),
+                'n': self.mel_fb.n_filters,
+            },
+            'cubicpdf': {
+                'func': lambda x: self.fbe(
+                    x,
+                    normalization=True,
+                    compression='cubic',
+                ),
+                'n': self.mel_fb.n_filters,
+            },
+            'mfcc': {
+                'func': lambda x: self.fbe(
+                    x,
+                    compression='log',
+                    dct=True,
+                ),
+                'n': 13,
+            },
+            'cubicmfcc': {
+                'func': lambda x: self.fbe(
+                    x,
+                    compression='cubic',
+                    dct=True,
+                ),
+                'n': 13,
+            },
+            'pdfcc': {
+                'func': lambda x: self.fbe(
+                    x,
+                    normalize=True,
+                    compression='log',
+                    dct=True,
+                ),
+                'n': 13,
+            },
+        }
 
     def __call__(self, x):
         output = []
@@ -31,35 +113,25 @@ class FeatureExtractor:
             i_start = i_end
         return torch.cat(output)
 
+    def _get_feat_info(self, feature):
+        try:
+            out = self._feature_dict[feature]
+        except KeyError:
+            raise ValueError(f'unrecognized feature, got {feature}')
+        return out
+
+    @property
+    def n_features(self):
+        out = 0
+        for feature in self.features:
+            out += self._get_feature_info(feature)['n']
+        return out
+
     def calc_feature(self, x, feature):
         mag, phase = x
         assert mag.shape[0] == phase.shape[0] == 2
-        if feature == 'ild':
-            return self.ild(x)
-        elif feature == 'ipd':
-            return self.ipd(x)
-        elif feature == 'ic':
-            return self.ic(x)
-        elif feature == 'fbe':
-            return self.fbe(x)
-        elif feature == 'logfbe':
-            return self.fbe(x, compression='log')
-        elif feature == 'cubicfbe':
-            return self.fbe(x, compression='cubic')
-        elif feature == 'pdf':
-            return self.fbe(x, normalize=True)
-        elif feature == 'logpdf':
-            return self.fbe(x, normalize=True, compression='log')
-        elif feature == 'cubicpdf':
-            return self.fbe(x, normalize=True, compression='cubic')
-        elif feature == 'mfcc':
-            return self.fbe(x, compression='log', dct=True)
-        elif feature == 'cubicmfcc':
-            return self.fbe(x, compression='cubic', dct=True)
-        elif feature == 'pdfcc':
-            return self.fbe(x, normalize=True, compression='log', dct=True)
-        else:
-            raise ValueError(f'unrecognized feature, got {feature}')
+        feature_func = self._get_feature_info(feature)['func']
+        return feature_func(x)
 
     def fbe(self, x, normalize=False, compression='none', dct=False, n_dct=14,
             dct_type=2, dct_norm='ortho', return_dc=False, return_deltas=True,

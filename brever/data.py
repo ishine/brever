@@ -2,16 +2,12 @@ import json
 import os
 import random
 import tarfile
-import logging
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 import torchaudio
 import soundfile as sf
-
-from .features import FeatureExtractor
-from .filters import STFT, MelFB
 
 eps = np.finfo(float).eps
 
@@ -46,17 +42,13 @@ class BreverDataset(torch.utils.data.Dataset):
     Mixtures can be loaded as segments of fixed length or entirely by setting
     segment_length=0. When a fixed segment is used, the last samples in each
     mixture are dropped.
-
-    Should be subclassed for post-processing by re-implementing the post_proc
-    method.
     """
     def __init__(self, path, segment_length=4.0, overlap_length=0.0, fs=16e3,
                  components=['foreground', 'background'],
-                 segment_strategy='pass', tar=True):
+                 segment_strategy='pass', tar=True, model=None):
         self.path = path
         self.segment_length = round(segment_length*fs)
         self.overlap_length = round(overlap_length*fs)
-        self.fs = fs
         self.components = components
         self.segment_strategy = segment_strategy
         if tar:
@@ -66,6 +58,7 @@ class BreverDataset(torch.utils.data.Dataset):
         self.segment_info = self.get_segment_info()
         self.preloaded_data = None
         self._item_lengths = None
+        self.model = model
 
     def get_file(self, name):
         if self.archive is None:
@@ -101,7 +94,11 @@ class BreverDataset(torch.utils.data.Dataset):
         return item_lengths
 
     def segment_to_item_length(self, segment_length):
-        raise NotImplementedError
+        if self.model is None:
+            item_length = segment_length
+        else:
+            item_length = self.model.segment_to_item_length(segment_length)
+        return item_length
 
     def _add_segment_info(self, segment_info, mix_idx, mix_length):
         # shift length
@@ -165,11 +162,9 @@ class BreverDataset(torch.utils.data.Dataset):
             data, target = self.preloaded_data[index]
         else:
             data, target = self.load_segment(index)
-            data, target = self.post_proc(data, target)
+            if self.model is not None:
+                data, target = self.model.pre_proc(data, target)
         return data, target
-
-    def post_proc(self, data, target):
-        raise NotImplementedError
 
     def load_file(self, path):
         file = self.get_file(path)
@@ -225,121 +220,18 @@ class BreverDataset(torch.utils.data.Dataset):
         # to access it insite the loop
         self.preloaded_data = preloaded_data
 
-
-class DNNDataset(BreverDataset):
-    def __init__(
-        self,
-        path,
-        features={'logfbe'},
-        stacks=0,
-        decimation=1,
-        stft_frame_length=512,
-        stft_hop_length=256,
-        stft_window='hann',
-        mel_filters=64,
-        **kwargs,
-    ):
-        super().__init__(path, components=['foreground', 'background'],
-                         **kwargs)
-        self.stacks = stacks
-        self.decimation = decimation
-        self.stft = STFT(
-            frame_length=stft_frame_length,
-            hop_length=stft_hop_length,
-            window=stft_window,
-        )
-        self.mel_fb = MelFB(
-            n_filters=mel_filters,
-            n_fft=stft_frame_length,
-            fs=self.fs,
-        )
-        self.feature_extractor = FeatureExtractor(
-            features=features,
-            mel_fb=self.mel_fb,
-            hop_length=stft_hop_length,
-            fs=self.fs,
-        )
-
-    def segment_to_item_length(self, item_length):
-        return self.stft.frame_count(item_length)
-
-    def post_proc(self, data, target, return_stft_output=False):
-        x = torch.stack([data, *target])  # (sources, channels, samples)
-        mag, phase = self.stft.analyze(x)  # (sources, channels, bins, frames)
-        mix_mag = mag[0, :, :, :]  # (channels, bins, frames)
-        mix_phase = phase[0, :, :, :]  # (channels, bins, frames)
-        fg_mag = mag[1, :, :, :]  # (channels, bins, frames)
-        bg_mag = mag[2, :, :, :]  # (channels, bins, frames)
-        # features
-        data = self.feature_extractor((mix_mag, mix_phase))  # (feats, frames)
-        data = self.stack(data)
-        data = self.decimate(data)
-        # labels
-        target = self.irm(fg_mag, bg_mag)  # (labels, frames)
-        target = self.decimate(target)
-        if return_stft_output:
-            return data, target, mix_mag, mix_phase
-        else:
-            return data, target
-
-    def irm(self, fg_mag, bg_mag):
-        # (sources, channels, bins, frames)
-        fg_energy = fg_mag.pow(2).mean(0)  # (bins, frames)
-        bg_energy = bg_mag.pow(2).mean(0)  # (bins, frames)
-        fg_energy = self.mel_fb(fg_energy)
-        bg_energy = self.mel_fb(bg_energy)
-        irm = (1 + bg_energy/(fg_energy+eps)).pow(-0.5)
-        return irm
-
-    def stack(self, data):
-        out = [data]
-        for i in range(self.stacks):
-            rolled = data.roll(i+1, -1)
-            rolled[:, :i+1] = data[:, :1]
-            out.append(rolled)
-        return torch.cat(out)
-
-    def decimate(self, data):
-        return data[:, ::self.decimation]
-
-    @property
-    def n_features(self):
-        data, _ = self[0]
-        return data.shape[0]
-
-    @property
-    def n_labels(self):
-        _, label = self[0]
-        return label.shape[0]
-
     def get_statistics(self):
         mean, pow_mean = 0, 0
         for i in range(len(self)):
             data, _ = self[i]
-            mean += data.mean(1, keepdim=True)
-            pow_mean += data.pow(2).mean(1, keepdim=True)
+            dim = tuple(range(1, data.ndim))
+            mean += data.mean(dim, keepdim=True)
+            pow_mean += data.pow(2).mean(dim, keepdim=True)
         mean /= len(self)
         pow_mean /= len(self)
         var = pow_mean - mean.pow(2)
         std = var.sqrt()
         return mean, std
-
-
-class ConvTasNetDataset(BreverDataset):
-    def __init__(
-        self,
-        path,
-        **kwargs,
-    ):
-        super().__init__(path, **kwargs)
-
-    def segment_to_item_length(self, item_length):
-        return item_length
-
-    def post_proc(self, data, target):
-        data = data.mean(axis=-2)
-        target = target.mean(axis=-2)
-        return data, target
 
 
 class BreverBatchSampler(torch.utils.data.Sampler):
@@ -609,72 +501,3 @@ class BreverDataLoader(torch.utils.data.DataLoader):
             batch_x.append(F.pad(x, (0, padding)))
             batch_y.append(F.pad(y, (0, padding)))
         return torch.stack(batch_x), torch.stack(batch_y), lengths
-
-
-def initialize_train_dataset(config, cuda):
-    # initialize dataset
-    logging.info('Initializing dataset')
-    if config.ARCH == 'dnn':
-        dataset = DNNDataset(
-            path=config.TRAINING.PATH,
-            segment_length=config.TRAINING.SEGMENT_LENGTH,
-            fs=config.FS,
-            features=config.MODEL.FEATURES,
-            stacks=config.MODEL.STACKS,
-            decimation=config.MODEL.DECIMATION,
-            stft_frame_length=config.MODEL.STFT.FRAME_LENGTH,
-            stft_hop_length=config.MODEL.STFT.HOP_LENGTH,
-            stft_window=config.MODEL.STFT.WINDOW,
-            mel_filters=config.MODEL.MEL_FILTERS,
-        )
-    elif config.ARCH == 'convtasnet':
-        dataset = ConvTasNetDataset(
-            path=config.TRAINING.PATH,
-            segment_length=config.TRAINING.SEGMENT_LENGTH,
-            fs=config.FS,
-            components=config.MODEL.SOURCES,
-        )
-    else:
-        raise ValueError(f'wrong model architecture, got {config.ARCH}')
-
-    # preload data
-    if config.TRAINING.PRELOAD:
-        logging.info('Preloading data')
-        dataset.preload(cuda)
-
-    # train val split
-    val_length = int(len(dataset)*config.TRAINING.VAL_SIZE)
-    train_length = len(dataset) - val_length
-    train_split, val_split = torch.utils.data.random_split(
-        dataset, [train_length, val_length]
-    )
-
-    return dataset, train_split, val_split
-
-
-def initialize_test_dataset(config, path):
-    # initialize dataset
-    logging.info('Initializing dataset')
-    if config.ARCH == 'dnn':
-        dataset = DNNDataset(
-            path=path,
-            segment_length=0.0,
-            fs=config.FS,
-            features=config.MODEL.FEATURES,
-            stacks=config.MODEL.STACKS,
-            decimation=1,
-            stft_frame_length=config.MODEL.STFT.FRAME_LENGTH,
-            stft_hop_length=config.MODEL.STFT.HOP_LENGTH,
-            stft_window=config.MODEL.STFT.WINDOW,
-            mel_filters=config.MODEL.MEL_FILTERS,
-        )
-    elif config.ARCH == 'convtasnet':
-        dataset = ConvTasNetDataset(
-            path=path,
-            segment_length=0.0,
-            fs=config.FS,
-            components=config.MODEL.SOURCES,
-        )
-    else:
-        raise ValueError(f'wrong model architecture, got {config.ARCH}')
-    return dataset

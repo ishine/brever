@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 from torch.nn import init
 
+from .base import BreverBaseModel
+
 
 class ComplexWrapper(nn.Module):
     def __init__(self, module_cls, *args, **kwargs):
@@ -291,7 +293,7 @@ class LSTMBlock(nn.Module):
         return x
 
 
-class DCCRN(nn.Module):
+class DCCRN(BreverBaseModel):
     """
     The original paper by Hu et al. (2020) sells the network as fully complex,
     but this is NOT the case! The PReLU activations in the encoder/decoder are
