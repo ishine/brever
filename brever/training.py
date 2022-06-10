@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
-from .data import get_batch_sampler
+from .data import BreverDataLoader, get_batch_sampler
 
 
 eps = torch.finfo(torch.float32).eps
