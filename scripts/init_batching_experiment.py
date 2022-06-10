@@ -36,6 +36,7 @@ def main():
     )
 
     hyperparams = [
+        # segmentation experiment
         {
             'batch_size': 1.0,
             'segment_length': 0.0,
@@ -43,38 +44,85 @@ def main():
         },
         {
             'batch_size': 4.0,
-            'segment_length': 4.0,
-            'batch_sampler': 'bucket',
+            'segment_length': 0.0,
+            'batch_sampler': 'simple',
         },
         {
-            'batch_size': 8.0,
+            'batch_size': 16.0,
+            'segment_length': 0.0,
+            'batch_sampler': 'simple',
+        },
+        {
+            'batch_size': 1.0,
+            'segment_length': 1.0,
+            'batch_sampler': 'simple',
+        },
+        {
+            'batch_size': 4.0,
+            'segment_length': 1.0,
+            'batch_sampler': 'simple',
+        },
+        {
+            'batch_size': 16.0,
+            'segment_length': 1.0,
+            'batch_sampler': 'simple',
+        },
+        {
+            'batch_size': 1.0,
             'segment_length': 4.0,
-            'batch_sampler': 'bucket',
+            'batch_sampler': 'simple',
+        },
+        {
+            'batch_size': 4.0,
+            'segment_length': 4.0,
+            'batch_sampler': 'simple',
         },
         {
             'batch_size': 16.0,
             'segment_length': 4.0,
+            'batch_sampler': 'simple',
+        },
+        # batching experiment
+        {
+            'batch_size': 4.0,
+            'batch_sampler': 'simple',
+        },
+        {
+            'batch_size': 16.0,
+            'batch_sampler': 'simple',
+        },
+        {
+            'batch_size': 64.0,
+            'batch_sampler': 'simple',
+        },
+        {
+            'batch_size': 8.0,
+            'batch_sampler': 'dynamic',
+        },
+        {
+            'batch_size': 32.0,
+            'batch_sampler': 'dynamic',
+        },
+        {
+            'batch_size': 128.0,
+            'batch_sampler': 'dynamic',
+        },
+        {
+            'batch_size': 8.0,
             'batch_sampler': 'bucket',
         },
         {
             'batch_size': 32.0,
-            'segment_length': 4.0,
-            'batch_sampler': 'bucket',
-        },
-        {
-            'batch_size': 64.0,
-            'segment_length': 4.0,
             'batch_sampler': 'bucket',
         },
         {
             'batch_size': 128.0,
-            'segment_length': 4.0,
             'batch_sampler': 'bucket',
         },
     ]
 
     evaluations = []
-    for arch in ['dnn', 'convtasnet']:
+    for arch in ['convtasnet']:
         for kwargs in hyperparams:
             m = model_init.init_from_kwargs(
                 arch=arch,

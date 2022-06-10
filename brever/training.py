@@ -8,14 +8,8 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
-from .data import (
-    BreverDataLoader,
-    BucketBatchSampler,
-    DynamicSortedBatchSampler,
-    DynamicSimpleBatchSampler,
-    SortedBatchSampler,
-    SimpleBatchSampler,
-)
+from .data import get_batch_sampler
+
 
 eps = torch.finfo(torch.float32).eps
 
@@ -479,40 +473,6 @@ class MSE:
         lengths = torch.as_tensor(lengths, device=data.device).view(-1, 1, 1)
         loss = (data-target).pow(2).sum(-1)/lengths
         return loss.mean()
-
-
-def get_batch_sampler(name, batch_size, fs, num_buckets, segment_length,
-                      sorted_):
-    if name == 'bucket':
-        batch_sampler_class = BucketBatchSampler
-        kwargs = {
-            'max_batch_size': round(batch_size*fs),
-            'max_item_length': round(segment_length*fs),
-            'num_buckets': num_buckets
-        }
-    elif name == 'dynamic':
-        if sorted_:
-            batch_sampler_class = DynamicSortedBatchSampler
-        else:
-            batch_sampler_class = DynamicSimpleBatchSampler
-        kwargs = {
-            'max_batch_size': round(batch_size*fs),
-        }
-    elif name == 'simple':
-        if sorted_:
-            batch_sampler_class = SortedBatchSampler
-        else:
-            batch_sampler_class = SimpleBatchSampler
-        if isinstance(batch_size, float) and batch_size != int(batch_size):
-            raise ValueError("when using 'simple' batch sampler, batch_size "
-                             "must be int or float equal to int, got "
-                             f"{batch_size}")
-        kwargs = {
-            'items_per_batch': batch_size,
-        }
-    else:
-        raise ValueError(f'Unrecognized batch sampler, got {name}')
-    return batch_sampler_class, kwargs
 
 
 def get_criterion(name):

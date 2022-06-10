@@ -9,6 +9,7 @@ import torch.nn.functional as F
 import torchaudio
 import soundfile as sf
 
+
 eps = np.finfo(float).eps
 
 
@@ -78,6 +79,7 @@ class BreverDataset(torch.utils.data.Dataset):
 
     def get_segment_info(self):
         mix_lengths = self.get_mix_lengths()
+        self._duration = sum(mix_lengths)
         segment_info = []
         if self.segment_length == 0:
             for mix_idx, mix_length in enumerate(mix_lengths):
@@ -293,8 +295,9 @@ class BreverBatchSampler(torch.utils.data.Sampler):
         return lengths
 
     def segment_to_item_length(self, segment_length):
-        if isinstance(self.dataset, torch.utils.data.Subset):
-            dataset = self.dataset.dataset
+        dataset = self.dataset
+        if isinstance(dataset, torch.utils.data.Subset):
+            dataset = dataset.dataset
         return dataset.segment_to_item_length(segment_length)
 
     def calc_batch_stats(self):
@@ -425,7 +428,7 @@ class DynamicSortedBatchSampler(DynamicSimpleBatchSampler):
 class BucketBatchSampler(BreverBatchSampler):
     """
     Items of similar length are grouped into buckets. Batches are formed with
-    items from the same bucket. This attempts to minize both the batch size
+    items from the same bucket. This attempts to minimize both the batch size
     variability and the amount of padding while keeping some randomness.
 
     Inspired from code by Speechbrain under Apache-2.0 License:
@@ -479,6 +482,51 @@ class BucketBatchSampler(BreverBatchSampler):
                     self.batches.append(batch)
 
 
+class StaticBucketBatchSampler(BreverBatchSampler):
+    """
+    Same as BucketBatchSampler but with a batch size defined as the number of
+    mixtures instead of the duration
+    """
+    def __init__(self, dataset, batch_size, max_item_length,
+                 num_buckets=10, drop_last=False, shuffle=True, seed=0):
+        super().__pre_init__(dataset, drop_last, shuffle, seed, sort=False)
+        max_item_length = self.segment_to_item_length(max_item_length)
+        self.batch_size = batch_size
+        self.max_item_length = max_item_length
+        self.num_buckets = num_buckets
+
+        self.right_bucket_limits = np.linspace(
+            max_item_length/num_buckets, max_item_length, num_buckets,
+        )
+
+        self.generate_batches()
+
+    def _generate_batches(self, indices):
+        self.batches = []
+        bucket_batches = [[] for _ in range(self.num_buckets)]
+        for i in indices:
+            item_idx, item_length = self._item_lengths[i]
+            bucket_idx = np.searchsorted(
+                self.right_bucket_limits, item_length,
+            )
+            if bucket_idx == self.num_buckets:
+                if item_length == self.max_item_length:
+                    bucket_idx -= 1
+                else:
+                    raise ValueError('found an item that is longer than the '
+                                     'maximum item length')
+            bucket_batches[bucket_idx].append((item_idx, item_length))
+            if len(bucket_batches[bucket_idx]) == self.batch_size:
+                self.batches.append(bucket_batches[bucket_idx])
+                bucket_batches[bucket_idx] = []
+            elif len(bucket_batches[bucket_idx]) > self.batch_size:
+                raise ValueError('bucket maximum number of items exceeded')
+        if not self.drop_last:
+            for batch in bucket_batches:
+                if len(batch) > 0:
+                    self.batches.append(batch)
+
+
 class BreverDataLoader(torch.utils.data.DataLoader):
     """
     Implements the collating function to form batches from mixtures of
@@ -501,3 +549,37 @@ class BreverDataLoader(torch.utils.data.DataLoader):
             batch_x.append(F.pad(x, (0, padding)))
             batch_y.append(F.pad(y, (0, padding)))
         return torch.stack(batch_x), torch.stack(batch_y), lengths
+
+
+def get_batch_sampler(name, batch_size, fs, num_buckets, segment_length,
+                      sorted_):
+    if name == 'bucket':
+        batch_sampler_class = BucketBatchSampler
+        kwargs = {
+            'max_batch_size': round(batch_size*fs),
+            'max_item_length': round(segment_length*fs),
+            'num_buckets': num_buckets
+        }
+    elif name == 'dynamic':
+        if sorted_:
+            batch_sampler_class = DynamicSortedBatchSampler
+        else:
+            batch_sampler_class = DynamicSimpleBatchSampler
+        kwargs = {
+            'max_batch_size': round(batch_size*fs),
+        }
+    elif name == 'simple':
+        if sorted_:
+            batch_sampler_class = SortedBatchSampler
+        else:
+            batch_sampler_class = SimpleBatchSampler
+        if isinstance(batch_size, float) and batch_size != int(batch_size):
+            raise ValueError("when using 'simple' batch sampler, batch_size "
+                             "must be int or float equal to int, got "
+                             f"{batch_size}")
+        kwargs = {
+            'items_per_batch': batch_size,
+        }
+    else:
+        raise ValueError(f'Unrecognized batch sampler, got {name}')
+    return batch_sampler_class, kwargs
