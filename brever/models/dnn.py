@@ -6,6 +6,7 @@ from .base import BreverBaseModel
 from ..filters import STFT, MelFB
 from ..features import FeatureExtractor
 
+
 eps = np.finfo(float).eps
 
 
