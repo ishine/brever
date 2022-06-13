@@ -2,6 +2,7 @@ import os
 import json
 import random
 import itertools
+import copy
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,7 +12,7 @@ from brever.args import arg_type_path
 from brever.config import DatasetInitializer, ModelInitializer
 
 plt.rcParams['svg.fonttype'] = 'none'
-plt.rcParams['font.size'] = 4
+plt.rcParams['font.size'] = 7
 plt.rcParams['patch.linewidth'] = .5
 plt.rcParams['hatch.linewidth'] = .5
 plt.rcParams['lines.linewidth'] = .5
@@ -22,13 +23,13 @@ plt.rcParams['xtick.major.width'] = .5
 plt.rcParams['ytick.major.size'] = 1
 plt.rcParams['ytick.major.width'] = .5
 plt.rcParams['figure.dpi'] = 200
+plt.rcParams['font.family'] = "Liberation Serif"
+plt.rcParams['mathtext.fontset'] = "stix"
 
-MM_TO_INCH = 0.0393701
-FIGSIZE = (160*MM_TO_INCH, 90*MM_TO_INCH)
 
 RAW_MATH = False
 
-dict_ = {
+dim_dict = {
     'speakers': [
         'timit_.*',
         'libri_.*',
@@ -141,7 +142,34 @@ def get_crossval_dsets(dim, vals, i, j):
     return p, p_ref, p_test
 
 
+def gather_scores_single_mismatch():
+    scores_shape = (
+        len(archs),
+        len(dim_dict),
+        len(list(dim_dict.values())[0]),
+        len(list(dim_dict.values())[0]),
+        len(metrics)
+    )
+    out = np.empty(scores_shape)
+    out_ref = np.empty(scores_shape)
+    for i_arch, arch in enumerate(archs):
+        for i_dim, (dim, vals) in enumerate(dim_dict.items()):
+            matrix = np.empty((5, 5, 6))
+            matrix_ref = np.empty((5, 5, 6))
+            for i in range(5):
+                for j in range(5):
+                    p, p_ref, p_test = get_crossval_dsets(dim, vals, i, j)
+                    m = get_model(arch, p)
+                    m_ref = get_model(arch, p_ref)
+                    matrix[i, j, :] = get_scores(m, p_test)
+                    matrix_ref[i, j, :] = get_scores(m_ref, p_test)
+            out[i_arch, i_dim] = matrix
+            out_ref[i_arch, i_dim] = matrix_ref
+    return out, out_ref
+
+
 def gather_scores_double_mismatch():
+    dict_ = copy.deepcopy(dim_dict)
     random.seed(0)
     for dim in dict_.keys():
         random.shuffle(dict_[dim])
@@ -175,6 +203,10 @@ def gather_scores_double_mismatch():
 
 
 def gather_scores_triple_mismatch():
+    dict_ = copy.deepcopy(dim_dict)
+    random.seed(0)
+    for dim in dict_.keys():
+        random.shuffle(dict_[dim])
     random.seed(42)
     for dim in dict_.keys():
         random.shuffle(dict_[dim])
@@ -210,37 +242,52 @@ def plot_bars(scores, scores_ref, which):
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
     hatch = ['', '////']
     ylims = [
-        (0, 0.69),
-        (0, 0.15),
-        (0, 9.9),
+        (0, 0.79),
+        (0, 0.17),
+        (0, 10.4),
     ]
     yticks = [
-        np.linspace(0, 0.6, 7),
-        np.linspace(0, 0.14, 8),
-        np.linspace(0, 8, 5),
+        np.arange(0, 0.8 + 1e-10, 0.1),
+        np.arange(0, 0.16 + 1e-10, 0.03),
+        np.arange(0, 10 + 1e-10, 2),
     ]
     bar_xspace = 1
 
     config_names = [r'$N=1$', r'$N=4$']
-    titles = {
-        'double': ['Speech+Noise', 'Speech+Room', 'Noise+Room'],
-        'triple': ['Speech+Noise+Room'],
+    figsize = {
+        'single': (7.24, 4.07),
+        'double': (7.24, 4.07),
+        'triple': (2.66, 4.20),
     }[which]
-    title_x = {
-        'double': [0.21, 0.525, 0.84],
-        'triple': [0.57],
+    filename = {
+        'single': 'results_single.svg',
+        'double': 'results_double.svg',
+        'triple': 'results_triple.svg',
     }[which]
-    title_y = 0.95
+    ncol = {
+        'single': 4,
+        'double': 4,
+        'triple': 2,
+    }[which]
+    rect = {
+        'single': (0, 0, 1, 0.95),
+        'double': (0, 0, 1, 0.95),
+        'triple': (0, 0, 1, 0.92),
+    }[which]
+    loc = {
+        'single': 'upper center',
+        'double': 'upper center',
+        'triple': (0.2275, 0.91),
+    }[which]
 
     x = np.arange(len(archs)*2).reshape(len(archs), 2)
     x += bar_xspace*np.arange(len(archs)).reshape(-1, 1)
     xlim = x.min() - bar_xspace - 0.5, x.max() + bar_xspace + 0.5
 
-    figsize = (FIGSIZE[0]*scores.shape[1]/3, FIGSIZE[1])
     fig = plt.figure(figsize=figsize)
     outer_gs = gridspec.GridSpec(1, scores.shape[1], figure=fig)
     for i_dim in range(scores.shape[1]):
-        dim, vals = list(dict_.items())[i_dim]
+        dim, vals = list(dim_dict.items())[i_dim]
         inner_gs = gridspec.GridSpecFromSubplotSpec(
             3, 2, subplot_spec=outer_gs[i_dim], hspace=0.05, wspace=0.05
         )
@@ -271,7 +318,11 @@ def plot_bars(scores, scores_ref, which):
                 ax.set_xticks([])
                 ax.set_xlim(xlim)
                 if i_dim == 0 and i_config == 0:
-                    ax.set_ylabel(_m(metrics[i_metric]), fontsize='large')
+                    # ax.set_ylabel(_m(metrics[i_metric]), fontsize='large')
+                    ax.text(-0.275, 0.5, _m(metrics[i_metric]), rotation=90,
+                            verticalalignment='center',
+                            horizontalalignment='right',
+                            transform=ax.transAxes, fontsize='large')
                 if i_ax == 2:
                     ax.set_xlabel(_m(config_names[i_config]), fontsize='large')
                 ax.set_axisbelow(True)
@@ -281,15 +332,11 @@ def plot_bars(scores, scores_ref, which):
                 if i_dim != 0 or i_config != 0:
                     ax.set_yticklabels([])
 
-        fig.text(title_x[i_dim], title_y, titles[i_dim],
-                 fontsize='x-large', ha='center')
-
         handles, labs = ax.get_legend_handles_labels()
-    fig.legend(handles, labs, loc='lower center', ncol=len(archs)*2,
-               fontsize='large')
-    fig.tight_layout(rect=(0, 0.04, 1, 0.95), w_pad=1.8)
+    fig.legend(handles, labs, loc=loc, ncol=ncol, fontsize='medium')
+    fig.tight_layout(rect=rect, w_pad=1.8)
     fig.patch.set_visible(False)
-    fig.savefig('results_bars.svg', bbox_inches=0)
+    fig.savefig(filename, bbox_inches=0)
 
 
 def draw_gen_gap(ax, x, i_arch, data, data_ref, ylims):
@@ -308,6 +355,8 @@ def draw_gen_gap(ax, x, i_arch, data, data_ref, ylims):
 
 
 def main():
+    scores, scores_ref = gather_scores_single_mismatch()
+    plot_bars(scores, scores_ref, 'single')
     scores, scores_ref = gather_scores_double_mismatch()
     plot_bars(scores, scores_ref, 'double')
     scores, scores_ref = gather_scores_triple_mismatch()

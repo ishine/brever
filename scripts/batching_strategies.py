@@ -61,6 +61,11 @@ def main():
             'max_item_length': 4*16e3,
             'num_buckets': 10,
         },
+        'StaticBucketBatchSampler': {
+            'batch_size': 4,
+            'max_item_length': 4*16e3,
+            'num_buckets': 10,
+        },
     }.items():
 
         print(batch_sampler_name)
