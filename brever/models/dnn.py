@@ -64,7 +64,9 @@ class DNN(BreverBaseModel):
                              f'{normalization}')
 
     def forward(self, x):
-        return self.dnn(x)
+        x = self.normalization(x)
+        x = self.dnn(x)
+        return x
 
     def pre_proc(self, data, target, return_stft_output=False):
         x = torch.stack([data, *target])  # (sources, channels, samples)
@@ -77,7 +79,6 @@ class DNN(BreverBaseModel):
         data = self.feature_extractor((mix_mag, mix_phase))  # (feats, frames)
         data = self.stack(data)
         data = self.decimate(data)
-        data = self.normalization(data)
         # labels
         target = self.irm(fg_mag, bg_mag)  # (labels, frames)
         target = self.decimate(target)
