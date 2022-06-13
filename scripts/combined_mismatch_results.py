@@ -10,6 +10,7 @@ import matplotlib.gridspec as gridspec
 
 from brever.args import arg_type_path
 from brever.config import DatasetInitializer, ModelInitializer
+from brever.display import pretty_table
 
 plt.rcParams['svg.fonttype'] = 'none'
 plt.rcParams['font.size'] = 7
@@ -354,13 +355,53 @@ def draw_gen_gap(ax, x, i_arch, data, data_ref, ylims):
     ax.annotate(G_e, (x+0.3, y+head_length*1.5), ha='center')
 
 
+def summary_table(single, double, triple):
+
+    def calc_mean(data, i_arch, i_metric):
+        mean = 0
+        for i_dim in range(data.shape[1]):
+            exp = data[i_arch, i_dim, :, :, i_metric+3]
+            diag = np.diag(exp)
+            mean += diag.mean()
+        mean /= data.shape[1]
+        return f'{mean:.2f}'
+
+    pretty_table({
+        '1 dim': {
+            'PESQ FFNN': calc_mean(single, 0, 0),
+            'PESQ Conv-TasNet': calc_mean(single, 1, 0),
+            'STOI FFNN': calc_mean(single, 0, 1),
+            'STOI Conv-TasNet': calc_mean(single, 1, 1),
+            'SNR FFNN': calc_mean(single, 0, 2),
+            'SNR Conv-TasNet': calc_mean(single, 1, 2),
+        },
+        '2 dims': {
+            'PESQ FFNN': calc_mean(double, 0, 0),
+            'PESQ Conv-TasNet': calc_mean(double, 1, 0),
+            'STOI FFNN': calc_mean(double, 0, 1),
+            'STOI Conv-TasNet': calc_mean(double, 1, 1),
+            'SNR FFNN': calc_mean(double, 0, 2),
+            'SNR Conv-TasNet': calc_mean(double, 1, 2),
+        },
+        '3 dims': {
+            'PESQ FFNN': calc_mean(triple, 0, 0),
+            'PESQ Conv-TasNet': calc_mean(triple, 1, 0),
+            'STOI FFNN': calc_mean(triple, 0, 1),
+            'STOI Conv-TasNet': calc_mean(triple, 1, 1),
+            'SNR FFNN': calc_mean(triple, 0, 2),
+            'SNR Conv-TasNet': calc_mean(triple, 1, 2),
+        },
+    })
+
+
 def main():
-    scores, scores_ref = gather_scores_single_mismatch()
-    plot_bars(scores, scores_ref, 'single')
-    scores, scores_ref = gather_scores_double_mismatch()
-    plot_bars(scores, scores_ref, 'double')
-    scores, scores_ref = gather_scores_triple_mismatch()
-    plot_bars(scores, scores_ref, 'triple')
+    scores_1, scores_ref_1 = gather_scores_single_mismatch()
+    plot_bars(scores_1, scores_ref_1, 'single')
+    scores_2, scores_ref_2 = gather_scores_double_mismatch()
+    plot_bars(scores_2, scores_ref_2, 'double')
+    scores_3, scores_ref_3 = gather_scores_triple_mismatch()
+    plot_bars(scores_3, scores_ref_3, 'triple')
+    summary_table(scores_ref_1, scores_ref_2, scores_ref_3)
     plt.show()
 
 

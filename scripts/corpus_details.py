@@ -1,27 +1,6 @@
 from brever.io import AudioFileLoader
 from brever.logger import set_logger
-
-
-def pretty_table(dict_: dict, key_header: str = '') -> None:
-    if not dict_:
-        raise ValueError('input is empty')
-    keys = dict_.keys()
-    values = dict_.values()
-    first_col_width = max(max(len(str(key)) for key in keys), len(key_header))
-    col_widths = [first_col_width]
-    for i, value in enumerate(values):
-        if i == 0:
-            sub_keys = value.keys()
-        elif value.keys() != sub_keys:
-            raise ValueError('values in input do not all have same keys')
-    for key in sub_keys:
-        col_width = max(max(len(str(v[key])) for v in values), len(key))
-        col_widths.append(col_width)
-    row_fmt = ' '.join(f'{{:<{width}}} ' for width in col_widths)
-    print(row_fmt.format(key_header, *sub_keys))
-    print(row_fmt.format(*['-'*w for w in col_widths]))
-    for key, items in dict_.items():
-        print(row_fmt.format(key, *items.values()))
+from brever.display import pretty_table
 
 
 def main():
