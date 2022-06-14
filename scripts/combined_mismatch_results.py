@@ -355,7 +355,91 @@ def draw_gen_gap(ax, x, i_arch, data, data_ref, ylims):
     ax.annotate(G_e, (x+0.3, y+head_length*1.5), ha='center')
 
 
-def summary_table(single, double, triple):
+def summary_table(single, single_ref, double, double_ref, triple, triple_ref):
+
+    def mean_diag(data, i_arch, i_metric):
+        mean = 0
+        for i_dim in range(data.shape[1]):
+            exp = data[i_arch, i_dim, :, :, i_metric]
+            diag = np.diag(exp)
+            mean += diag.mean()
+        mean /= data.shape[1]
+        return mean
+
+    def mean_anti_diag(data, i_arch, i_metric):
+        mean = 0
+        for i_dim in range(data.shape[1]):
+            exp = data[i_arch, i_dim, :, :, i_metric]
+            diag = np.diag(exp)
+            mean += (exp.sum() - diag.sum())/(exp.size - diag.size)
+        mean /= data.shape[1]
+        return mean
+
+    def print_cell(x, y):
+        if x > y:
+            x = rf'\textbf{{{x:.2f}}}'
+            y = f'{y:.2f}'
+        else:
+            x = f'{x:.2f}'
+            y = rf'\textbf{{{y:.2f}}}'
+        print(rf'& {x} & {y}', end=' ')
+
+    def print_row_match(data, data_ref, i_metric, header, indent):
+        for i in range(indent):
+            print('& ', end=' ')
+        print(rf'{header}', end=' ')
+        x = mean_diag(data, 0, i_metric)
+        y = mean_diag(data, 1, i_metric)
+        print_cell(x, y)
+        x = mean_anti_diag(data_ref, 0, i_metric)
+        y = mean_anti_diag(data_ref, 1, i_metric)
+        print_cell(x, y)
+        print(r'\\')
+
+    def print_row_mismatch(data, data_ref, i_metric, header, indent):
+        for i in range(indent):
+            print('& ', end=' ')
+        print(rf'{header}', end=' ')
+        x = mean_anti_diag(data, 0, i_metric)
+        y = mean_anti_diag(data, 1, i_metric)
+        print_cell(x, y)
+        x = mean_diag(data_ref, 0, i_metric)
+        y = mean_diag(data_ref, 1, i_metric)
+        print_cell(x, y)
+        print(r'\\')
+
+    def print_block(i_metric):
+        print(r'\multirow{6}{*}{\rotatebox[origin=c]{90}', end='')
+        print(rf'{{{metrics[i_metric]}}}}}')
+        print(r'& \multirow{3}{*}{\rotatebox[origin=c]{90}{Match}}')
+        print_row_match(single, single_ref, i_metric, 'Single', 1)
+        print_row_match(double, double_ref, i_metric, 'Double', 2)
+        print_row_match(triple, triple_ref, i_metric, 'Triple', 2)
+        print(r'\cline{2-7}')
+        print(r'& \multirow{3}{*}{\rotatebox[origin=c]{90}{Mism.}}')
+        print_row_mismatch(single, single_ref, i_metric, 'Single', 1)
+        print_row_mismatch(double, double_ref, i_metric, 'Double', 2)
+        print_row_mismatch(triple, triple_ref, i_metric, 'Triple', 2)
+
+    print(r'\begin{table}')
+    print(r'\centering')
+    print(r'\begin{tabular}{ccccccc}')
+    print(r'\hline \hline')
+    print(r'& & & \multicolumn{2}{c}{$N=1$} & \multicolumn{2}{c}{$N=4$} \\')
+    print(r'& & & FFNN & Conv-TasNet & FFNN & Conv-TasNet \\')
+
+    print(r'\hline \hline')
+    print_block(3)
+    print(r'\hline \hline')
+    print_block(4)
+    print(r'\hline \hline')
+    print_block(5)
+    print(r'\hline \hline')
+
+    print(r'\end{tabular}')
+    print(r'\caption{Caption}')
+    print(r'\label{tab:summary}')
+    print(r'\end{table}')
 
     def calc_mean(data, i_arch, i_metric):
         mean = 0
@@ -366,42 +450,19 @@ def summary_table(single, double, triple):
         mean /= data.shape[1]
         return f'{mean:.2f}'
 
-    pretty_table({
-        '1 dim': {
-            'PESQ FFNN': calc_mean(single, 0, 0),
-            'PESQ Conv-TasNet': calc_mean(single, 1, 0),
-            'STOI FFNN': calc_mean(single, 0, 1),
-            'STOI Conv-TasNet': calc_mean(single, 1, 1),
-            'SNR FFNN': calc_mean(single, 0, 2),
-            'SNR Conv-TasNet': calc_mean(single, 1, 2),
-        },
-        '2 dims': {
-            'PESQ FFNN': calc_mean(double, 0, 0),
-            'PESQ Conv-TasNet': calc_mean(double, 1, 0),
-            'STOI FFNN': calc_mean(double, 0, 1),
-            'STOI Conv-TasNet': calc_mean(double, 1, 1),
-            'SNR FFNN': calc_mean(double, 0, 2),
-            'SNR Conv-TasNet': calc_mean(double, 1, 2),
-        },
-        '3 dims': {
-            'PESQ FFNN': calc_mean(triple, 0, 0),
-            'PESQ Conv-TasNet': calc_mean(triple, 1, 0),
-            'STOI FFNN': calc_mean(triple, 0, 1),
-            'STOI Conv-TasNet': calc_mean(triple, 1, 1),
-            'SNR FFNN': calc_mean(triple, 0, 2),
-            'SNR Conv-TasNet': calc_mean(triple, 1, 2),
-        },
-    })
-
 
 def main():
     scores_1, scores_ref_1 = gather_scores_single_mismatch()
-    plot_bars(scores_1, scores_ref_1, 'single')
+    # plot_bars(scores_1, scores_ref_1, 'single')
     scores_2, scores_ref_2 = gather_scores_double_mismatch()
-    plot_bars(scores_2, scores_ref_2, 'double')
+    # plot_bars(scores_2, scores_ref_2, 'double')
     scores_3, scores_ref_3 = gather_scores_triple_mismatch()
-    plot_bars(scores_3, scores_ref_3, 'triple')
-    summary_table(scores_ref_1, scores_ref_2, scores_ref_3)
+    # plot_bars(scores_3, scores_ref_3, 'triple')
+    summary_table(
+        scores_1, scores_ref_1,
+        scores_2, scores_ref_2,
+        scores_3, scores_ref_3,
+    )
     plt.show()
 
 
