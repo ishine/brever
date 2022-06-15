@@ -55,14 +55,14 @@ class FeatureExtractor:
             'pdf': {
                 'func': lambda x: self.fbe(
                     x,
-                    normalization=True,
+                    normalize=True,
                 ),
                 'n': self.mel_fb.n_filters,
             },
             'logpdf': {
                 'func': lambda x: self.fbe(
                     x,
-                    normalization=True,
+                    normalize=True,
                     compression='log',
                 ),
                 'n': self.mel_fb.n_filters,
@@ -70,7 +70,7 @@ class FeatureExtractor:
             'cubicpdf': {
                 'func': lambda x: self.fbe(
                     x,
-                    normalization=True,
+                    normalize=True,
                     compression='cubic',
                 ),
                 'n': self.mel_fb.n_filters,
