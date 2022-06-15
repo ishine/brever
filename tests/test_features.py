@@ -1,11 +1,12 @@
 import torch
 
 from brever.features import FeatureExtractor
+from brever.filters import MelFB
 
 
 def test_feature_extractor():
-    mag = torch.randn(2, 514, 30)
-    phase = torch.randn(2, 514, 30)
+    mag = torch.randn(2, 257, 30)
+    phase = torch.randn(2, 257, 30)
     features = [
         'ild',
         'ipd',
@@ -20,5 +21,6 @@ def test_feature_extractor():
         'cubicmfcc',
         'pdfcc',
     ]
-    extractor = FeatureExtractor(features=features)
+    mel_fb = MelFB()
+    extractor = FeatureExtractor(features=features, mel_fb=mel_fb)
     extractor((mag, phase))
