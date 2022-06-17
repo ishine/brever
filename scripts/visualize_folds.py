@@ -24,6 +24,17 @@ def format_ax(ax):
     ax.set_zticklabels([])
 
 
+def complement(idx_list):
+    return [i for i in range(5) if i not in idx_list]
+
+
+def build_test_index(index, dims):
+    test_index = [complement(index[dim]) for dim in range(3)]
+    for dim in dims:
+        test_index[dim] = index[dim]
+    return test_index
+
+
 def train_voxels(ax, index):
     data = np.zeros((5, 5, 5), dtype=bool)
     for ii, jj, kk in itertools.product(*index):
@@ -32,12 +43,10 @@ def train_voxels(ax, index):
 
 
 def test_voxels(ax, index, dims):
-    other_dims = [i for i in range(3) if i not in dims]
+    test_index = build_test_index(index, dims)
     data = np.zeros((5, 5, 5), dtype=bool)
-    for ii, jj, kk in itertools.product(range(5), repeat=3):
-        if all([ii, jj, kk][dim] in index[dim] for dim in dims):
-            if all([ii, jj, kk][dim] not in index[dim] for dim in other_dims):
-                data[ii, jj, kk] = 1
+    for ii, jj, kk in itertools.product(*test_index):
+        data[ii, jj, kk] = 1
     ax.voxels(data, facecolors=green)
 
 
@@ -58,21 +67,20 @@ def n_eq_one(i, dims):
 
 
 def n_eq_four(i, dims):
-    return [[ii for ii in range(5) if ii != i]]*3
+    return [complement([i])]*3
 
 
 def n_eq_one_old(i, dims):
     index = [[i], [i], [i]]
-    for d in dims:
-        index[d] = [0]
+    for dim in dims:
+        index[dim] = [0]
     return index
 
 
 def n_eq_four_old(i, dims):
-    index = [[0], [0], [0]]
-    for dim in range(3):
-        if dim not in dims:
-            index[dim] = [ii for ii in range(5) if ii != i]
+    index = [complement([i])]*3
+    for dim in dims:
+        index[dim] = [0]
     return index
 
 
