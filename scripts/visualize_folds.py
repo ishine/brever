@@ -10,7 +10,11 @@ green = [0, 1, 0, alpha]
 
 
 def init_fig():
-    fig, axes = plt.subplots(7, 5, subplot_kw={'projection': '3d'})
+    fig, axes = plt.subplots(
+        7, 5,
+        subplot_kw={'projection': '3d'},
+        figsize=(8, 10),
+    )
     axes = iter(axes.flatten())
     return fig, axes
 
@@ -60,6 +64,14 @@ def main(index_func):
                 train_voxels(ax, index)
                 test_voxels(ax, index, dims)
                 format_ax(ax)
+    fig.subplots_adjust(
+        left=0.0,
+        right=1.0,
+        top=1.0,
+        bottom=0.0,
+        wspace=0.0,
+        hspace=0.0,
+    )
 
 
 def n_eq_one(i, dims):
@@ -87,6 +99,6 @@ def n_eq_four_old(i, dims):
 if __name__ == '__main__':
     main(n_eq_one)
     main(n_eq_four)
-    main(n_eq_one_old)
-    main(n_eq_four_old)
+    # main(n_eq_one_old)
+    # main(n_eq_four_old)
     plt.show()
