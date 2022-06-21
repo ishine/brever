@@ -1,12 +1,12 @@
 # Brever
 Binaural speech segregation in noisy and reverberant environments using deep neural networks.
 
-What can you do with Brever?
+With Brever you can:
 * Generate datasets of noisy and reverberant mixtures from a range of supported databases of speech utterances, noise recordings and binaural room impulse responses (BRIRs)
-* Train PyTorch-based neural networks to perform speech enhancement. Currently implemented models are
-** Feed-forward neural network (FFNN)
-** Conv-TasNet
-* Evaluate trained models in terms of different metrics: SNR, PESQ and STOI improvements.
+* Train PyTorch-based neural networks to perform speech enhancement. Currently implemented models are:
+  * Feed-forward neural network (FFNN)
+  * Conv-TasNet
+* Evaluate trained models in terms of different metrics: SNR, PESQ and STOI
 
 "Brever" reads "reverb" backwards.
 
@@ -58,7 +58,7 @@ External databases of speech utterances, noise recordings and binaural room impu
   - [NOISEX](https://doi.org/10.1016/0167-6393(93)90095-3)
   - [ICRA](https://pubmed.ncbi.nlm.nih.gov/11465297/)
   - [DEMAND](https://doi.org/10.5281/zenodo.1227121)
-  - [ARTE](https://doi.org/10.5281/zenodo.2261633)
+  - [ARTE](https://doi.org/10.5281/zenodo.3386569)
 
 These should be placed in the paths specified in `config/paths.yaml`.
 
@@ -96,17 +96,17 @@ $ python scripts/train_model.py models/ece4a25b/
 
 The following files are then created next to the `config.yaml` file:
 
-- `checkpoint.pt`: the model PyTorch state dictionary
-- `log.txt`: a log file
+- `checkpoint.pt`: the PyTorch state dictionary of the model
+- `log.log`: a log file
 - `losses.npz`: training and validation curves in NumPy format
 - `training_curve.png`: a plot of the training and validation curves
 
 ## Testing models
 
-You can evaluate a trained model with `scripts/test_model.py`:
+You can evaluate a trained model using the `scripts/test_model.py` script:
 
 ```
-python scripts/test_model.py models/ece4a25b/ data/datasets/<dataset_id>/
+python scripts/test_model.py models/ece4a25b/ data/datasets/test/<dataset_id>/
 ```
 
-This creates a `scores.json` containing the SNR, PESQ and STOI scores for the enhanced mixtures from the model as well as the unprocessed input mixtures.
+This creates a `scores.json` file containing the SNR, PESQ and STOI scores for the enhanced mixtures from the model as well as the unprocessed input mixtures.
