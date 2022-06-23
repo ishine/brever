@@ -17,7 +17,8 @@ from brever.logger import set_logger
 from brever.training import SNR
 
 
-def significant_figures(x, n=4):
+def sig_figs(x, n=4):
+    # significant figures
     if x == 0:
         return x
     else:
@@ -30,15 +31,15 @@ def format_scores(x, figures=4):
     elif isinstance(x, list):
         x = [format_scores(val) for val in x]
     elif isinstance(x, np.floating):
-        x = significant_figures(x.item(), figures)
+        x = sig_figs(x.item(), figures)
     elif isinstance(x, float):
-        x = significant_figures(x, figures)
+        x = sig_figs(x, figures)
     else:
         raise ValueError(f'got unexpected type {type(x)}')
     return x
 
 
-def main(test_path):
+def main():
     # check if model exists
     if not os.path.exists(args.input):
         raise FileNotFoundError(f'model does not exist: {args.input}')
@@ -61,6 +62,29 @@ def main(test_path):
     # initialize model
     model = initialize_model(config)
 
+    # load checkpoint
+    checkpoint = os.path.join(args.input, 'checkpoint.pt')
+    state = torch.load(checkpoint, map_location='cpu')
+    model.load_state_dict(state['model'])
+
+    # disable gradients and set model to eval
+    torch.set_grad_enabled(False)
+    model.eval()
+
+    # test model
+    for test_path in args.test_paths:
+        test_model(model, config, test_path)
+
+
+def test_model(model, config, test_path):
+    # check if already tested
+    scores_path = os.path.join(args.input, 'scores.json')
+    if os.path.exists(scores_path):
+        with open(scores_path) as f:
+            saved_scores = json.load(f)
+        if test_path in saved_scores.keys() and not args.force:
+            raise FileExistsError('model already tested on this dataset')
+
     # initialize dataset
     kwargs = {}
     if hasattr(config.MODEL, 'SOURCES'):
@@ -72,19 +96,6 @@ def main(test_path):
         model=model,
         **kwargs,
     )
-
-    # load checkpoint
-    checkpoint = os.path.join(args.input, 'checkpoint.pt')
-    state = torch.load(checkpoint, map_location='cpu')
-    model.load_state_dict(state['model'])
-
-    # check if already tested
-    scores_path = os.path.join(args.input, 'scores.json')
-    if os.path.exists(scores_path):
-        with open(scores_path) as f:
-            saved_scores = json.load(f)
-        if test_path in saved_scores.keys() and not args.force:
-            raise FileExistsError('model already tested on this dataset')
 
     scores = {
         'model': {
@@ -99,14 +110,11 @@ def main(test_path):
         }
     }
 
-    # disable gradients and set model to eval
-    torch.set_grad_enabled(False)
-    model.eval()
-
     # main loop
     for i in range(len(dataset)):
 
-        logging.info(f'Evaluating on mixture {i}/{len(dataset)}')
+        if i % args.verbose_period == 0:
+            logging.info(f'Evaluating on mixture {i}/{len(dataset)}')
 
         data, target = dataset.load_segment(i)  # (2, L) and (S, 2, L)
         output = model.enhance(data)  # (L)
@@ -158,13 +166,17 @@ def main(test_path):
         scores['model']['SNR'].append(snr_model)
         scores['ref']['SNR'].append(snr_ref)
 
-        logging.info(f'PESQi: {significant_figures(pesq_model - pesq_ref)}')
-        logging.info(f'STOIi: {significant_figures(stoi_model - stoi_ref)}')
-        logging.info(f'SNRi: {significant_figures(snr_model - snr_ref)}')
+        if i % args.verbose_period == 0:
+            logging.info(f'PESQi: {sig_figs(pesq_model - pesq_ref)}')
+            logging.info(f'STOIi: {sig_figs(stoi_model - stoi_ref)}')
+            logging.info(f'SNRi: {sig_figs(snr_model - snr_ref)}')
 
         if args.output_dir is not None:
-            input_path = os.path.join(args.output_dir, f'{i:05d}_input.flac')
-            output_path = os.path.join(args.output_dir, f'{i:05d}_output.flac')
+            dset_id = os.path.basename(os.path.normpath(test_path))
+            input_filename = f'{dset_id}_{i:05d}_input.flac'
+            output_filename = f'{dset_id}_{i:05d}_output.flac'
+            input_path = os.path.join(args.output_dir, input_filename)
+            output_path = os.path.join(args.output_dir, output_filename)
             torchaudio.save(input_path, data.unsqueeze(0), config.FS)
             torchaudio.save(output_path, output.unsqueeze(0), config.FS)
 
@@ -189,11 +201,7 @@ if __name__ == '__main__':
                         help='test even if already tested')
     parser.add_argument('--output-dir',
                         help='where to write signals')
+    parser.add_argument('--verbose-period', default=10,
+                        help='sets frequency of log outputs')
     args = parser.parse_args()
-
-    import traceback
-    for test_path in args.test_paths:
-        try:
-            main(test_path)
-        except FileExistsError:
-            traceback.print_exc()
+    main()
