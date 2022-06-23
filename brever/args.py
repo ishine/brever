@@ -134,6 +134,7 @@ class ModelArgParser(argparse.ArgumentParser):
         'segment_length': ['TRAINING', 'SEGMENT_LENGTH'],
         'batch_size': ['TRAINING', 'BATCH_SAMPLER', 'BATCH_SIZE'],
         'batch_sampler': ['TRAINING', 'BATCH_SAMPLER', 'WHICH'],
+        'sort_observations': ['TRAINING', 'BATCH_SAMPLER', 'SORTED'],
     }
 
     arg_map = {
@@ -214,3 +215,4 @@ class ModelArgParser(argparse.ArgumentParser):
         self.add_argument('--segment-length', type=float)
         self.add_argument('--batch-size', type=float)
         self.add_argument('--batch-sampler', type=str)
+        self.add_argument('--sort-observations', type=arg_type_bool)

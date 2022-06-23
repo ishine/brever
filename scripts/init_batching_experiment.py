@@ -35,91 +35,33 @@ def main():
         force=args.force,
     )
 
-    hyperparams = [
-        # segmentation experiment
-        {
-            'batch_size': 1.0,
-            'segment_length': 0.0,
+    hyperparams = []
+    # basic batch samplers
+    for batch_size, sort in itertools.product(
+                [1, 2, 4, 8, 16, 32],
+                [False, True],
+            ):
+        hyperparams.append({
+            'batch_size': float(batch_size),
             'batch_sampler': 'simple',
-        },
-        {
-            'batch_size': 4.0,
-            'segment_length': 0.0,
-            'batch_sampler': 'simple',
-        },
-        {
-            'batch_size': 16.0,
-            'segment_length': 0.0,
-            'batch_sampler': 'simple',
-        },
-        {
-            'batch_size': 1.0,
-            'segment_length': 1.0,
-            'batch_sampler': 'simple',
-        },
-        {
-            'batch_size': 4.0,
-            'segment_length': 1.0,
-            'batch_sampler': 'simple',
-        },
-        {
-            'batch_size': 16.0,
-            'segment_length': 1.0,
-            'batch_sampler': 'simple',
-        },
-        {
-            'batch_size': 1.0,
-            'segment_length': 4.0,
-            'batch_sampler': 'simple',
-        },
-        {
-            'batch_size': 4.0,
-            'segment_length': 4.0,
-            'batch_sampler': 'simple',
-        },
-        {
-            'batch_size': 16.0,
-            'segment_length': 4.0,
-            'batch_sampler': 'simple',
-        },
-        # batching experiment
-        {
-            'batch_size': 4.0,
-            'batch_sampler': 'simple',
-        },
-        {
-            'batch_size': 16.0,
-            'batch_sampler': 'simple',
-        },
-        {
-            'batch_size': 64.0,
-            'batch_sampler': 'simple',
-        },
-        {
-            'batch_size': 8.0,
+            'sort_observations': sort,
+        })
+    # dynamic batch samplers
+    for batch_size, sort in itertools.product(
+                [4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
+                [False, True],
+            ):
+        hyperparams.append({
+            'batch_size': batch_size,
             'batch_sampler': 'dynamic',
-        },
-        {
-            'batch_size': 32.0,
-            'batch_sampler': 'dynamic',
-        },
-        {
-            'batch_size': 128.0,
-            'batch_sampler': 'dynamic',
-        },
-        {
-            'batch_size': 8.0,
+            'sort_observations': sort,
+        })
+    # bucket batch samplers
+    for batch_size in [4.0, 8.0, 16.0, 32.0, 64.0, 128.0]:
+        hyperparams.append({
+            'batch_size': batch_size,
             'batch_sampler': 'bucket',
-        },
-        {
-            'batch_size': 32.0,
-            'batch_sampler': 'bucket',
-        },
-        {
-            'batch_size': 128.0,
-            'batch_sampler': 'bucket',
-        },
-    ]
+        })
 
     evaluations = []
     for arch in ['convtasnet']:
