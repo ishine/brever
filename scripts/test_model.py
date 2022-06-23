@@ -66,7 +66,7 @@ def main(test_path):
     if hasattr(config.MODEL, 'SOURCES'):
         kwargs['components'] = config.MODEL.SOURCES
     dataset = BreverDataset(
-        path=config.TRAINING.PATH,
+        path=test_path,
         segment_length=0.0,
         fs=config.FS,
         model=model,
