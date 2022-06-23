@@ -83,7 +83,8 @@ def test_model(model, config, test_path):
         with open(scores_path) as f:
             saved_scores = json.load(f)
         if test_path in saved_scores.keys() and not args.force:
-            raise FileExistsError('model already tested on this dataset')
+            print(f'model already tested on {test_path}')
+            return
 
     # initialize dataset
     kwargs = {}
