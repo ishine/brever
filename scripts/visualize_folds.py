@@ -96,9 +96,31 @@ def n_eq_four_old(i, dims):
     return index
 
 
+def n_eq_one_sanity_check(i, dims):
+    if len(dims) == 0:
+        index = [[i], [i], [i]]
+    else:
+        index = [[0], [0], [0]]
+        for dim in dims:
+            index[dim] = [i]
+    return index
+
+
+def n_eq_four_sanity_check(i, dims):
+    if len(dims) == 0:
+        index = [complement([i])]*3
+    else:
+        index = [complement([0])]*3
+        for dim in dims:
+            index[dim] = [i]
+    return index
+
+
 if __name__ == '__main__':
     main(n_eq_one)
     main(n_eq_four)
     # main(n_eq_one_old)
     # main(n_eq_four_old)
+    # main(n_eq_one_sanity_check)
+    # main(n_eq_four_sanity_check)
     plt.show()
