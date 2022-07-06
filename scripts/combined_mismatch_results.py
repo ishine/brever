@@ -253,7 +253,7 @@ def plot_bars(scores, scores_ref, which):
         'double': 'results_double.svg',
         'triple': 'results_triple.svg',
     }[which]
-    ncol = {
+    legend_cols = {
         'single': 4,
         'double': 4,
         'triple': 2,
@@ -273,13 +273,18 @@ def plot_bars(scores, scores_ref, which):
         'double': [1, 2, 3],
         'triple': [0],
     }[which]
+    gs_cols = {
+        'single': 3,
+        'double': 3,
+        'triple': 1,
+    }[which]
 
     x = np.arange(len(archs)*2).reshape(len(archs), 2)
     x += bar_xspace*np.arange(len(archs)).reshape(-1, 1)
     xlim = x.min() - bar_xspace - 0.5, x.max() + bar_xspace + 0.5
 
     fig = plt.figure(figsize=figsize)
-    outer_gs = gridspec.GridSpec(1, scores.shape[1], figure=fig)
+    outer_gs = gridspec.GridSpec(1, gs_cols, figure=fig)
     for i_gs, i_dim in enumerate(i_dims):
         inner_gs = gridspec.GridSpecFromSubplotSpec(
             3, 2, subplot_spec=outer_gs[i_gs], hspace=0.05, wspace=0.05
@@ -319,7 +324,7 @@ def plot_bars(scores, scores_ref, which):
                     ax.set_yticklabels([])
 
         handles, labs = ax.get_legend_handles_labels()
-    fig.legend(handles, labs, loc=loc, ncol=ncol, fontsize='medium')
+    fig.legend(handles, labs, loc=loc, ncol=legend_cols, fontsize='medium')
     fig.tight_layout(rect=rect, w_pad=1.8)
     fig.patch.set_visible(False)
     fig.savefig(filename, bbox_inches=0)
@@ -377,7 +382,6 @@ def summary_table(scores):
         print(r'\multirow{4}{*}{\rotatebox[origin=c]{90}', end='')
         print(rf'{{{metrics[i_metric]}}}}}')
         print_row_match(i_metric)
-        print(r'\cline{2-7}')
         print_row_mismatch(i_metric, 'Single mism.', [4, 5, 6])
         print_row_mismatch(i_metric, 'Double mism.', [1, 2, 3])
         print_row_mismatch(i_metric, 'Triple mism.', [0])
