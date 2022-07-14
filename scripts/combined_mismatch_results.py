@@ -9,7 +9,7 @@ import matplotlib.gridspec as gridspec
 from brever.args import arg_type_path
 from brever.config import DatasetInitializer, ModelInitializer
 
-plt.rcParams['svg.fonttype'] = 'none'
+# plt.rcParams['svg.fonttype'] = 'none'
 plt.rcParams['font.size'] = 7
 plt.rcParams['patch.linewidth'] = .5
 plt.rcParams['hatch.linewidth'] = .5
@@ -21,8 +21,9 @@ plt.rcParams['xtick.major.width'] = .5
 plt.rcParams['ytick.major.size'] = 1
 plt.rcParams['ytick.major.width'] = .5
 plt.rcParams['figure.dpi'] = 200
-plt.rcParams['font.family'] = "Liberation Serif"
-plt.rcParams['mathtext.fontset'] = "stix"
+plt.rcParams['font.family'] = 'Liberation Serif'
+plt.rcParams['mathtext.fontset'] = 'cm'
+plt.rcParams['mathtext.rm'] = 'serif'
 
 
 RAW_MATH = False
@@ -231,9 +232,9 @@ def plot_bars(scores, scores_ref, which):
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
     hatch = ['', '////']
     ylims = [
-        (0, 0.79),
-        (0, 0.17),
-        (0, 10.4),
+        (0, 0.64),
+        (0, 0.16),
+        (0, 9.2),
     ]
     yticks = [
         np.arange(0, 0.8 + 1e-10, 0.1),
@@ -249,9 +250,9 @@ def plot_bars(scores, scores_ref, which):
         'triple': (2.66, 4.20),
     }[which]
     filename = {
-        'single': 'results_single.svg',
-        'double': 'results_double.svg',
-        'triple': 'results_triple.svg',
+        'single': 'results_single.pdf',
+        'double': 'results_double.pdf',
+        'triple': 'results_triple.pdf',
     }[which]
     legend_cols = {
         'single': 4,
@@ -327,7 +328,7 @@ def plot_bars(scores, scores_ref, which):
     fig.legend(handles, labs, loc=loc, ncol=legend_cols, fontsize='medium')
     fig.tight_layout(rect=rect, w_pad=1.8)
     fig.patch.set_visible(False)
-    fig.savefig(filename, bbox_inches=0)
+    fig.savefig(filename, bbox_inches='tight', pad_inches=0)
 
 
 def draw_gen_gap(ax, x, i_arch, data, data_ref, ylims):
@@ -410,7 +411,13 @@ def summary_table(scores):
 if __name__ == '__main__':
     dset_init = DatasetInitializer(batch_mode=True)
     model_init = ModelInitializer(batch_mode=True)
-    scores, ref_scores = gather_all_scores()
+    npzfile = 'temp.npz'
+    if os.path.exists(npzfile):
+        npzobj = np.load(npzfile)
+        scores, ref_scores = npzobj['scores'], npzobj['ref_scores']
+    else:
+        scores, ref_scores = gather_all_scores()
+        np.savez(npzfile, scores=scores, ref_scores=ref_scores)
     plot_bars(scores, ref_scores, 'single')
     plot_bars(scores, ref_scores, 'double')
     plot_bars(scores, ref_scores, 'triple')
