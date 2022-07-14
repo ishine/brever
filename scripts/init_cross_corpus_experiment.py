@@ -89,6 +89,7 @@ def init_model(model_initializer, arch, train_path):
         arch=arch,
         train_path=arg_type_path(train_path),
         force=args.force,
+        batch_size=4.0,
     )
 
 
