@@ -406,6 +406,69 @@ def summary_table(scores):
     print(r'\caption{Caption}')
     print(r'\label{tab:summary}')
     print(r'\end{table}')
+    print('')
+
+
+def fold_table(scores):
+
+    def print_cell(x, y):
+        if x > y:
+            x = rf'\textbf{{{x:.2f}}}'
+            y = f'{y:.2f}'
+        else:
+            x = f'{x:.2f}'
+            y = rf'\textbf{{{y:.2f}}}'
+        print(rf'& {x} & {y}', end=' ')
+
+    def print_row(i_metric, i_fold):
+        print('& ', end=' ')
+        print(f'Fold {i_fold+1}', end=' ')
+        x = scores[0, -1, i_fold, 0, i_metric]
+        y = scores[0, -1, i_fold, 1, i_metric]
+        print_cell(x, y)
+        x = scores[1, -1, i_fold, 0, i_metric]
+        y = scores[1, -1, i_fold, 1, i_metric]
+        print_cell(x, y)
+        print(r'\\')
+
+    def print_row_mean(i_metric):
+        print('& ', end=' ')
+        print('Mean', end=' ')
+        x = scores[0, -1, :, 0, i_metric].mean()
+        y = scores[0, -1, :, 1, i_metric].mean()
+        print_cell(x, y)
+        x = scores[1, -1, :, 0, i_metric].mean()
+        y = scores[1, -1, :, 1, i_metric].mean()
+        print_cell(x, y)
+        print(r'\\')
+
+    def print_block(i_metric):
+        print(r'\multirow{6}{*}{\rotatebox[origin=c]{90}', end='')
+        print(rf'{{{metrics[i_metric]}}}}}')
+        for i_fold in range(5):
+            print_row(i_metric, i_fold)
+        print_row_mean(i_metric)
+
+    print(r'\begin{table}')
+    print(r'\centering')
+    print(r'\begin{tabular}{cccccc}')
+    print(r'\hline \hline')
+    print(r'& & \multicolumn{2}{c}{$N=1$} & \multicolumn{2}{c}{$N=4$} \\')
+    print(r'& & FFNN & Conv-TasNet & FFNN & Conv-TasNet \\')
+
+    print(r'\hline \hline')
+    print_block(3)
+    print(r'\hline \hline')
+    print_block(4)
+    print(r'\hline \hline')
+    print_block(5)
+    print(r'\hline \hline')
+
+    print(r'\end{tabular}')
+    print(r'\caption{Caption}')
+    print(r'\label{tab:summary}')
+    print(r'\end{table}')
+    print('')
 
 
 if __name__ == '__main__':
@@ -422,4 +485,5 @@ if __name__ == '__main__':
     plot_bars(scores, ref_scores, 'double')
     plot_bars(scores, ref_scores, 'triple')
     summary_table(scores)
+    fold_table(scores)
     plt.show()
