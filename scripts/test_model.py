@@ -14,7 +14,7 @@ from brever.config import get_config
 from brever.data import BreverDataset
 from brever.models import initialize_model
 from brever.logger import set_logger
-from brever.training import SNR
+from brever.training import SNR, SISNR
 
 
 def sig_figs(x, n=4):
@@ -167,10 +167,25 @@ def test_model(model, config, test_path):
         scores['model']['SNR'].append(snr_model)
         scores['ref']['SNR'].append(snr_ref)
 
+        # sisnr
+        sisnr_model = -SISNR()(
+            output.unsqueeze(0),
+            target.unsqueeze(0),
+            [data.shape[-1]],
+        ).item()
+        sisnr_ref = -SISNR()(
+            data.unsqueeze(0),
+            target.unsqueeze(0),
+            [data.shape[-1]],
+        ).item()
+        scores['model']['SISNR'].append(sisnr_model)
+        scores['ref']['SISNR'].append(sisnr_ref)
+
         if i % args.verbose_period == 0:
             logging.info(f'PESQi: {sig_figs(pesq_model - pesq_ref)}')
             logging.info(f'STOIi: {sig_figs(stoi_model - stoi_ref)}')
-            logging.info(f'SNRi: {sig_figs(snr_model - snr_ref)}')
+            logging.info(f'SNRi: {sig_figs(sisnr_model - sisnr_ref)}')
+            logging.info(f'SISNRi: {sig_figs(sisnr_model - sisnr_ref)}')
 
         if args.output_dir is not None:
             dset_id = os.path.basename(os.path.normpath(test_path))
