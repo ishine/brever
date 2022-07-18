@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-from brever.training import get_criterion
+from brever.criterion import get_criterion
 
 
 def _test_criterion(criterion):

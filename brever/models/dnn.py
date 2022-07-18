@@ -13,21 +13,22 @@ eps = np.finfo(float).eps
 class DNN(BreverBaseModel):
     def __init__(
         self,
-        fs=16000,
-        features={'logfbe'},
-        stacks=0,
-        decimation=1,
-        stft_frame_length=512,
-        stft_hop_length=256,
-        stft_window='hann',
-        mel_filters=64,
-        hidden_layers=[1024, 1024],
-        dropout=0.2,
-        batchnorm=False,
-        batchnorm_momentum=0.1,
-        normalization='static',
-    ):
-        super().__init__()
+        criterion: str = 'MSE',
+        fs: int = 16000,
+        features: set[str] = {'logfbe'},
+        stacks: int = 0,
+        decimation: int = 1,
+        stft_frame_length: int = 512,
+        stft_hop_length: int = 256,
+        stft_window: str = 'hann',
+        mel_filters: int = 64,
+        hidden_layers: list[int] = [1024, 1024],
+        dropout: float = 0.2,
+        batchnorm: bool = False,
+        batchnorm_momentum: float = 0.1,
+        normalization: str = 'static',
+    ) -> None:
+        super().__init__(criterion)
         self.stacks = stacks
         self.decimation = decimation
         self.stft = STFT(

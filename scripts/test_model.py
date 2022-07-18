@@ -14,7 +14,7 @@ from brever.config import get_config
 from brever.data import BreverDataset
 from brever.models import initialize_model
 from brever.logger import set_logger
-from brever.training import SNR, SISNR
+from brever.criterion import SNR, SISNR
 
 
 def sig_figs(x, n=4):
@@ -103,11 +103,13 @@ def test_model(model, config, test_path):
             'PESQ': [],
             'STOI': [],
             'SNR': [],
+            'SISNR': [],
         },
         'ref': {
             'PESQ': [],
             'STOI': [],
             'SNR': [],
+            'SISNR': [],
         }
     }
 
@@ -118,7 +120,7 @@ def test_model(model, config, test_path):
             logging.info(f'Evaluating on mixture {i}/{len(dataset)}')
 
         data, target = dataset.load_segment(i)  # (2, L) and (S, 2, L)
-        output = model.enhance(data)  # (L)
+        output = model.enhance(data, target)  # (L)
         target = target[0]  # (2, L)
         data = data.mean(dim=0)  # (L)
         target = target.mean(dim=0)  # (L)
@@ -155,13 +157,13 @@ def test_model(model, config, test_path):
 
         # snr
         snr_model = -SNR()(
-            output.unsqueeze(0),
-            target.unsqueeze(0),
+            output.view(1, 1, -1),
+            target.view(1, 1, -1),
             [data.shape[-1]],
         ).item()
         snr_ref = -SNR()(
-            data.unsqueeze(0),
-            target.unsqueeze(0),
+            data.view(1, 1, -1),
+            target.view(1, 1, -1),
             [data.shape[-1]],
         ).item()
         scores['model']['SNR'].append(snr_model)
@@ -169,13 +171,13 @@ def test_model(model, config, test_path):
 
         # sisnr
         sisnr_model = -SISNR()(
-            output.unsqueeze(0),
-            target.unsqueeze(0),
+            output.view(1, 1, -1),
+            target.view(1, 1, -1),
             [data.shape[-1]],
         ).item()
         sisnr_ref = -SISNR()(
-            data.unsqueeze(0),
-            target.unsqueeze(0),
+            data.view(1, 1, -1),
+            target.view(1, 1, -1),
             [data.shape[-1]],
         ).item()
         scores['model']['SISNR'].append(sisnr_model)
@@ -184,7 +186,7 @@ def test_model(model, config, test_path):
         if i % args.verbose_period == 0:
             logging.info(f'PESQi: {sig_figs(pesq_model - pesq_ref)}')
             logging.info(f'STOIi: {sig_figs(stoi_model - stoi_ref)}')
-            logging.info(f'SNRi: {sig_figs(sisnr_model - sisnr_ref)}')
+            logging.info(f'SNRi: {sig_figs(snr_model - snr_ref)}')
             logging.info(f'SISNRi: {sig_figs(sisnr_model - sisnr_ref)}')
 
         if args.output_dir is not None:

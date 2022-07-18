@@ -6,6 +6,7 @@ from .dccrn import DCCRN  # noqa
 def initialize_model(config):
     if config.ARCH == 'dnn':
         model = DNN(
+            criterion=config.TRAINING.CRITERION,
             fs=config.FS,
             features=config.MODEL.FEATURES,
             stacks=config.MODEL.STACKS,
@@ -22,6 +23,7 @@ def initialize_model(config):
         )
     elif config.ARCH == 'convtasnet':
         model = ConvTasNet(
+            criterion=config.TRAINING.CRITERION,
             filters=config.MODEL.ENCODER.FILTERS,
             filter_length=config.MODEL.ENCODER.FILTER_LENGTH,
             bottleneck_channels=config.MODEL.TCN.BOTTLENECK_CHANNELS,

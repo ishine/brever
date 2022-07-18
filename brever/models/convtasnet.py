@@ -14,10 +14,21 @@ class ConvTasNet(BreverBaseModel):
     - Code by Kaituo Xu under MIT License:
     https://github.com/kaituoxu/Conv-TasNet
     """
-    def __init__(self, filters=512, filter_length=16, bottleneck_channels=128,
-                 hidden_channels=512, skip_channels=128, kernel_size=3,
-                 layers=8, repeats=3, sources=2, norm='cLN'):
-        super().__init__()
+    def __init__(
+        self,
+        criterion: str = 'SNR',
+        filters: int = 512,
+        filter_length: int = 16,
+        bottleneck_channels: int = 128,
+        hidden_channels: int = 512,
+        skip_channels: int = 128,
+        kernel_size: int = 3,
+        layers: int = 8,
+        repeats: int = 3,
+        sources: int = 2,
+        norm: str = 'cLN',
+    ) -> None:
+        super().__init__(criterion)
         self.encoder = Encoder(filters, filter_length)
         self.decoder = Decoder(filters, filter_length)
         self.tcn = TCN(
@@ -49,11 +60,26 @@ class ConvTasNet(BreverBaseModel):
     def segment_to_item_length(self, item_length):
         return item_length
 
-    def enhance(self, x):
-        x = x.mean(axis=-2)
+    def enhance(self, x, target=None):
+        # x.shape = (channels, length)
+        # target.shape = (sources, channels, length)
+        x = x.mean(axis=-2)  # (length,)
         x = self.forward(x.unsqueeze(0))
-        x = x.squeeze(0)
-        x = x[0]  # speech signal is the first separated source
+        x = x.squeeze(0)  # (sources, length)
+        if target is not None:
+            target = target.mean(axis=-2)  # (sources, length)
+            # grab source with best score
+            scores = torch.empty(2)
+            for i in range(x.shape[0]):
+                scores[i] = self.criterion(
+                    x[i].view(1, 1, -1),
+                    target[0].view(1, 1, -1),
+                    [x.shape[-1]],
+                )
+            i_min = torch.argmin(scores)
+            x = x[i_min]
+        else:
+            x = x[0]  # assume the speech signal is the first separated source
         return x
 
 
