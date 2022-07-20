@@ -69,7 +69,7 @@ class ConvTasNet(BreverBaseModel):
         if target is not None:
             target = target.mean(axis=-2)  # (sources, length)
             # grab source with best score
-            scores = torch.empty(2)
+            scores = torch.empty(x.shape[0])
             for i in range(x.shape[0]):
                 scores[i] = self.criterion(
                     x[i].view(1, 1, -1),
