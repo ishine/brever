@@ -110,6 +110,7 @@ def main():
             'batch_size': float(batch_size),
             'batch_sampler': 'simple',
             'sort_observations': sort,
+            'seed': seed,
         })
     # dynamic batch samplers
     for batch_size, sort, seed in itertools.product(
@@ -121,6 +122,7 @@ def main():
             'batch_size': batch_size,
             'batch_sampler': 'dynamic',
             'sort_observations': sort,
+            'seed': seed,
         })
     # bucket batch samplers
     for batch_size, sort in itertools.product(
@@ -130,6 +132,7 @@ def main():
         hyperparams.append({
             'batch_size': batch_size,
             'batch_sampler': 'bucket',
+            'seed': seed,
         })
 
     models = []
