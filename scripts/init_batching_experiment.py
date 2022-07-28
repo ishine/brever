@@ -101,9 +101,10 @@ def main():
 
     hyperparams = []
     # basic batch samplers
-    for batch_size, sort in itertools.product(
+    for batch_size, sort, seed in itertools.product(
                 [1, 2, 4, 8, 16, 32],
                 [False, True],
+                [0, 1, 2, 3, 4],
             ):
         hyperparams.append({
             'batch_size': float(batch_size),
@@ -111,9 +112,10 @@ def main():
             'sort_observations': sort,
         })
     # dynamic batch samplers
-    for batch_size, sort in itertools.product(
+    for batch_size, sort, seed in itertools.product(
                 [4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
                 [False, True],
+                [0, 1, 2, 3, 4],
             ):
         hyperparams.append({
             'batch_size': batch_size,
@@ -121,7 +123,10 @@ def main():
             'sort_observations': sort,
         })
     # bucket batch samplers
-    for batch_size in [4.0, 8.0, 16.0, 32.0, 64.0, 128.0]:
+    for batch_size, sort in itertools.product(
+                [4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
+                [0, 1, 2, 3, 4],
+            ):
         hyperparams.append({
             'batch_size': batch_size,
             'batch_sampler': 'bucket',
