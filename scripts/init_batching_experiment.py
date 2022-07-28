@@ -125,7 +125,7 @@ def main():
             'seed': seed,
         })
     # bucket batch samplers
-    for batch_size, sort in itertools.product(
+    for batch_size, seed in itertools.product(
                 [4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
                 [0, 1, 2, 3, 4],
             ):
