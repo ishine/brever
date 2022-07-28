@@ -14,6 +14,40 @@ from brever.data import BreverDataset, get_batch_sampler
 from brever.models import initialize_model
 
 
+databases = [
+    {
+        'kwarg': 'speakers',
+        'databases': [
+            'timit_.*',
+            'libri_.*',
+            'wsj0_.*',
+            'clarity_.*',
+            'vctk_.*',
+        ],
+    },
+    {
+        'kwarg': 'noises',
+        'databases': [
+            'dcase_.*',
+            'noisex_.*',
+            'icra_.*',
+            'demand',
+            'arte',
+        ],
+    },
+    {
+        'kwarg': 'rooms',
+        'databases': [
+            'surrey_.*',
+            'ash_.*',
+            'bras_.*',
+            'catt_.*',
+            'avil_.*',
+        ],
+    },
+]
+
+
 def fmt_time(time_):
     h, m, s = int(time_//3600), int((time_ % 3600)//60), int(time_ % 60)
     return f'{h:>2} h {m:>2} m {s:>2} s'
@@ -30,22 +64,18 @@ def fmt_score(score):
 
 def fmt_time_tex(time_):
     h, m = int(time_//3600), int((time_ % 3600)//60)
-    return fr'{h} h &\ {m} m'
+    return fr'{h} h {m:02d} m'
 
 
 def fmt_score_tex(score, is_max):
     score = f"{score:.2f}"
-    score = score.split(".")
     if is_max:
-        for i in range(len(score)):
-            score[i] = fr"\textbf{{{score[i]}}}"
-    score = "&.".join(score)
+        score = fr"\textbf{{{score}}}"
     return score
 
 
 def fmt_memory_tex(memory):
     memory = round(memory/1e9, 1)
-    memory = str(memory).replace('.', '&.')
     return f'{memory} GB'
 
 
@@ -104,7 +134,18 @@ def get_padding(model):
     batch_sizes, pad_amounts = train_batch_sampler.calc_batch_stats()
     percent = sum(pad_amounts)/(sum(batch_sizes)-sum(pad_amounts))*100
     percent = f'{round(percent, 1)}\\%'
-    return percent.replace('.', '&.')
+    return percent
+
+
+def complement(idx_list):
+    return [i for i in range(5) if i not in idx_list]
+
+
+def build_test_index(index, dims):
+    test_index = [complement(index[dim]) for dim in range(3)]
+    for dim in dims:
+        test_index[dim] = index[dim]
+    return test_index
 
 
 def main():
@@ -147,12 +188,12 @@ def main():
         seed=42,
     )
 
-    def plot_models(models, scores, kw_list):
+    def plot_models(models, scores, kw_list, batch_type):
         max_score = np.max(scores, axis=0)
         for model, score, kwargs in zip(models, scores, kw_list):
-            plot_model(model, score, kwargs, max_score)
+            plot_model(model, score, kwargs, max_score, batch_type)
 
-    def plot_model(model, score, kwargs, max_score):
+    def plot_model(model, score, kwargs, max_score, batch_type):
         path = os.path.join(model, 'losses.npz')
         if not os.path.exists(path):
             print(f"WARNING: {path} not found, skipping")
@@ -173,7 +214,7 @@ def main():
         summary[model]['Min. val. loss'] = fmt_score(min(data['val']))
 
         i_model = len(summary)
-        pesq, stoi, snr = score
+        pesq, stoi, snr, pesq_mis, stoi_mis, snr_mis = score
         is_max = score == max_score
 
         summary[model]['Test PESQi'] = fmt_score(pesq)
@@ -186,16 +227,37 @@ def main():
 
         if "sort_observations" not in kwargs.keys():
             kwargs["sort_observations"] = False
-        kwargs["batch_size"] = str(kwargs["batch_size"]).replace('.', '&.')
+        batch_size = int(kwargs["batch_size"])
+        batch_size = f'{batch_size} {batch_type}'
         print(fr' & {kwargs["sort_observations"]}', end='')
-        print(fr' & {kwargs["batch_size"]}', end='')
+        print(fr' & {batch_size}', end='')
         print(fr' & {fmt_time_tex(state["time_spent"])}', end='')
         print(fr' & {fmt_memory_tex(state["max_memory_allocated"])}', end='')
         print(fr' & {get_padding(model)}', end='')
         print(fr' & {fmt_score_tex(pesq*10, is_max[0])}', end='')
         print(fr' & {fmt_score_tex(stoi*100, is_max[1])}', end='')
         print(fr' & {fmt_score_tex(snr, is_max[2])}', end='')
+        print(fr' & {fmt_score_tex(pesq_mis*10, is_max[3])}', end='')
+        print(fr' & {fmt_score_tex(stoi_mis*100, is_max[4])}', end='')
+        print(fr' & {fmt_score_tex(snr_mis, is_max[5])}', end='')
         print(r'\\')
+
+    def get_test_dsets(index):
+        test_paths = []
+        for i, j, k in itertools.product(*index):
+            test_path = dset_init.get_path_from_kwargs(
+                kind='test',
+                speakers={databases[0]['databases'][i]},
+                noises={databases[1]['databases'][j]},
+                rooms={databases[2]['databases'][k]},
+                speech_files=[0.8, 1.0],
+                noise_files=[0.8, 1.0],
+                room_files='odd',
+                duration=3600,
+                seed=42,
+            )
+            test_paths.append(test_path)
+        return test_paths
 
     def load_score(model):
         score_file = os.path.join(model, 'scores.json')
@@ -207,9 +269,25 @@ def main():
         pesq -= np.mean(scores[p_test]['ref']['PESQ'])
         stoi -= np.mean(scores[p_test]['ref']['STOI'])
         snr -= np.mean(scores[p_test]['ref']['SNR'])
-        return [pesq, stoi, snr]
+        matched = [pesq, stoi, snr]
 
-    def routine(**kwargs):
+        train_index = [[1], [0], [0]]
+        test_idx = build_test_index(train_index, [])
+        test_paths = get_test_dsets(test_idx)
+        mismatched = []
+        for test_path in test_paths:
+            pesq = np.mean(scores[test_path]['model']['PESQ'])
+            stoi = np.mean(scores[test_path]['model']['STOI'])
+            snr = np.mean(scores[test_path]['model']['SNR'])
+            pesq -= np.mean(scores[test_path]['ref']['PESQ'])
+            stoi -= np.mean(scores[test_path]['ref']['STOI'])
+            snr -= np.mean(scores[test_path]['ref']['SNR'])
+            mismatched.append([pesq, stoi, snr])
+        mismatched = np.array(mismatched).mean(axis=0)
+
+        return matched + mismatched.tolist()
+
+    def routine(batch_type, **kwargs):
         # basic batch samplers
         models = []
         scores = []
@@ -224,31 +302,51 @@ def main():
             scores.append(load_score(m))
             kw_list.append(kwargs)
         scores = np.array(scores)
-        plot_models(models, scores, kw_list)
+        plot_models(models, scores, kw_list, batch_type)
 
     print(r'\begin{table*}')
     print(r'\centering')
-    print(r'\begin{tabular}{ccr@{}lr@{}rr@{}lr@{}lr@{}lr@{}lr@{}l}')
+    print(r'\begin{tabular}{', end='')
+    print(r'c', end='')
+    print(r'c', end='')
+    print(r'r', end='')
+    print(r'r', end='')
+    print(r'r', end='')
+    print(r'r', end='')
+    print(r'c', end='')
+    print(r'c', end='')
+    print(r'c', end='')
+    print(r'c', end='')
+    print(r'c', end='')
+    print(r'c', end='')
+    print(r'}', end='')
 
     print(r'\hline \hline')
-    print(r'Strategy & Sort', end='')
-    print(r' & \multicolumn{2}{c}{Batch size}', end='')
-    print(r' & \multicolumn{2}{c}{Time}', end='')
-    print(r' & \multicolumn{2}{c}{Memory}', end='')
-    print(r' & \multicolumn{2}{c}{Padding}', end='')
-    print(r' & \multicolumn{2}{c}{$\Delta$PESQ}', end='')
-    print(r' & \multicolumn{2}{c}{$\Delta$STOI}', end='')
-    print(r' & \multicolumn{2}{c}{$\Delta$SNR}', end='')
+    print(r'&&&&&&\multicolumn{3}{c}{Match}&\multicolumn{3}{c}{Mismatch}\\')
+    print(r'Strategy')
+    print(r'& Sort')
+    print(r'& \multicolumn{1}{c}{Batch size}')
+    print(r'& \multicolumn{1}{c}{Time}')
+    print(r'& \multicolumn{1}{c}{Memory}')
+    print(r'& \multicolumn{1}{c}{Padding}')
+    print(r'& $\Delta$PESQ')
+    print(r'& $\Delta$STOI')
+    print(r'& $\Delta$SNR')
+    print(r'& $\Delta$PESQ')
+    print(r'& $\Delta$STOI')
+    print(r'& $\Delta$SNR')
     print(r' \\ \hline \hline')
 
     print(r'\multirow{12}{*}{\rotatebox[origin=c]{90}{Simple}}')
     routine(
+        batch_type='obs.',
         sort_observations=[False],
         batch_size=[1.0, 2.0, 4.0, 8.0, 16.0, 32.0],
         batch_sampler=['simple']
     )
-    print(r'\cline{2-14}')
+    print(r'\hhline{~===========}')
     routine(
+        batch_type='obs.',
         sort_observations=[True],
         batch_size=[1.0, 2.0, 4.0, 8.0, 16.0, 32.0],
         batch_sampler=['simple']
@@ -256,12 +354,14 @@ def main():
     print(r'\hline \hline')
     print(r'\multirow{12}{*}{\rotatebox[origin=c]{90}{Dynamic}}')
     routine(
+        batch_type='s',
         sort_observations=[False],
         batch_size=[4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
         batch_sampler=['dynamic']
     )
-    print(r'\cline{2-16} \cline{2-16}')
+    print(r'\hhline{~===========}')
     routine(
+        batch_type='s',
         sort_observations=[True],
         batch_size=[4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
         batch_sampler=['dynamic']
@@ -269,6 +369,7 @@ def main():
     print(r'\hline \hline')
     print(r'\multirow{6}{*}{\rotatebox[origin=c]{90}{Bucket}}')
     routine(
+        batch_type='s',
         batch_size=[4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
         batch_sampler=['bucket']
     )
