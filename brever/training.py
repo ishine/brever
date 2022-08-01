@@ -7,7 +7,8 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
-from .data import BreverDataLoader, get_batch_sampler
+from .data import BreverDataLoader
+from .batching import get_batch_sampler
 
 
 class TrainingTimer:
