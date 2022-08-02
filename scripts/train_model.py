@@ -99,7 +99,7 @@ def main():
         batch_sampler=config.TRAINING.BATCH_SAMPLER.WHICH,
         batch_size=config.TRAINING.BATCH_SAMPLER.BATCH_SIZE,
         num_buckets=config.TRAINING.BATCH_SAMPLER.NUM_BUCKETS,
-        sorted_=config.TRAINING.BATCH_SAMPLER.SORTED,
+        dynamic_batch_size=config.TRAINING.BATCH_SAMPLER.DYNAMIC,
         segment_length=config.TRAINING.SEGMENT_LENGTH,
         fs=config.FS,
         early_stop=config.TRAINING.EARLY_STOP.TOGGLE,

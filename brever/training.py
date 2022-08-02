@@ -121,7 +121,7 @@ class BreverTrainer:
         batch_sampler: str = 'bucket',
         batch_size: int | float = 16.0,
         num_buckets: int = 10,
-        sorted_: bool = False,
+        dynamic_batch_size: bool = True,
         segment_length: float = 4.0,
         fs: int | float = 16e3,
         early_stop: bool = False,
@@ -154,8 +154,7 @@ class BreverTrainer:
             batch_size=batch_size,
             fs=fs,
             num_buckets=num_buckets,
-            segment_length=segment_length,
-            sorted_=sorted_,
+            dynamic=dynamic_batch_size,
         )
         self.train_batch_sampler = batch_sampler_class(
             dataset=train_dataset,

@@ -2,6 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+from brever.batching import get_batch_sampler
+from brever.config import DatasetInitializer
+from brever.data import BreverDataset
+
+
 plt.rcParams['figure.figsize'] = (3.5, 1)
 plt.rcParams['font.size'] = 5
 plt.rcParams['svg.fonttype'] = 'none'
@@ -25,12 +30,25 @@ def crop(lengths):
     return output
 
 
-def plot(lengths, batch_func, filename=None):
-    x = np.arange(len(lengths))
-    batches = batch_func(lengths)
+class Dataset:
+    def __init__(self, item_lengths):
+        self.item_lengths = item_lengths
+
+    def segment_to_item_length(self, length):
+        return length
+
+
+def plot(sampler_name, dynamic, batch_size, filename=None):
+    sampler, kwargs = get_batch_sampler(sampler_name, batch_size, fs,
+                                        num_buckets, dynamic)
+    sampler = sampler(dataset, **kwargs)
+    sampler.generate_batches()
+
+    x = np.arange(len(item_lengths))
     plt.figure()
     i = 0
-    for i_batch, batch in enumerate(batches):
+    for i_batch, batch_ in enumerate(sampler.batches):
+        batch = [item[1] for item in batch_]
         x = np.arange(len(batch)) + i
         max_len = max(batch)
         plt.bar(x, batch, width=1, align='edge', edgecolor='k')
@@ -38,84 +56,86 @@ def plot(lengths, batch_func, filename=None):
                 align='edge', edgecolor='k')
         i += len(batch)
     plt.xticks([])
-    plt.xlim(-2, len(lengths)+2)
+    plt.xlim(-2, len(item_lengths)+2)
     plt.tight_layout()
     if filename is not None:
         plt.savefig(filename, bbox_inches='tight', pad_inches=0)
 
 
-def batch_simple(lengths, batch_size=4):
-    batches = []
-    batch = []
-    for length in lengths:
-        batch.append(length)
-        if len(batch) == batch_size:
-            batches.append(batch)
-            batch = []
-    return batches
-
-
-def batch_dynamic(lengths, batch_size=16):
-    batches = []
-    batch = []
-    batch_width = 0
-    for length in lengths:
-        if (len(batch)+1)*max(length, batch_width) <= batch_size:
-            batch.append(length)
-            batch_width = max(length, batch_width)
-        else:
-            batches.append(batch)
-            batch = []
-            batch.append(length)
-            batch_width = length
-    if len(batch) > 0:
-        batches.append(batch)
-    return batches
-
-
-def batch_bucket(lengths, batch_size=16, num_buckets=10):
-    max_length = max(lengths)
-    right_bucket_limits = np.linspace(
-        max_length/num_buckets, max_length, num_buckets,
-    )
-    bucket_batch_lengths = batch_size//right_bucket_limits
-
-    batches = []
-    bucket_batches = [[] for _ in range(num_buckets)]
-    for length in lengths:
-        i_bucket = np.searchsorted(
-            right_bucket_limits, length,
-        )
-        if i_bucket == num_buckets:
-            if length == max_length:
-                i_bucket -= 1
-            else:
-                raise ValueError('found an item that is longer than the '
-                                 'maximum item length')
-        bucket_batches[i_bucket].append(length)
-        if len(bucket_batches[i_bucket]) == bucket_batch_lengths[i_bucket]:
-            batches.append(bucket_batches[i_bucket])
-            bucket_batches[i_bucket] = []
-        elif len(bucket_batches[i_bucket]) > bucket_batch_lengths[i_bucket]:
-            raise ValueError('bucket maximum number of items exceeded')
-    for batch in bucket_batches:
-        if len(batch) > 0:
-            batches.append(batch)
-    return batches
-
-
 np.random.seed(0)
 
+fs = 1
 n_mixtures = 100
-mean_length = 4
-length_std = 1.5
-lengths = mean_length + length_std*np.random.randn(n_mixtures)
-# lengths = crop(lengths)
+max_length = 8.0*fs
+num_buckets = 3
 
-plot(lengths, batch_simple, 'batching_simple.svg')
-plot(sorted(lengths), batch_simple, 'batching_simple_sorted.svg')
-plot(lengths, batch_dynamic, 'batching_dynamic.svg')
-plot(sorted(lengths), batch_dynamic, 'batching_dynamic_sorted.svg')
-plot(lengths, batch_bucket, 'batching_bucket.svg')
+item_lengths = np.random.uniform(0.0, max_length, n_mixtures)
+dataset = Dataset(item_lengths)
+
+plot(
+    sampler_name='random',
+    dynamic=False,
+    batch_size=4,
+    filename='batching/batching_random_fixed.svg',
+),
+plot(
+    sampler_name='random',
+    dynamic=True,
+    batch_size=16.0,
+    filename='batching/batching_random_dynamic.svg',
+),
+plot(
+    sampler_name='sorted',
+    dynamic=False,
+    batch_size=4,
+    filename='batching/batching_sorted_fixed.svg',
+),
+plot(
+    sampler_name='sorted',
+    dynamic=True,
+    batch_size=16.0,
+    filename='batching/batching_sorted_dynamic.svg',
+),
+plot(
+    sampler_name='bucket',
+    dynamic=False,
+    batch_size=4,
+    filename='batching/batching_bucket_fixed.svg',
+),
+plot(
+    sampler_name='bucket',
+    dynamic=True,
+    batch_size=16.0,
+    filename='batching/batching_bucket_dynamic.svg',
+),
+
+
+dset_init = DatasetInitializer(batch_mode=True)
+
+p_train = dset_init.get_path_from_kwargs(
+    kind='train',
+    speakers={'libri_.*'},
+    noises={'dcase_.*'},
+    rooms={'surrey_.*'},
+    speech_files=[0.0, 0.8],
+    noise_files=[0.0, 0.8],
+    room_files='even',
+    duration=36000,
+    seed=0,
+)
+
+dataset = BreverDataset(
+    path=p_train,
+    segment_length=4.0,
+    fs=16000,
+)
+
+plt.figure()
+plt.bar(
+    np.arange(len(dataset.item_lengths)),
+    sorted(dataset.item_lengths),
+    width=1,
+)
+
 
 plt.show()

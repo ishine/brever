@@ -99,50 +99,33 @@ def main():
 
     test_paths = init_all_test_dsets(dset_init)
 
-    hyperparams = []
-    # basic batch samplers
-    for batch_size, sort, seed in itertools.product(
-                [1, 2, 4, 8, 16, 32],
-                [False, True],
-                [0, 1, 2, 3, 4],
-            ):
-        hyperparams.append({
-            'batch_size': float(batch_size),
-            'batch_sampler': 'simple',
-            'sort_observations': sort,
-            'seed': seed,
-        })
-    # dynamic batch samplers
-    for batch_size, sort, seed in itertools.product(
-                [4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
-                [False, True],
-                [0, 1, 2, 3, 4],
-            ):
-        hyperparams.append({
-            'batch_size': batch_size,
-            'batch_sampler': 'dynamic',
-            'sort_observations': sort,
-            'seed': seed,
-        })
-    # bucket batch samplers
-    for batch_size, seed in itertools.product(
-                [4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
-                [0, 1, 2, 3, 4],
-            ):
-        hyperparams.append({
-            'batch_size': batch_size,
-            'batch_sampler': 'bucket',
-            'seed': seed,
-        })
+    seeds = [0, 1, 2, 3, 4]
+    fixed_sizes = [1, 2, 4, 8, 16, 32]
+    dynamic_sizes = [4.0, 8.0, 16.0, 32.0, 64.0, 128.0]
+    batch_samplers = ['random', 'sorted', 'bucket']
 
     models = []
-    for arch in ['convtasnet']:
-        for kwargs in hyperparams:
+
+    for batch_sampler, dynamic, seed in itertools.product(
+        batch_samplers,
+        [False, True],
+        seeds,
+    ):
+
+        if dynamic:
+            batch_sizes = dynamic_sizes
+        else:
+            batch_sizes = fixed_sizes
+
+        for batch_size in batch_sizes:
             m = model_init.init_from_kwargs(
-                arch=arch,
+                arch='convtasnet',
                 train_path=arg_type_path(p_train),
                 force=args.force,
-                **kwargs,
+                batch_size=float(batch_size),
+                batch_sampler=batch_sampler,
+                dynamic=dynamic,
+                seed=seed,
             )
             models.append(m)
 

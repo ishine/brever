@@ -10,7 +10,8 @@ import torch
 from brever.args import arg_type_path
 from brever.config import DatasetInitializer, ModelInitializer, get_config
 from brever.display import pretty_table
-from brever.data import BreverDataset, get_batch_sampler
+from brever.data import BreverDataset
+from brever.batching import get_batch_sampler
 from brever.models import initialize_model
 
 
@@ -227,9 +228,10 @@ def main():
 
         if "sort_observations" not in kwargs.keys():
             kwargs["sort_observations"] = False
-        batch_size = int(kwargs["batch_size"])
+        batch_size = kwargs["batch_size"]
+        if batch_type == 'seq.':
+            batch_size = int(kwargs["batch_size"])
         batch_size = f'{batch_size} {batch_type}'
-        print(fr' & {kwargs["sort_observations"]}', end='')
         print(fr' & {batch_size}', end='')
         print(fr' & {fmt_time_tex(state["time_spent"])}', end='')
         print(fr' & {fmt_memory_tex(state["max_memory_allocated"])}', end='')
@@ -308,7 +310,6 @@ def main():
     print(r'\centering')
     print(r'\begin{tabular}{', end='')
     print(r'c', end='')
-    print(r'c', end='')
     print(r'r', end='')
     print(r'r', end='')
     print(r'r', end='')
@@ -322,9 +323,8 @@ def main():
     print(r'}', end='')
 
     print(r'\hline \hline')
-    print(r'&&&&&&\multicolumn{3}{c}{Match}&\multicolumn{3}{c}{Mismatch}\\')
+    print(r'&&&&&\multicolumn{3}{c}{Match}&\multicolumn{3}{c}{Mismatch}\\')
     print(r'Strategy')
-    print(r'& Sort')
     print(r'& \multicolumn{1}{c}{Batch size}')
     print(r'& \multicolumn{1}{c}{Time}')
     print(r'& \multicolumn{1}{c}{Memory}')
@@ -337,29 +337,29 @@ def main():
     print(r'& $\Delta$SNR')
     print(r' \\ \hline \hline')
 
-    print(r'\multirow{12}{*}{\rotatebox[origin=c]{90}{Simple}}')
+    print(r'\multirow{12}{*}{\rotatebox[origin=c]{90}{Random}}')
     routine(
-        batch_type='obs.',
+        batch_type='seq.',
         sort_observations=[False],
         batch_size=[1.0, 2.0, 4.0, 8.0, 16.0, 32.0],
         batch_sampler=['simple']
     )
-    print(r'\hhline{~===========}')
+    print(r'\hhline{~==========}')
     routine(
-        batch_type='obs.',
-        sort_observations=[True],
-        batch_size=[1.0, 2.0, 4.0, 8.0, 16.0, 32.0],
-        batch_sampler=['simple']
-    )
-    print(r'\hline \hline')
-    print(r'\multirow{12}{*}{\rotatebox[origin=c]{90}{Dynamic}}')
-    routine(
-        batch_type='s',
+        batch_type='s.',
         sort_observations=[False],
         batch_size=[4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
         batch_sampler=['dynamic']
     )
-    print(r'\hhline{~===========}')
+    print(r'\hline \hline')
+    print(r'\multirow{12}{*}{\rotatebox[origin=c]{90}{Sorted}}')
+    routine(
+        batch_type='seq.',
+        sort_observations=[True],
+        batch_size=[1.0, 2.0, 4.0, 8.0, 16.0, 32.0],
+        batch_sampler=['simple']
+    )
+    print(r'\hhline{~==========}')
     routine(
         batch_type='s',
         sort_observations=[True],

@@ -25,7 +25,7 @@ TRAINING:
     WHICH: bucket
     BATCH_SIZE: 128.0
     NUM_BUCKETS: 10
-    SORTED: False
+    DYNAMIC: True
 MODEL:
   BATCH_NORM:
     MOMENTUM: 0.1

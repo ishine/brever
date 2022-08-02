@@ -9,15 +9,16 @@ class BreverBatchSampler(torch.utils.data.Sampler):
     Base class for all samplers.
     """
     def __init__(self, dataset, drop_last=False, shuffle=True, seed=0,
-                 sort=False):
-        self.__pre_init__(dataset, drop_last, shuffle, seed, sort)
+                 dynamic=False, sort=False):
+        self.__pre_init__(dataset, drop_last, shuffle, seed, dynamic, sort)
         self.generate_batches()
 
-    def __pre_init__(self, dataset, drop_last, shuffle, seed, sort):
+    def __pre_init__(self, dataset, drop_last, shuffle, seed, dynamic, sort):
         self.dataset = dataset
         self.drop_last = drop_last
         self.shuffle = shuffle
         self.seed = seed
+        self.dynamic = dynamic
         self.sort = sort
         self._epoch = 0
         self._previous_epoch = -1
@@ -100,97 +101,58 @@ class BreverBatchSampler(torch.utils.data.Sampler):
         return len(self.batches)
 
 
-class SimpleBatchSampler(BreverBatchSampler):
+class _BaseBatchSampler(BreverBatchSampler):
     """
-    Simplest batch sampler possible. Batches have a fixed number of items.
-    Iterates over items and appends to current batch if it fits, otherwise
-    appends to new batch. This means batches have random total size and
-    padding.
+    Base class for the random and sorted batch samplers
     """
-    def __init__(self, dataset, items_per_batch, drop_last=False, shuffle=True,
-                 seed=0):
-        super().__pre_init__(dataset, drop_last, shuffle, seed, sort=False)
-        self.items_per_batch = items_per_batch
+    def __init__(self, dataset, batch_size, drop_last=False, shuffle=True,
+                 seed=0, dynamic=False, sort=False):
+        super().__pre_init__(dataset, drop_last, shuffle, seed, dynamic, sort)
+        self.batch_size = self.segment_to_item_length(batch_size)
         self.generate_batches()
 
-    def _generate_batches(self, indices):
-        self.batches = []
-        batch = []
-        for i in indices:
-            item_idx, item_length = self._item_lengths[i]
-            batch.append((item_idx, item_length))
-            if len(batch) == self.items_per_batch:
-                self.batches.append(batch)
-                batch = []
-        if len(batch) > 0 and not self.drop_last:
-            self.batches.append(batch)
-
-
-class DynamicSimpleBatchSampler(BreverBatchSampler):
-    """
-    Similar to SimpleBatchSampler but with a dynamic number of items per batch.
-    Items are added to the current batch until the total batch size exceeds a
-    limit. This can subtantially reduce the batch size variability and the
-    total number of batches, but increases padding.
-    """
-    def __init__(self, dataset, max_batch_size, drop_last=False, shuffle=True,
-                 seed=0):
-        super().__pre_init__(dataset, drop_last, shuffle, seed, sort=False)
-        max_batch_size = self.segment_to_item_length(max_batch_size)
-        self.max_batch_size = max_batch_size
-        self.generate_batches()
-
-    def _generate_batches(self, indices):
-        self.batches = []
-        batch = []
-        batch_width = 0
-        for i in indices:
-            item_idx, item_length = self._item_lengths[i]
-            if item_length > self.max_batch_size:
+    def _new_batch(self, batch, item_length):
+        output = False
+        if self.dynamic:
+            if item_length > self.batch_size:
                 raise ValueError('found an item that is longer than the '
-                                 'maximum batch size')
-            if (len(batch)+1)*max(item_length, batch_width) \
-                    <= self.max_batch_size:
-                batch.append((item_idx, item_length))
-                batch_width = max(item_length, batch_width)
-            else:
+                                 'dynamic batch size')
+            batch_length = max(item[1] for item in batch) if batch else 0
+            if (len(batch)+1)*max(item_length, batch_length) > self.batch_size:
+                output = True
+        elif len(batch)+1 > self.batch_size:
+            output = True
+        return output
+
+    def _generate_batches(self, indices):
+        self.batches = []
+        batch = []
+        for i in indices:
+            item_idx, item_length = self._item_lengths[i]
+            if self._new_batch(batch, item_length):
                 self.batches.append(batch)
                 batch = []
                 batch.append((item_idx, item_length))
-                batch_width = item_length
+            else:
+                batch.append((item_idx, item_length))
         if len(batch) > 0 and not self.drop_last:
             self.batches.append(batch)
 
 
-class SortedBatchSampler(SimpleBatchSampler):
-    """
-    Sorts all items by length before making batches with a fixed number of
-    items. This optimally minimizes the amount of padding, but batches have
-    highly variable size. Namely the last batches can be very small if
-    the dataset contains very short items. Also items within a batch are not
-    random.
-    """
-    def __init__(self, dataset, items_per_batch, drop_last=False, shuffle=True,
-                 seed=0):
-        super().__pre_init__(dataset, drop_last, shuffle, seed, sort=True)
-        self.items_per_batch = items_per_batch
-        self.generate_batches()
+class RandomBatchSampler(_BaseBatchSampler):
+    def __init__(self, dataset, batch_size, drop_last=False, shuffle=True,
+                 seed=0, dynamic=False):
+        super().__init__(dataset, batch_size, drop_last=drop_last,
+                         shuffle=shuffle, seed=seed, dynamic=dynamic,
+                         sort=False)
 
 
-class DynamicSortedBatchSampler(DynamicSimpleBatchSampler):
-    """
-    Similar to SortedBatchSampler but with a dynamic number of items per batch.
-    After sorting, items are added to the current batch until the total batch
-    size exceeds a limit. This can subtantially reduce the batch size
-    variability and the total number of batches, but increases padding. Items
-    within a batch are also not random because of sorting.
-    """
-    def __init__(self, dataset, max_batch_size, drop_last=False,
-                 shuffle=True, seed=0):
-        super().__pre_init__(dataset, drop_last, shuffle, seed, sort=True)
-        max_batch_size = self.segment_to_item_length(max_batch_size)
-        self.max_batch_size = max_batch_size
-        self.generate_batches()
+class SortedBatchSampler(_BaseBatchSampler):
+    def __init__(self, dataset, batch_size, drop_last=False, shuffle=True,
+                 seed=0, dynamic=False):
+        super().__init__(dataset, batch_size, drop_last=drop_last,
+                         shuffle=shuffle, seed=seed, dynamic=dynamic,
+                         sort=True)
 
 
 class BucketBatchSampler(BreverBatchSampler):
@@ -202,127 +164,82 @@ class BucketBatchSampler(BreverBatchSampler):
     Inspired from code by Speechbrain under Apache-2.0 License:
     https://github.com/speechbrain/speechbrain/blob/b5d2836e3d0eabb541c5bdbca16fb00c49cb62a3/speechbrain/dataio/sampler.py#L305
     """
-    def __init__(self, dataset, max_batch_size, max_item_length,
-                 num_buckets=10, drop_last=False, shuffle=True, seed=0):
-        super().__pre_init__(dataset, drop_last, shuffle, seed, sort=False)
-        if max_batch_size < max_item_length:
-            raise ValueError('cannot have max_batch_size < max_item_length, '
-                             f'got max_batch_size={max_batch_size} '
-                             f'and max_item_length={max_item_length}')
-        max_batch_size = self.segment_to_item_length(max_batch_size)
-        max_item_length = self.segment_to_item_length(max_item_length)
-        self.max_batch_size = max_batch_size
-        self.max_item_length = max_item_length
-        self.num_buckets = num_buckets
-
-        self.right_bucket_limits = np.linspace(
-            max_item_length/num_buckets, max_item_length, num_buckets,
-        )
-        self.bucket_batch_lengths = max_batch_size//self.right_bucket_limits
-
-        self.generate_batches()
-
-    def _generate_batches(self, indices):
-        self.batches = []
-        bucket_batches = [[] for _ in range(self.num_buckets)]
-        for i in indices:
-            item_idx, item_length = self._item_lengths[i]
-            bucket_idx = np.searchsorted(
-                self.right_bucket_limits, item_length,
-            )
-            if bucket_idx == self.num_buckets:
-                if item_length == self.max_item_length:
-                    bucket_idx -= 1
-                else:
-                    raise ValueError('found an item that is longer than the '
-                                     'maximum item length')
-            bucket_batches[bucket_idx].append((item_idx, item_length))
-            if len(bucket_batches[bucket_idx]) \
-                    == self.bucket_batch_lengths[bucket_idx]:
-                self.batches.append(bucket_batches[bucket_idx])
-                bucket_batches[bucket_idx] = []
-            elif len(bucket_batches[bucket_idx]) \
-                    > self.bucket_batch_lengths[bucket_idx]:
-                raise ValueError('bucket maximum number of items exceeded')
-        if not self.drop_last:
-            for batch in bucket_batches:
-                if len(batch) > 0:
-                    self.batches.append(batch)
-
-
-class StaticBucketBatchSampler(BreverBatchSampler):
-    """
-    Same as BucketBatchSampler but with a batch size defined as the number of
-    mixtures instead of the duration
-    """
-    def __init__(self, dataset, batch_size, max_item_length,
-                 num_buckets=10, drop_last=False, shuffle=True, seed=0):
-        super().__pre_init__(dataset, drop_last, shuffle, seed, sort=False)
-        max_item_length = self.segment_to_item_length(max_item_length)
+    def __init__(self, dataset, batch_size, num_buckets=10, drop_last=False,
+                 shuffle=True, seed=0, dynamic=False):
+        super().__pre_init__(dataset, drop_last, shuffle, seed, dynamic,
+                             sort=False)
+        max_length = max(item[1] for item in self._item_lengths)
+        batch_size = self.segment_to_item_length(batch_size)
+        max_length = self.segment_to_item_length(max_length)
         self.batch_size = batch_size
-        self.max_item_length = max_item_length
+        self.max_length = max_length
         self.num_buckets = num_buckets
 
         self.right_bucket_limits = np.linspace(
-            max_item_length/num_buckets, max_item_length, num_buckets,
+            max_length/num_buckets, max_length, num_buckets,
         )
+        if self.dynamic:
+            self.bucket_batch_lengths = batch_size//self.right_bucket_limits
+        else:
+            self.bucket_batch_lengths = [batch_size]*self.num_buckets
 
         self.generate_batches()
 
     def _generate_batches(self, indices):
-        self.batches = []
-        bucket_batches = [[] for _ in range(self.num_buckets)]
+        batches = [[] for _ in range(self.num_buckets)]
+        current_batches = [[] for _ in range(self.num_buckets)]
         for i in indices:
             item_idx, item_length = self._item_lengths[i]
             bucket_idx = np.searchsorted(
                 self.right_bucket_limits, item_length,
             )
             if bucket_idx == self.num_buckets:
-                if item_length == self.max_item_length:
+                if item_length == self.max_length:
                     bucket_idx -= 1
                 else:
                     raise ValueError('found an item that is longer than the '
                                      'maximum item length')
-            bucket_batches[bucket_idx].append((item_idx, item_length))
-            if len(bucket_batches[bucket_idx]) == self.batch_size:
-                self.batches.append(bucket_batches[bucket_idx])
-                bucket_batches[bucket_idx] = []
-            elif len(bucket_batches[bucket_idx]) > self.batch_size:
-                raise ValueError('bucket maximum number of items exceeded')
+            current_batches[bucket_idx].append((item_idx, item_length))
+            if len(current_batches[bucket_idx]) \
+                    == self.bucket_batch_lengths[bucket_idx]:
+                batches[bucket_idx].append(current_batches[bucket_idx])
+                current_batches[bucket_idx] = []
+            elif len(current_batches[bucket_idx]) \
+                    > self.bucket_batch_lengths[bucket_idx]:
+                raise ValueError('maximum number of items in bucket exceeded')
         if not self.drop_last:
-            for batch in bucket_batches:
+            for bucket_idx, batch in enumerate(current_batches):
                 if len(batch) > 0:
-                    self.batches.append(batch)
+                    batches[bucket_idx].append(batch)
+        self.batches = [item for batch in batches for item in batch]
 
 
-def get_batch_sampler(name, batch_size, fs, num_buckets, segment_length,
-                      sorted_):
+def get_batch_sampler(name, batch_size, fs, num_buckets, dynamic):
+    if dynamic:
+        batch_size = round(batch_size*fs)
+    else:
+        if not(isinstance(batch_size, int)
+                or (isinstance(batch_size, float)
+                    and batch_size != int(batch_size))):
+            raise ValueError(f"batch_size must be int, got {batch_size}")
     if name == 'bucket':
         batch_sampler_class = BucketBatchSampler
         kwargs = {
-            'max_batch_size': round(batch_size*fs),
-            'max_item_length': round(segment_length*fs),
+            'batch_size': batch_size,
+            'dynamic': dynamic,
             'num_buckets': num_buckets
         }
-    elif name == 'dynamic':
-        if sorted_:
-            batch_sampler_class = DynamicSortedBatchSampler
-        else:
-            batch_sampler_class = DynamicSimpleBatchSampler
+    elif name == 'random':
+        batch_sampler_class = RandomBatchSampler
         kwargs = {
-            'max_batch_size': round(batch_size*fs),
+            'batch_size': batch_size,
+            'dynamic': dynamic,
         }
-    elif name == 'simple':
-        if sorted_:
-            batch_sampler_class = SortedBatchSampler
-        else:
-            batch_sampler_class = SimpleBatchSampler
-        if isinstance(batch_size, float) and batch_size != int(batch_size):
-            raise ValueError("when using 'simple' batch sampler, batch_size "
-                             "must be int or float equal to int, got "
-                             f"{batch_size}")
+    elif name == 'sorted':
+        batch_sampler_class = SortedBatchSampler
         kwargs = {
-            'items_per_batch': batch_size,
+            'batch_size': batch_size,
+            'dynamic': dynamic,
         }
     else:
         raise ValueError(f'Unrecognized batch sampler, got {name}')
