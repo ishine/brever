@@ -295,13 +295,13 @@ class LSTMBlock(nn.Module):
 
 class DCCRN(BreverBaseModel):
     """
-    The original paper by Hu et al. (2020) sells the network as fully complex,
-    but this is NOT the case! The PReLU activations in the encoder/decoder are
-    real. Moreover the dense layer after the LSTM is real in the implementation
+    The original paper by Hu et al. (2020) advertises the network as fully
+    complex, but the PReLU activations in the encoder/decoder are real.
+    Moreover the dense layer after the LSTM is real in the implementation
     made available on GitHub.
 
     In this implementation, we use complex PReLU and dense layer modules, such
-    that all operations truly happen in the complex domain.
+    that all operations are fully complex.
 
     The implementation is inspired from the original code provided by authors
     Y. Hu et al. (2020) under an Apache-2.0 License:
@@ -309,6 +309,7 @@ class DCCRN(BreverBaseModel):
     """
     def __init__(
         self,
+        criterion='SNR',
         channels=[16, 32, 64, 128, 256, 256],
         kernel_size=(5, 2),
         stride=(2, 1),
@@ -318,7 +319,7 @@ class DCCRN(BreverBaseModel):
         lstm_layers=2,
         input_dim=512,
     ):
-        super().__init__()
+        super().__init__(criterion)
 
         stride_prod = math.prod(stride[0] for channel in channels)
         last_encoder_output_dim = input_dim//stride_prod
