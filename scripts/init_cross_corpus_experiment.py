@@ -84,12 +84,12 @@ def init_test_dset(
     )
 
 
-def init_model(model_initializer, arch, train_path):
+def init_model(model_initializer, arch, train_path, batch_size):
     return model_initializer.init_from_kwargs(
         arch=arch,
         train_path=arg_type_path(train_path),
         force=args.force,
-        batch_size=4.0,
+        batch_size=batch_size,
     )
 
 
@@ -185,9 +185,12 @@ def main():
                     test_kwargs = build_kwargs(test_idx)
                     ref_train_path = init_train_dset(dset_init, **test_kwargs)
                     for arch in archs:
-                        m = init_model(model_init, arch, train_path)
-                        m_ref = init_model(model_init, arch, ref_train_path)
-                        add_models(m, m_ref, models)
+                        for batch_size in [4.0, 128.0]:
+                            m = init_model(model_init, arch,
+                                           train_path, batch_size)
+                            m_ref = init_model(model_init, arch,
+                                               ref_train_path, batch_size)
+                            add_models(m, m_ref, models)
                     add_train_paths(train_path, ref_train_path, train_paths)
 
     test_paths = init_all_test_dsets(dset_init)
