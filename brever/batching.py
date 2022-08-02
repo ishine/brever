@@ -220,7 +220,7 @@ def get_batch_sampler(name, batch_size, fs, num_buckets, dynamic):
     else:
         if not(isinstance(batch_size, int)
                 or (isinstance(batch_size, float)
-                    and batch_size != int(batch_size))):
+                    and batch_size == int(batch_size))):
             raise ValueError(f"batch_size must be int, got {batch_size}")
     if name == 'bucket':
         batch_sampler_class = BucketBatchSampler
