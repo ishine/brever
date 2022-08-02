@@ -99,10 +99,11 @@ def main():
 
     test_paths = init_all_test_dsets(dset_init)
 
-    seeds = [0, 1, 2, 3, 4]
+    seeds = [0]
     fixed_sizes = [1, 2, 4, 8, 16, 32]
     dynamic_sizes = [4.0, 8.0, 16.0, 32.0, 64.0, 128.0]
     batch_samplers = ['random', 'sorted', 'bucket']
+    segment_length = 0.0
 
     models = []
 
@@ -124,7 +125,8 @@ def main():
                 force=args.force,
                 batch_size=float(batch_size),
                 batch_sampler=batch_sampler,
-                dynamic=dynamic,
+                dynamic_batch_size=dynamic,
+                segment_length=segment_length,
                 seed=seed,
             )
             models.append(m)
