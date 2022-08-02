@@ -44,6 +44,8 @@ def main():
     kwargs = {}
     if hasattr(config.MODEL, 'SOURCES'):
         kwargs['components'] = config.MODEL.SOURCES
+    if config.TRAINING.BATCH_SAMPLER.DYNAMIC:
+        kwargs['dynamic_batch_size'] = config.TRAINING.BATCH_SAMPLER.BATCH_SIZE
     dataset = BreverDataset(
         path=config.TRAINING.PATH,
         segment_length=config.TRAINING.SEGMENT_LENGTH,
@@ -100,7 +102,6 @@ def main():
         batch_size=config.TRAINING.BATCH_SAMPLER.BATCH_SIZE,
         num_buckets=config.TRAINING.BATCH_SAMPLER.NUM_BUCKETS,
         dynamic_batch_size=config.TRAINING.BATCH_SAMPLER.DYNAMIC,
-        segment_length=config.TRAINING.SEGMENT_LENGTH,
         fs=config.FS,
         early_stop=config.TRAINING.EARLY_STOP.TOGGLE,
         early_stop_patience=config.TRAINING.EARLY_STOP.PATIENCE,

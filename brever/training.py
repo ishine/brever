@@ -122,7 +122,6 @@ class BreverTrainer:
         batch_size: int | float = 16.0,
         num_buckets: int = 10,
         dynamic_batch_size: bool = True,
-        segment_length: float = 4.0,
         fs: int | float = 16e3,
         early_stop: bool = False,
         early_stop_patience: int = 10,
