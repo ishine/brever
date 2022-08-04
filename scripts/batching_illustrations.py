@@ -56,6 +56,7 @@ def plot(sampler_name, dynamic, batch_size, filename=None):
                 align='edge', edgecolor='k')
         i += len(batch)
     plt.xticks([])
+    plt.yticks([])
     plt.xlim(-2, len(item_lengths)+2)
     plt.tight_layout()
     if filename is not None:
