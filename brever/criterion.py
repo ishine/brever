@@ -107,5 +107,5 @@ def apply_mask(data, target, lengths):
     assert len(lengths) == data.size(0)
     mask = torch.zeros(*data.shape, device=data.device)
     for i, length in enumerate(lengths):
-        mask[i, ..., :length:] = 1
+        mask[i, ..., :length] = 1
     return data*mask, target*mask
