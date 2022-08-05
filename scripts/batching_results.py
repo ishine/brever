@@ -1,6 +1,7 @@
 import itertools
 import os
 import json
+import logging
 
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
@@ -104,6 +105,7 @@ def get_padding(model):
         segment_length=config.TRAINING.SEGMENT_LENGTH,
         fs=config.FS,
         model=model,
+        dynamic_batch_size=config.TRAINING.BATCH_SAMPLER.DYNAMIC,
         **kwargs,
     )
 
@@ -120,8 +122,7 @@ def get_padding(model):
         batch_size=config.TRAINING.BATCH_SAMPLER.BATCH_SIZE,
         fs=config.FS,
         num_buckets=config.TRAINING.BATCH_SAMPLER.NUM_BUCKETS,
-        segment_length=config.TRAINING.SEGMENT_LENGTH,
-        sorted_=config.TRAINING.BATCH_SAMPLER.SORTED,
+        dynamic=config.TRAINING.BATCH_SAMPLER.DYNAMIC,
     )
     train_batch_sampler = batch_sampler_class(
         dataset=train_split,
@@ -189,15 +190,15 @@ def main():
         seed=42,
     )
 
-    def plot_models(models, scores, kw_list, batch_type):
-        max_score = np.max(scores, axis=0)
-        for model, score, kwargs in zip(models, scores, kw_list):
-            plot_model(model, score, kwargs, max_score, batch_type)
+    def plot_models(models, scores, batch_sizes, batch_type):
+        max_score = np.nanmax(scores, axis=0)
+        for model, score, batch_size in zip(models, scores, batch_sizes):
+            plot_model(model, score, batch_size, max_score, batch_type)
 
-    def plot_model(model, score, kwargs, max_score, batch_type):
+    def plot_model(model, score, batch_size, max_score, batch_type):
         path = os.path.join(model, 'losses.npz')
         if not os.path.exists(path):
-            print(f"WARNING: {path} not found, skipping")
+            logging.warning(f"{path} not found, skipping")
             return
         data = np.load(path)
 
@@ -226,11 +227,8 @@ def main():
         axes_test[1].bar([i_model], [stoi], width=1, label=label)
         axes_test[2].bar([i_model], [snr], width=1, label=label)
 
-        if "sort_observations" not in kwargs.keys():
-            kwargs["sort_observations"] = False
-        batch_size = kwargs["batch_size"]
         if batch_type == 'seq.':
-            batch_size = int(kwargs["batch_size"])
+            batch_size = int(batch_size)
         batch_size = f'{batch_size} {batch_type}'
         print(fr' & {batch_size}', end='')
         print(fr' & {fmt_time_tex(state["time_spent"])}', end='')
@@ -262,9 +260,16 @@ def main():
         return test_paths
 
     def load_score(model):
+        if not os.path.exists(model):
+            raise FileNotFoundError(f'model {model} does not exist')
         score_file = os.path.join(model, 'scores.json')
+        if not os.path.exists(score_file):
+            return [np.nan for _ in range(6)]
         with open(score_file) as f:
             scores = json.load(f)
+        if p_test not in scores.keys():
+            logging.warning(f'model {model} is not tested on {p_test}')
+            return [np.nan for _ in range(6)]
         pesq = np.mean(scores[p_test]['model']['PESQ'])
         stoi = np.mean(scores[p_test]['model']['STOI'])
         snr = np.mean(scores[p_test]['model']['SNR'])
@@ -278,6 +283,9 @@ def main():
         test_paths = get_test_dsets(test_idx)
         mismatched = []
         for test_path in test_paths:
+            if test_path not in scores.keys():
+                logging.warning(f'model {model} is not tested on {test_path}')
+                return [np.nan for _ in range(6)]
             pesq = np.mean(scores[test_path]['model']['PESQ'])
             stoi = np.mean(scores[test_path]['model']['STOI'])
             snr = np.mean(scores[test_path]['model']['SNR'])
@@ -289,22 +297,46 @@ def main():
 
         return matched + mismatched.tolist()
 
-    def routine(batch_type, **kwargs):
-        # basic batch samplers
-        models = []
-        scores = []
-        kw_list = []
-        for kwargs in product_dict(**kwargs):
-            m = model_init.get_path_from_kwargs(
-                arch='convtasnet',
-                train_path=arg_type_path(p_train),
-                **kwargs,
-            )
-            models.append(m)
-            scores.append(load_score(m))
-            kw_list.append(kwargs)
-        scores = np.array(scores)
-        plot_models(models, scores, kw_list, batch_type)
+    def routine(batch_sampler):
+        for i, (dynamic, batch_type) in enumerate(zip(
+            [False, True],
+            ['seq.', 's'],
+        )):
+
+            models = []
+            scores = []
+
+            if dynamic:
+                batch_sizes = dynamic_sizes
+            else:
+                batch_sizes = fixed_sizes
+
+            for batch_size in batch_sizes:
+
+                m = model_init.get_path_from_kwargs(
+                    arch='convtasnet',
+                    train_path=arg_type_path(p_train),
+                    batch_size=float(batch_size),
+                    batch_sampler=batch_sampler,
+                    dynamic_batch_size=dynamic,
+                    segment_length=segment_length,
+                    # seed=seed,
+                )
+                models.append(m)
+                scores.append(load_score(m))
+
+            scores = np.array(scores)
+            plot_models(models, scores, batch_sizes, batch_type)
+
+            if i == 1:
+                print(r'\hline \hline')
+            else:
+                print(r'\hhline{~==========}')
+
+    # seeds = [0]
+    fixed_sizes = [1, 2, 4, 8, 16, 32]
+    dynamic_sizes = [4.0, 8.0, 16.0, 32.0, 64.0, 128.0]
+    segment_length = 0.0
 
     print(r'\begin{table*}')
     print(r'\centering')
@@ -338,42 +370,11 @@ def main():
     print(r' \\ \hline \hline')
 
     print(r'\multirow{12}{*}{\rotatebox[origin=c]{90}{Random}}')
-    routine(
-        batch_type='seq.',
-        sort_observations=[False],
-        batch_size=[1.0, 2.0, 4.0, 8.0, 16.0, 32.0],
-        batch_sampler=['simple']
-    )
-    print(r'\hhline{~==========}')
-    routine(
-        batch_type='s.',
-        sort_observations=[False],
-        batch_size=[4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
-        batch_sampler=['dynamic']
-    )
-    print(r'\hline \hline')
+    routine('random')
     print(r'\multirow{12}{*}{\rotatebox[origin=c]{90}{Sorted}}')
-    routine(
-        batch_type='seq.',
-        sort_observations=[True],
-        batch_size=[1.0, 2.0, 4.0, 8.0, 16.0, 32.0],
-        batch_sampler=['simple']
-    )
-    print(r'\hhline{~==========}')
-    routine(
-        batch_type='s',
-        sort_observations=[True],
-        batch_size=[4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
-        batch_sampler=['dynamic']
-    )
-    print(r'\hline \hline')
+    routine('sorted')
     print(r'\multirow{6}{*}{\rotatebox[origin=c]{90}{Bucket}}')
-    routine(
-        batch_type='s',
-        batch_size=[4.0, 8.0, 16.0, 32.0, 64.0, 128.0],
-        batch_sampler=['bucket']
-    )
-    print(r'\hline \hline')
+    routine('bucket')
 
     print(r'\end{tabular}')
     print(r'\caption{Caption}')
