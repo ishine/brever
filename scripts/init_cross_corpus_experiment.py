@@ -39,8 +39,6 @@ databases = [
     },
 ]
 
-archs = ['dnn', 'convtasnet']
-
 eval_script = 'cross_corpus_eval.sh'
 
 
@@ -84,12 +82,10 @@ def init_test_dset(
     )
 
 
-def init_model(model_initializer, arch, train_path, batch_size):
+def init_model(model_initializer, **kwargs):
     return model_initializer.init_from_kwargs(
-        arch=arch,
-        train_path=arg_type_path(train_path),
         force=args.force,
-        batch_size=batch_size,
+        **kwargs,
     )
 
 
@@ -168,6 +164,13 @@ def check_deprecated_dsets(dset_dir, dsets):
                       f'not attempted to be initialized: {dset_path}')
 
 
+def product_dict(**kwargs):
+    keys = kwargs.keys()
+    vals = kwargs.values()
+    for instance in itertools.product(*vals):
+        yield dict(zip(keys, instance))
+
+
 def main():
     dset_init = DatasetInitializer(batch_mode=True)
     model_init = ModelInitializer(batch_mode=True)
@@ -184,13 +187,22 @@ def main():
                     test_idx = build_test_index(train_index, dims)
                     test_kwargs = build_kwargs(test_idx)
                     ref_train_path = init_train_dset(dset_init, **test_kwargs)
-                    for arch in archs:
-                        for batch_size in [4.0, 128.0]:
-                            m = init_model(model_init, arch,
-                                           train_path, batch_size)
-                            m_ref = init_model(model_init, arch,
-                                               ref_train_path, batch_size)
-                            add_models(m, m_ref, models)
+                    for kwargs in product_dict(
+                        arch=['dnn', 'convtasnet'],
+                        seed=[0, 1, 2],
+                        batch_size=[4.0, 128.0],
+                    ):
+                        m = init_model(
+                            model_init,
+                            train_path=arg_type_path(train_path),
+                            **kwargs,
+                        )
+                        m_ref = init_model(
+                            model_init,
+                            train_path=arg_type_path(ref_train_path),
+                            **kwargs,
+                        )
+                        add_models(m, m_ref, models)
                     add_train_paths(train_path, ref_train_path, train_paths)
 
     test_paths = init_all_test_dsets(dset_init)
