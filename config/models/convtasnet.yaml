@@ -20,7 +20,7 @@ TRAINING:
   VAL_SIZE: 0.1
   PRELOAD: false
   GRAD_CLIP: 5.0  # 0.0 to disable
-  SEGMENT_LENGTH: 4.0  # 0.0 to disable
+  SEGMENT_LENGTH: 0.0  # 0.0 to disable
   BATCH_SAMPLER:
     WHICH: bucket
     BATCH_SIZE: 128.0
