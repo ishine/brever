@@ -94,13 +94,6 @@ def fmt_memory_tex(memory):
     return f'{memory} GB'
 
 
-def product_dict(**kwargs):
-    keys = kwargs.keys()
-    vals = kwargs.values()
-    for instance in itertools.product(*vals):
-        yield dict(zip(keys, instance))
-
-
 def get_padding(model):
     # load model config
     config_path = os.path.join(model, 'config.yaml')

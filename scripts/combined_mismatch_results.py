@@ -60,7 +60,6 @@ databases = [
         ],
     },
 ]
-dim_labels = ['Speech', 'Noise', 'Room']
 archs = ['dnn', 'convtasnet']
 arch_labels = ['FFNN', 'Conv-TasNet']
 metrics = [

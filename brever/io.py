@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import random
@@ -191,7 +190,7 @@ class AudioFileLoader:
                 raise ValueError(f'wrong noise type, got {noise}')
             regexp = f'{m.group(1)}'
             regexp = check_regexp(regexp)
-            for root, dirs, files in os.walk(dirpath):
+            for root, _, files in os.walk(dirpath):
                 for file in files:
                     if file.lower().endswith(('.wav', '.flac')):
                         noise_type = file.split('-')[0]
@@ -203,7 +202,7 @@ class AudioFileLoader:
                 raise ValueError(f'wrong noise type, got {noise}')
             regexp = f'{m.group(1)}'
             regexp = check_regexp(regexp)
-            for root, dirs, files in os.walk(dirpath):
+            for root, _, files in os.walk(dirpath):
                 for file in files:
                     if file.lower().endswith('.wav'):
                         m = re.match('^ICRA_(.*).wav$', file)
@@ -229,7 +228,7 @@ class AudioFileLoader:
             ]
             for file in to_find:
                 found = False
-                for root, dirs, files in os.walk(dirpath):
+                for root, _, files in os.walk(dirpath):
                     if file in files:
                         output.append(os.path.join(root, file))
                         found = True
@@ -238,7 +237,7 @@ class AudioFileLoader:
                     raise ValueError('the ARTE database in the filesystem '
                                      f'is incomplete, could not find {file}')
         elif prefix == 'demand':
-            for root, dirs, files in os.walk(dirpath):
+            for root, _, files in os.walk(dirpath):
                 for file in files:
                     if file.endswith('ch01.wav'):
                         output.append(os.path.join(dirpath, file))

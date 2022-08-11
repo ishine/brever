@@ -176,11 +176,10 @@ class CumulativeNormalizer(nn.Module):
         self.eps = eps
 
     def forward(self, x):
-        batch_size, bins, frames = x.shape
         cum_sum = x.cumsum(-1)
         cum_pow_sum = x.pow(2).cumsum(-1)
-        count = torch.arange(1, frames+1, device=x.device)
-        count = count.reshape(1, 1, frames)
+        count = torch.arange(1, x.shape[-1]+1, device=x.device)
+        count = count.reshape(1, 1, x.shape[-1])
         cum_mean = cum_sum/count
         cum_var = cum_pow_sum/count - cum_mean.pow(2)
         cum_std = (cum_var + self.eps).sqrt()

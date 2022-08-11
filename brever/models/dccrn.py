@@ -321,7 +321,7 @@ class DCCRN(BreverBaseModel):
     ):
         super().__init__(criterion)
 
-        stride_prod = math.prod(stride[0] for channel in channels)
+        stride_prod = math.prod(stride[0] for _ in channels)
         last_encoder_output_dim = input_dim//stride_prod
 
         self.encoder = nn.ModuleList()

@@ -66,7 +66,7 @@ def main(args):
     if config.ARCH == 'dnn':
         mixture, target = dataset.load_segment(j)
         features, labels = dataset[j]
-        output, prediction = model.enhance(mixture, dataset, True)
+        output, _ = model.enhance(mixture, dataset, True)
         foreground, background = target
         mixture, _ = dataset.stft.analyze(mixture.unsqueeze(0))
         foreground, _ = dataset.stft.analyze(foreground.unsqueeze(0))

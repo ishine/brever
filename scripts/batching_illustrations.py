@@ -20,22 +20,9 @@ plt.rcParams['ytick.major.size'] = 1
 plt.rcParams['ytick.major.width'] = .5
 
 
-def crop(lengths):
-    output = []
-    for length in lengths:
-        while length > 4.0:
-            length -= 4.0
-            output.append(4.0)
-        output.append(length)
-    return output
-
-
 class Dataset:
     def __init__(self, item_lengths):
         self.item_lengths = item_lengths
-
-    def segment_to_item_length(self, length):
-        return length
 
 
 def plot(sampler_name, dynamic, batch_size, filename=None):
@@ -47,7 +34,7 @@ def plot(sampler_name, dynamic, batch_size, filename=None):
     x = np.arange(len(item_lengths))
     plt.figure()
     i = 0
-    for i_batch, batch_ in enumerate(sampler.batches):
+    for batch_ in sampler.batches:
         batch = [item[1] for item in batch_]
         x = np.arange(len(batch)) + i
         max_len = max(batch)

@@ -69,7 +69,6 @@ db_labels = {
     'catt_.*': 'CATT',
     'avil_.*': 'AVIL',
 }
-dim_labels = ['Speech', 'Noise', 'Room']
 archs = ['dnn', 'convtasnet']
 arch_labels = ['FFNN', 'Conv-TasNet']
 metrics = [
