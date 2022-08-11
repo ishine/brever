@@ -16,6 +16,19 @@ from brever.batching import get_batch_sampler
 from brever.models import initialize_model
 
 
+plt.rcParams['font.size'] = 5
+plt.rcParams['svg.fonttype'] = 'none'
+plt.rcParams['figure.dpi'] = 200
+plt.rcParams['patch.linewidth'] = .1
+plt.rcParams['axes.linewidth'] = .4
+plt.rcParams['grid.linewidth'] = .4
+plt.rcParams['lines.linewidth'] = .6
+plt.rcParams['xtick.major.size'] = 1
+plt.rcParams['xtick.major.width'] = .5
+plt.rcParams['ytick.major.size'] = 1
+plt.rcParams['ytick.major.width'] = .5
+
+
 databases = [
     {
         'kwarg': 'speakers',
@@ -100,12 +113,13 @@ def get_padding(model):
     kwargs = {}
     if hasattr(config.MODEL, 'SOURCES'):
         kwargs['components'] = config.MODEL.SOURCES
+    if config.TRAINING.BATCH_SAMPLER.DYNAMIC:
+        kwargs['dynamic_batch_size'] = config.TRAINING.BATCH_SAMPLER.BATCH_SIZE
     dataset = BreverDataset(
         path=config.TRAINING.PATH,
         segment_length=config.TRAINING.SEGMENT_LENGTH,
         fs=config.FS,
         model=model,
-        dynamic_batch_size=config.TRAINING.BATCH_SAMPLER.DYNAMIC,
         **kwargs,
     )
 
@@ -159,9 +173,9 @@ def main():
 
     summary = {}
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(4, 3))
 
-    fig_test, axes_test = plt.subplots(1, 3, figsize=(10, 3))
+    fig_test, axes_test = plt.subplots(1, 3, figsize=(5, 1.5))
     axes_test[0].set_title('PESQi')
     axes_test[1].set_title('STOIi')
     axes_test[2].set_title('SNRi')
@@ -177,6 +191,21 @@ def main():
         duration=36000,
         seed=0,
     )
+
+    # plot distribution
+    dataset = BreverDataset(
+        path=p_train,
+        segment_length=0.0,
+        fs=16000,
+    )
+    lengths = np.array(dataset.item_lengths)/16e3
+    plt.figure(figsize=(3.5, 1))
+    plt.hist(lengths, bins=25)
+    plt.xlabel('Mixture length (s)')
+    plt.ylabel('Count')
+    plt.grid()
+    # plt.savefig('dist.svg', bbox_inches='tight', pad_inches=0)
+    # plt.show()
 
     p_test = dset_init.get_path_from_kwargs(
         kind='test',
@@ -334,11 +363,11 @@ def main():
                 print(r'\hhline{~==========}')
 
     # seeds = [0]
-    fixed_sizes = [1, 2, 4, 8, 16, 32]
+    fixed_sizes = [1, 2, 4, 8]
     dynamic_sizes = [4.0, 8.0, 16.0, 32.0, 64.0, 128.0]
     segment_length = 0.0
 
-    print(r'\begin{table*}')
+    print(r'\begin{table*}[t!]')
     print(r'\centering')
     print(r'\begin{tabular}{', end='')
     print(r'c', end='')
@@ -369,11 +398,11 @@ def main():
     print(r'& $\Delta$SNR')
     print(r' \\ \hline \hline')
 
-    print(r'\multirow{12}{*}{\rotatebox[origin=c]{90}{Random}}')
+    print(r'\multirow{10}{*}{\rotatebox[origin=c]{90}{Random}}')
     routine('random')
-    print(r'\multirow{12}{*}{\rotatebox[origin=c]{90}{Sorted}}')
+    print(r'\multirow{10}{*}{\rotatebox[origin=c]{90}{Sorted}}')
     routine('sorted')
-    print(r'\multirow{6}{*}{\rotatebox[origin=c]{90}{Bucket}}')
+    print(r'\multirow{10}{*}{\rotatebox[origin=c]{90}{Bucket}}')
     routine('bucket')
 
     print(r'\end{tabular}')
