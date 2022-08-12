@@ -55,7 +55,7 @@ def main():
     )
 
     # preload data
-    if config.TRAINING.PRELOAD:
+    if config.TRAINING.PRELOAD and not args.no_preload:
         logging.info('Preloading data')
         dataset.preload(cuda)
 
@@ -67,7 +67,7 @@ def main():
     )
 
     # set normalization statistics
-    if hasattr(config.MODEL, 'NORMALIZATION'):
+    if hasattr(config.MODEL, 'NORMALIZATION') and not args.no_norm:
         if config.MODEL.NORMALIZATION.TYPE == 'static':
             logging.info('Calculating training statistics')
             mean, std = train_split.dataset.get_statistics()
@@ -124,6 +124,10 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--force', action='store_true',
                         help='train even if already trained')
     parser.add_argument('--cpu', action='store_true',
-                        help='force trainig on cpu')
+                        help='force training on cpu')
+    parser.add_argument('--no-preload', action='store_true',
+                        help='force no preload ')
+    parser.add_argument('--no-norm', action='store_true',
+                        help='force no feature normalization')
     args = parser.parse_args()
     main()
