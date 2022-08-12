@@ -8,6 +8,5 @@ SoundFile
 PyYAML
 pystoi
 pesq
-h5py
 python-sofa
 pytest
