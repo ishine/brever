@@ -170,7 +170,6 @@ class BucketBatchSampler(BreverBatchSampler):
                              sort=False)
         max_length = max(item[1] for item in self._item_lengths)
         batch_size = self.segment_to_item_length(batch_size)
-        max_length = self.segment_to_item_length(max_length)
         self.batch_size = batch_size
         self.max_length = max_length
         self.num_buckets = num_buckets
