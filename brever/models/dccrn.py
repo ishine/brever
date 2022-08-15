@@ -3,8 +3,10 @@ import math
 import torch
 import torch.nn as nn
 from torch.nn import init
+import torch.nn.functional as F
 
 from .base import BreverBaseModel
+from ..filters import STFT
 
 
 class ComplexWrapper(nn.Module):
@@ -307,20 +309,28 @@ class DCCRN(BreverBaseModel):
     """
     def __init__(
         self,
-        criterion='SNR',
-        channels=[16, 32, 64, 128, 256, 256],
-        kernel_size=(5, 2),
-        stride=(2, 1),
-        padding=(2, 0),
-        output_padding=(1, 0),
-        lstm_channels=128,
-        lstm_layers=2,
-        input_dim=512,
+        criterion: str = 'SNR',
+        stft_frame_length: int = 512,
+        stft_hop_length: int = 128,
+        stft_window: str = 'hann',
+        channels: list[int] = [16, 32, 64, 128, 256, 256],
+        kernel_size: tuple[int, int] = (5, 2),
+        stride: tuple[int, int] = (2, 1),
+        padding: tuple[int, int] = (2, 0),
+        output_padding: tuple[int, int] = (1, 0),
+        lstm_channels: int = 128,
+        lstm_layers: int = 2,
     ):
         super().__init__(criterion)
 
+        self.stft = STFT(
+            frame_length=stft_frame_length,
+            hop_length=stft_hop_length,
+            window=stft_window,
+        )
+
         stride_prod = math.prod(stride[0] for _ in channels)
-        last_encoder_output_dim = input_dim//stride_prod
+        last_encoder_output_dim = stft_frame_length//2//stride_prod
 
         self.encoder = nn.ModuleList()
         for i in range(len(channels)):
@@ -349,9 +359,10 @@ class DCCRN(BreverBaseModel):
             n_layers=lstm_layers,
         )
 
-    def forward(self, x):
+    def forward(self, input_):
         # input is (batch_size, channels, freq_bins, time)
         encoder_outputs = []
+        x = input_
         for encoder_block in self.encoder:
             x = encoder_block(x)
             encoder_outputs.append(x)
@@ -368,4 +379,24 @@ class DCCRN(BreverBaseModel):
         ):
             x = torch.cat([x, encoder_output], axis=1)
             x = decoder_block(x)
+        # apply complex mask
+        output = x*input_
+        output = F.pad(output, (0, 0, 0, 1))  # pad nyquist frequency
+        output = self.stft.synthesize(output, input_type='complex')
+        return output
+
+    def pre_proc(self, data, target):
+        data = self.stft.analyze(data.unsqueeze(0), return_type='complex')
+        return data, target
+
+    def enhance(self, x):
+        # x has shape (channels, length)
+        x = x.mean(axis=-2)  # (length,)
+        x = x.view(1, 1, -1)  # (sources, channels, length)
+        x = self.stft.analyze(x, return_type='complex')
+        # (sources, channels, bins, length)
+        x = x[..., :-1, :]  # remove nyquist frequency
+        # current shape happens to work with shape needed for forward which is
+        # (batch_size, channels (in the convolution sense), bins, length)
+        x = self.forward(x)
         return x

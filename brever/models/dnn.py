@@ -72,7 +72,7 @@ class DNN(BreverBaseModel):
 
     def pre_proc(self, data, target, return_stft_output=False):
         x = torch.stack([data, *target])  # (sources, channels, samples)
-        mag, phase = self.stft.analyze(x)  # (sources, channels, bins, frames)
+        mag, phase = self.stft.analyze(x, return_type='magphase')
         mix_mag = mag[0, :, :, :]  # (channels, bins, frames)
         mix_phase = phase[0, :, :, :]  # (channels, bins, frames)
         fg_mag = mag[1, :, :, :]  # (channels, bins, frames)
@@ -93,14 +93,15 @@ class DNN(BreverBaseModel):
         return self.stft.frame_count(segment_length)
 
     def enhance(self, x, return_mask=False):
-        mag, phase = self.stft.analyze(x.unsqueeze(0))
+        mag, phase = self.stft.analyze(x.unsqueeze(0), return_type='magphase')
         features = self.feature_extractor((mag.squeeze(0), phase.squeeze(0)))
         features = self.stack(features)
         features = self.normalization(features)
         mask = self.dnn(features.unsqueeze(0))
         mask_extrapolated = self.mel_fb.extrapolate(mask)
         mag *= mask_extrapolated
-        x = self.stft.synthesize((mag, phase))[..., :x.shape[-1]]
+        x = self.stft.synthesize((mag, phase),
+                                 input_type='magphase')[..., :x.shape[-1]]
         x, mask = x.squeeze(0), mask.squeeze(0)
         x = x.mean(dim=0)  # return monaural signal
         if return_mask:

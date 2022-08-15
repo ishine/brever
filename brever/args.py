@@ -14,6 +14,11 @@ class SetAction(argparse.Action):
         setattr(namespace, self.dest, set(values))
 
 
+class TupleAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, tuple(values))
+
+
 class DatasetArgParser(argparse.ArgumentParser):
 
     arg_map = {
@@ -163,6 +168,19 @@ class ModelArgParser(argparse.ArgumentParser):
             'sources': ['MODEL', 'SOURCES'],
             **training_args,
         },
+        'dccrn': {
+            'channels': ['MODEL', 'CHANNELS'],
+            'stft_frame_length': ['MODEL', 'STFT', 'FRAME_LENGTH'],
+            'stft_hop_length': ['MODEL', 'STFT', 'HOP_LENGTH'],
+            'stft_window': ['MODEL', 'STFT', 'WINDOW'],
+            'kernel_size': ['MODEL', 'KERNEL_SIZE'],
+            'stride': ['MODEL', 'STRIDE'],
+            'padding': ['MODEL', 'PADDING'],
+            'output_padding': ['MODEL', 'OUTPUT_PADDING'],
+            'lstm_channels': ['MODEL', 'LSTM_CHANNELS'],
+            'lstm_layers': ['MODEL', 'LSTM_LAYERS'],
+            **training_args,
+        },
     }
 
     def __init__(self, req=True, *args, **kwargs):
@@ -197,6 +215,20 @@ class ModelArgParser(argparse.ArgumentParser):
         sub.add_argument('--layers', type=int)
         sub.add_argument('--repeats', type=int)
         sub.add_argument('--sources', type=str, nargs='+')
+
+        sub = subs.add_parser('dccrn')
+        sub.add_argument('--stft-frame-length', type=int)
+        sub.add_argument('--stft-hop-length', type=int)
+        sub.add_argument('--stft-window', type=str)
+        sub.add_argument('--channels', type=int, nargs='+')
+        sub.add_argument('--kernel-size', type=int, nargs=2,
+                         action=TupleAction)
+        sub.add_argument('--stride', type=int, nargs=2, action=TupleAction)
+        sub.add_argument('--padding', type=int, nargs=2, action=TupleAction)
+        sub.add_argument('--output-padding', type=int, nargs=2,
+                         action=TupleAction)
+        sub.add_argument('--lstm-channels', type=int)
+        sub.add_argument('--lstm-layers', type=int)
 
         self.add_argument('--cuda', type=arg_type_bool)
         self.add_argument('--early-stop', type=arg_type_bool)

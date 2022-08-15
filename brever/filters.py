@@ -333,9 +333,11 @@ class STFT(nn.Module):
             mag = (real.pow(2) + imag.pow(2)).pow(0.5)
             phase = torch.atan2(imag, real)
             return mag, phase
+        elif return_type == 'complex':
+            return torch.complex(real, imag)
         else:
-            raise ValueError("return_type must be 'realimag' or 'magphase', "
-                             f", got '{return_type}'")
+            raise ValueError("return_type must be 'realimag', 'complex' or "
+                             f"'magphase', got '{return_type}'")
 
     def synthesize(self, x, input_type='magphase'):
         if input_type == 'realimag':
@@ -344,6 +346,8 @@ class STFT(nn.Module):
             mag, phase = x
             real = mag*torch.cos(phase)
             imag = mag*torch.sin(phase)
+        elif input_type == 'complex':
+            real, imag = x.real, x.imag
         else:
             raise ValueError("input_type must be 'realimag', 'complex' or "
                              f"'magphase', got '{input_type}'")

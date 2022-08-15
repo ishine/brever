@@ -134,3 +134,47 @@ def test_convtasnet_args():
 
     config = get_config('config/models/convtasnet.yaml')
     config.update_from_args(args, parser.arg_map['convtasnet'])
+
+
+def test_dccrn_args():
+    parser = ModelArgParser()
+
+    arg_cmd = [
+        # training args
+        '--cuda', '0',
+        '--early-stop', '0',
+        '--convergence', '0',
+        '--epochs', '0',
+        '--learning-rate', '0',
+        '--workers', '0',
+        '--weight-decay', '0',
+        '--train-path', 'foo',
+        '--seed', '0',
+        '--val-size', '0',
+        '--criterion', 'foo',
+        '--preload', '0',
+        '--grad-clip', '0',
+        '--optimizer', 'foo',
+        '--segment-length', '0',
+        '--batch-size', '0',
+        '--batch-sampler', 'foo',
+        '--dynamic-batch-size', '0',
+        # model args
+        'dccrn',
+        '--channels', '1', '2', '3',
+        '--kernel-size', '0', '1',
+        '--stride', '0', '1',
+        '--padding', '0', '1',
+        '--output-padding', '0', '1',
+        '--lstm-channels', '0',
+        '--lstm-layers', '0',
+        '--stft-frame-length', '0',
+        '--stft-hop-length', '0',
+        '--stft-window', 'foo',
+    ]
+    args = parser.parse_args(arg_cmd)
+
+    assert all(arg is not None for arg in args.__dict__.values())
+
+    config = get_config('config/models/dccrn.yaml')
+    config.update_from_args(args, parser.arg_map['dccrn'])

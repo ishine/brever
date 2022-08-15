@@ -34,6 +34,20 @@ def initialize_model(config):
             repeats=config.MODEL.TCN.REPEATS,
             sources=len(config.MODEL.SOURCES),
         )
+    elif config.ARCH == 'dccrn':
+        model = DCCRN(
+            criterion=config.TRAINING.CRITERION,
+            stft_frame_length=config.MODEL.STFT.FRAME_LENGTH,
+            stft_hop_length=config.MODEL.STFT.HOP_LENGTH,
+            stft_window=config.MODEL.STFT.WINDOW,
+            channels=config.MODEL.CHANNELS,
+            kernel_size=config.MODEL.KERNEL_SIZE,
+            stride=config.MODEL.STRIDE,
+            padding=config.MODEL.PADDING,
+            output_padding=config.MODEL.OUTPUT_PADDING,
+            lstm_channels=config.MODEL.LSTM_CHANNELS,
+            lstm_layers=config.MODEL.LSTM_LAYERS,
+        )
     else:
         raise ValueError(f'wrong model architecture, got {config.ARCH}')
     return model

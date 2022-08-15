@@ -8,7 +8,7 @@ from .args import ModelArgParser, DatasetArgParser
 
 def get_config(path):
     with open(path) as f:
-        config_dict = yaml.safe_load(f)
+        config_dict = yaml.load(f, Loader=yaml.Loader)
     config = BreverConfig(config_dict)
     return config
 
