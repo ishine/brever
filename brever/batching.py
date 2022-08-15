@@ -160,9 +160,6 @@ class BucketBatchSampler(BreverBatchSampler):
     Items of similar length are grouped into buckets. Batches are formed with
     items from the same bucket. This attempts to minimize both the batch size
     variability and the amount of padding while keeping some randomness.
-
-    Inspired from code by Speechbrain under Apache-2.0 License:
-    https://github.com/speechbrain/speechbrain/blob/b5d2836e3d0eabb541c5bdbca16fb00c49cb62a3/speechbrain/dataio/sampler.py#L305
     """
     def __init__(self, dataset, batch_size, num_buckets=10, drop_last=False,
                  shuffle=True, seed=0, dynamic=False):

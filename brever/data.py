@@ -15,8 +15,8 @@ eps = np.finfo(float).eps
 
 class TarArchiveInterface:
     """
-    Hats off to João F. Henriques for his tarfile PyTorch dataset available
-    under a BSD-3-Clause License: https://github.com/jotaf98/simple-tar-dataset
+    Hats off to João F. Henriques for his tarfile PyTorch dataset:
+    https://github.com/jotaf98/simple-tar-dataset
 
     The difficulty comes from the fact that TarFile is not thread safe, so
     when using multiple workers, each worker should have its own file handle.

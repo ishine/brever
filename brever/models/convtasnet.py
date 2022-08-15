@@ -8,11 +8,9 @@ from .base import BreverBaseModel
 class ConvTasNet(BreverBaseModel):
     """
     Implementation inspired from:
-    - Code provided by original authors Y. Luo and N. Mesgarani (2019) under a
-    Creative Commons Attribution-NonCommercial-ShareAlike 3.0 United States
-    License: https://github.com/naplab/Conv-TasNet.
-    - Code by Kaituo Xu under MIT License:
-    https://github.com/kaituoxu/Conv-TasNet
+    - Code provided by original authors Y. Luo and N. Mesgarani (2019):
+    https://github.com/naplab/Conv-TasNet.
+    - Code by Kaituo Xu: https://github.com/kaituoxu/Conv-TasNet
     """
     def __init__(
         self,

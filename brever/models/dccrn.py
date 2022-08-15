@@ -64,8 +64,7 @@ class ComplexLSTM(nn.Module):
 
 class ComplexBatchNorm2d(nn.Module):
     """
-    Hats off to Ivan Nazarov for his implementation of complex BatchNorm
-    available under an MIT License:
+    Hats off to Ivan Nazarov for his implementation of complex BatchNorm:
     https://github.com/ivannz/cplxmodule/blob/master/cplxmodule/nn/modules/batchnorm.py
     """
     def __init__(self, num_features, eps=1e-05, momentum=0.1, affine=True,
@@ -303,8 +302,7 @@ class DCCRN(BreverBaseModel):
     In this implementation, we use complex PReLU and dense layer modules, such
     that all operations are fully complex.
 
-    The implementation is inspired from the original code provided by authors
-    Y. Hu et al. (2020) under an Apache-2.0 License:
+    Inspired from original code provided by authors Y. Hu et al. (2020):
     https://github.com/huyanxin/DeepComplexCRN
     """
     def __init__(
