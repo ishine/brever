@@ -92,7 +92,7 @@ class DNN(BreverBaseModel):
     def segment_to_item_length(self, segment_length):
         return self.stft.frame_count(segment_length)
 
-    def enhance(self, x, return_mask=False):
+    def enhance(self, x, return_mask=False, **kwargs):
         mag, phase = self.stft.analyze(x.unsqueeze(0), return_type='magphase')
         features = self.feature_extractor((mag.squeeze(0), phase.squeeze(0)))
         features = self.stack(features)

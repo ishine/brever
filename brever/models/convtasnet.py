@@ -58,7 +58,7 @@ class ConvTasNet(BreverBaseModel):
     def segment_to_item_length(self, item_length):
         return item_length
 
-    def enhance(self, x, target=None):
+    def enhance(self, x, target=None, **kwargs):
         # x.shape = (channels, length)
         # target.shape = (sources, channels, length)
         x = x.mean(axis=-2)  # (length,)

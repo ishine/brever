@@ -120,7 +120,7 @@ def test_model(model, config, test_path):
             logging.info(f'Evaluating on mixture {i}/{len(dataset)}')
 
         data, target = dataset.load_segment(i)  # (2, L) and (S, 2, L)
-        output = model.enhance(data, target)  # (L)
+        output = model.enhance(data, target=target)  # (L)
         target = target[0]  # (2, L)
         data = data.mean(dim=0)  # (L)
         target = target.mean(dim=0)  # (L)

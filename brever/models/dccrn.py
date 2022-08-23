@@ -389,7 +389,7 @@ class DCCRN(BreverBaseModel):
         data = self.stft.analyze(data.unsqueeze(0), return_type='complex')
         return data, target
 
-    def enhance(self, x):
+    def enhance(self, x, **kwargs):
         # x has shape (channels, length)
         x = x.mean(axis=-2)  # (length,)
         x = x.view(1, 1, -1)  # (sources, channels, length)
