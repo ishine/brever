@@ -79,6 +79,12 @@ then
     exit 1
 fi
 
+if [ ! -f "${1}/losses.npz" ] && [ ${FORCE} = false ]
+then
+    echo "model is not trained: ${1}"
+    exit 1
+fi
+
 COMMAND="python scripts/test_model.py $1 ${@:2}"
 if [ ${FORCE} = true ]
 then
