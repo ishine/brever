@@ -42,7 +42,7 @@ databases = [
 eval_script = 'cross_corpus_eval.sh'
 
 
-def init_train_dset(
+def init_tr_dset(
     dset_initializer,
     speakers={'timit_.*'},
     noises={'dcase_.*'},
@@ -108,6 +108,14 @@ def build_test_index(index, dims):
     return test_index
 
 
+def build_test_index_alt(index, dims):
+    # alternative definition of generalization gap
+    test_index = [[i for i in range(5)] for dim in range(3)]
+    for dim in dims:
+        test_index[dim] = index[dim]
+    return test_index
+
+
 def build_kwargs(index):
     kwargs = {}
     for dim_dbs, dbs_idx in zip(databases, index):
@@ -115,16 +123,16 @@ def build_kwargs(index):
     return kwargs
 
 
-def add_models(m, m_ref, models):
-    for model in [m, m_ref]:
-        if model not in models:
-            models.append(model)
+def add_models(model_list, *args):
+    for model in args:
+        if model not in model_list:
+            model_list.append(model)
 
 
-def add_train_paths(train_path, ref_train_path, train_paths):
-    for p in [train_path, ref_train_path]:
-        if p not in train_paths:
-            train_paths.append(p)
+def add_train_paths(train_path_list, *args):
+    for train_path in args:
+        if train_path not in train_path_list:
+            train_path_list.append(train_path)
 
 
 def init_all_test_dsets(dset_initializer):
@@ -177,33 +185,66 @@ def main():
 
     train_paths = []
     models = []
-    for index_func in [n_eq_one, n_eq_four]:
-        for ndim in range(3):
-            for dims in itertools.combinations(range(3), ndim):
+    for ndim in [2, 1, 0]:  # number of MATCHING dimensions
+        for dims in itertools.combinations(range(3), ndim):
+            for index_func in [n_eq_one, n_eq_four]:
                 for i in range(5):
-                    train_index = index_func(i, dims)
-                    train_kwargs = build_kwargs(train_index)
-                    train_path = init_train_dset(dset_init, **train_kwargs)
-                    test_idx = build_test_index(train_index, dims)
-                    test_kwargs = build_kwargs(test_idx)
-                    ref_train_path = init_train_dset(dset_init, **test_kwargs)
+                    # main model
+                    tr_idx = index_func(i, dims)
+                    tr_kw = build_kwargs(tr_idx)
+                    tr_path = init_tr_dset(dset_init, **tr_kw)
+                    # reference model
+                    tr_idx_ref = build_test_index(tr_idx, dims)
+                    tr_kw_ref = build_kwargs(tr_idx_ref)
+                    tr_path_ref = init_tr_dset(dset_init, **tr_kw_ref)
+                    # alternative reference model
+                    tr_idx_ref_alt = build_test_index_alt(tr_idx, dims)
+                    tr_kw_ref_alt = build_kwargs(tr_idx_ref_alt)
+                    tr_path_ref_alt = init_tr_dset(dset_init, **tr_kw_ref_alt)
                     for kwargs in product_dict(
                         arch=['dnn', 'convtasnet'],
-                        seed=[0, 1, 2],
+                        seed=[0],
                         batch_size=[4.0, 128.0],
                     ):
                         m = init_model(
                             model_init,
-                            train_path=arg_type_path(train_path),
+                            train_path=arg_type_path(tr_path),
                             **kwargs,
                         )
                         m_ref = init_model(
                             model_init,
-                            train_path=arg_type_path(ref_train_path),
+                            train_path=arg_type_path(tr_path_ref),
                             **kwargs,
                         )
-                        add_models(m, m_ref, models)
-                    add_train_paths(train_path, ref_train_path, train_paths)
+                        m_ref_alt = init_model(
+                            model_init,
+                            train_path=arg_type_path(tr_path_ref_alt),
+                            **kwargs,
+                        )
+                        add_models(models, m, m_ref, m_ref_alt)
+                    # 3 seeds for the 128 batch size configuration
+                    for kwargs in product_dict(
+                        arch=['dnn', 'convtasnet'],
+                        seed=[0, 1, 2],
+                        batch_size=[128.0],
+                    ):
+                        m = init_model(
+                            model_init,
+                            train_path=arg_type_path(tr_path),
+                            **kwargs,
+                        )
+                        m_ref = init_model(
+                            model_init,
+                            train_path=arg_type_path(tr_path_ref),
+                            **kwargs,
+                        )
+                        add_models(models, m, m_ref)
+                    add_train_paths(
+                        train_paths,
+                        tr_path,
+                        tr_path_ref,
+                        tr_path_ref_alt,
+                    )
 
     test_paths = init_all_test_dsets(dset_init)
     write_eval_script(models, test_paths)
