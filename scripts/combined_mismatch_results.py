@@ -1,16 +1,19 @@
 import os
 import json
 import itertools
+import argparse
+import logging
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from scipy.stats import sem
 
 from brever.args import arg_type_path
 from brever.config import DatasetInitializer, ModelInitializer
 
 # plt.rcParams['svg.fonttype'] = 'none'
-plt.rcParams['font.size'] = 7
+plt.rcParams['font.size'] = 6
 plt.rcParams['patch.linewidth'] = .5
 plt.rcParams['hatch.linewidth'] = .5
 plt.rcParams['lines.linewidth'] = .5
@@ -116,6 +119,7 @@ def get_model(arch, train_path):
     return model_init.get_path_from_kwargs(
         arch=arch,
         train_path=arg_type_path(train_path),
+        seed=args.seed,
     )
 
 
@@ -150,10 +154,12 @@ def gather_all_scores():
     shape = (2, 8, 5, 2, 6)
     scores = np.empty(shape)
     ref_scores = np.empty(shape)
+    scores_std = np.empty(shape)
+    ref_scores_std = np.empty(shape)
 
     for i_n, index_func in enumerate([n_eq_one, n_eq_four]):
 
-        i_mismatch = 0
+        i_mism = 0
 
         for ndim in range(3):
             for dims in itertools.combinations(range(3), ndim):
@@ -172,12 +178,15 @@ def gather_all_scores():
                         m = get_model(arch, train_path)
                         m_ref = get_model(arch, ref_train_path)
 
-                        scores[i_n, i_mismatch, i_fold, i_arch, :] = \
-                            get_scores(m, test_paths)
-                        ref_scores[i_n, i_mismatch, i_fold, i_arch, :] = \
-                            get_scores(m_ref, test_paths)
+                        mean, std = get_scores(m, test_paths)
+                        scores[i_n, i_mism, i_fold, i_arch, :] = mean
+                        scores_std[i_n, i_mism, i_fold, i_arch, :] = std
 
-                i_mismatch += 1
+                        mean, std = get_scores(m_ref, test_paths)
+                        ref_scores[i_n, i_mism, i_fold, i_arch, :] = mean
+                        ref_scores_std[i_n, i_mism, i_fold, i_arch, :] = std
+
+                i_mism += 1
 
     # last mismatch scenario: matched case
     for i_n, index_func in enumerate([n_eq_one, n_eq_four]):
@@ -192,27 +201,51 @@ def gather_all_scores():
                 for i_arch, arch in enumerate(archs):
                     m = get_model(arch, train_path)
 
-                    score = get_scores(m, test_paths)
-                    scores[i_n, -1, i_fold, i_arch, :] = score
-                    ref_scores[i_n, -1, i_fold, i_arch, :] = score
+                    mean, std = get_scores(m, test_paths)
+                    scores[i_n, -1, i_fold, i_arch, :] = mean
+                    scores_std[i_n, -1, i_fold, i_arch, :] = std
+                    ref_scores[i_n, -1, i_fold, i_arch, :] = mean
+                    ref_scores_std[i_n, -1, i_fold, i_arch, :] = std
 
-    return scores, ref_scores
+    return scores, ref_scores, scores_std, ref_scores_std
 
 
 def get_scores(model, test_paths):
     score_file = os.path.join(model, 'scores.json')
     with open(score_file) as f:
         scores = json.load(f)
-    out = []
+    pesq = []
+    stoi = []
+    snr = []
+    pesq_i = []
+    stoi_i = []
+    snr_i = []
     for test_path in test_paths:
-        pesq = np.mean(scores[test_path]['model']['PESQ'])
-        stoi = np.mean(scores[test_path]['model']['STOI'])
-        snr = np.mean(scores[test_path]['model']['SNR'])
-        pesq_i = pesq - np.mean(scores[test_path]['ref']['PESQ'])
-        stoi_i = stoi - np.mean(scores[test_path]['ref']['STOI'])
-        snr_i = snr - np.mean(scores[test_path]['ref']['SNR'])
-        out.append(np.array([pesq, stoi, snr, pesq_i, stoi_i, snr_i]))
-    return np.mean(out, axis=0)
+        if test_path not in scores.keys():
+            msg = f'{model} not tested on {test_path}'
+            if args.force:
+                logging.warning(msg)
+                continue
+            else:
+                raise ValueError(msg)
+        pesq += scores[test_path]['model']['PESQ']
+        stoi += scores[test_path]['model']['STOI']
+        snr += scores[test_path]['model']['SNR']
+        pesq_i += (
+            np.array(scores[test_path]['model']['PESQ']) -
+            np.array(scores[test_path]['ref']['PESQ'])
+        ).tolist()
+        stoi_i += (
+            np.array(scores[test_path]['model']['STOI']) -
+            np.array(scores[test_path]['ref']['STOI'])
+        ).tolist()
+        snr_i += (
+            np.array(scores[test_path]['model']['SNR']) -
+            np.array(scores[test_path]['ref']['SNR'])
+        ).tolist()
+    out = np.array([pesq, stoi, snr, pesq_i, stoi_i, snr_i])
+    mean, std = out.mean(axis=-1), out.std(axis=-1)
+    return mean, std
 
 
 def get_test_dsets(index):
@@ -229,18 +262,10 @@ def get_test_dsets(index):
 
 def plot_bars(scores, scores_ref, which):
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    hatch = ['', '////']
-    ylims = [
-        (0, 0.64),
-        (0, 0.16),
-        (0, 9.2),
-    ]
-    yticks = [
-        np.arange(0, 0.8 + 1e-10, 0.1),
-        np.arange(0, 0.16 + 1e-10, 0.03),
-        np.arange(0, 10 + 1e-10, 2),
-    ]
-    bar_xspace = 1
+    # hatch = ['', '////']
+    markers = ['o', '^']
+    bar_xspace = 1.0
+    arch_xspace = 4.0
 
     config_names = [r'$N=1$', r'$N=4$']
     figsize = {
@@ -249,9 +274,9 @@ def plot_bars(scores, scores_ref, which):
         'triple': (2.66, 4.20),
     }[which]
     filename = {
-        'single': 'results_single.pdf',
-        'double': 'results_double.pdf',
-        'triple': 'results_triple.pdf',
+        'single': f'results_single_{args.seed}.pdf',
+        'double': f'results_double_{args.seed}.pdf',
+        'triple': f'results_triple_{args.seed}.pdf',
     }[which]
     legend_cols = {
         'single': 4,
@@ -278,10 +303,20 @@ def plot_bars(scores, scores_ref, which):
         'double': 3,
         'triple': 1,
     }[which]
+    ylims = [
+        (0, scores_ref[:, i_dims, :, :, 3].max()*1.05),
+        (0, scores_ref[:, i_dims, :, :, 4].max()*1.05),
+        (0, scores_ref[:, i_dims, :, :, 5].max()*1.05),
+    ]
+    yticks = [
+        np.arange(0, 0.9 + 1e-10, 0.1),
+        np.arange(0, 0.19 + 1e-10, 0.03),
+        np.arange(0, 10 + 1e-10, 2),
+    ]
 
-    x = np.arange(len(archs)*2).reshape(len(archs), 2)
-    x += bar_xspace*np.arange(len(archs)).reshape(-1, 1)
-    xlim = x.min() - bar_xspace - 0.5, x.max() + bar_xspace + 0.5
+    x = np.arange(len(archs)*2).reshape(len(archs), 2).astype(float)
+    x += arch_xspace*np.arange(len(archs)).reshape(-1, 1)
+    xlim = x.min() - bar_xspace - 0.5, x.max() + bar_xspace + 4.0
 
     fig = plt.figure(figsize=figsize)
     outer_gs = gridspec.GridSpec(1, gs_cols, figure=fig)
@@ -297,13 +332,19 @@ def plot_bars(scores, scores_ref, which):
                     data = scores[i_config, i_dim, :, i_arch, i_metric]
                     data_ref = scores_ref[i_config, i_dim, :, i_arch, i_metric]
 
-                    for is_ref, data_ in enumerate([data, data_ref]):
-                        label = arch_labels[i_arch]
-                        label = label + '-ref' if is_ref else label
-                        ax.bar(x[i_arch, is_ref], data_.mean(),
-                               color=colors[i_arch], hatch=hatch[is_ref],
-                               width=1, label=label, edgecolor='black',
-                               yerr=data_.std())
+                    for i_fold in range(5):
+                        for is_ref, data_ in enumerate([data, data_ref]):
+                            label = arch_labels[i_arch]
+                            label = label + '-ref' if is_ref else label
+                            ax.scatter(x[i_arch, 1-is_ref], data_[i_fold],
+                                       label=label, marker=markers[is_ref],
+                                       ec=colors[i_arch], fc='none',
+                                       s=20)
+                        ax.plot(
+                            x[i_arch, ::-1],
+                            [data[i_fold], data_ref[i_fold]],
+                            color=colors[i_arch], ls='--'
+                        )
 
                     draw_gen_gap(ax, x, i_arch, data, data_ref, ylims[i_ax])
 
@@ -323,7 +364,8 @@ def plot_bars(scores, scores_ref, which):
                 if i_gs != 0 or i_config != 0:
                     ax.set_yticklabels([])
 
-        handles, labs = ax.get_legend_handles_labels()
+    handles, labs = ax.get_legend_handles_labels()[:2]
+    handles, labs = handles[::5], labs[::5]
     fig.legend(handles, labs, loc=loc, ncol=legend_cols, fontsize='medium')
     fig.tight_layout(rect=rect, w_pad=1.8)
     fig.patch.set_visible(False)
@@ -331,18 +373,22 @@ def plot_bars(scores, scores_ref, which):
 
 
 def draw_gen_gap(ax, x, i_arch, data, data_ref, ylims):
-    head_length = (ylims[1]-ylims[0])*0.027
-    head_width = 0.22
-    x = x[i_arch, 1] - 1.5
-    y = data_ref.mean()
-    dx = 0
-    dy = data.mean() - data_ref.mean() + head_length
-    dy = min(-1e-3, dy)
-    ax.arrow(x, y, dx, dy, head_length=head_length, head_width=head_width,
-             fc='k', length_includes_head=True, linewidth=.5)
-    G_e = ((data-data_ref)/data_ref).mean()
-    G_e = rf'{round(100*G_e)}%'
-    ax.annotate(G_e, (x+0.3, y+head_length*1.5), ha='center')
+    # head_length = (ylims[1]-ylims[0])*0.027
+    # head_width = 0.22
+    x = x[i_arch, 1] + 0.55
+    y = max((ylims[1]-ylims[0])*0.02, data.mean())
+    # dx = 0
+    # dy = data.mean() - data_ref.mean() + head_length
+    # dy = min(-1e-3, dy)
+    # ax.arrow(x, y, dx, dy, head_length=head_length, head_width=head_width,
+    #          fc='k', length_includes_head=True, linewidth=.5)
+    gg = ((data-data_ref)/data_ref).mean()
+    gg_sem = sem(((data-data_ref)/data_ref))
+    if np.isnan(gg):
+        gg = 'NaN'
+    else:
+        gg = rf'{round(100*gg)}$\pm${round(100*gg_sem)}%'
+    ax.annotate(gg, (x, y), ha='left')
 
 
 def summary_table(scores):
@@ -408,26 +454,35 @@ def summary_table(scores):
     print('')
 
 
-def fold_table(scores):
+def fold_table(scores, scores_std):
 
-    def print_cell(x, y):
+    def print_cell(x, y, x_std=None, y_std=None):
         if x > y:
             x = rf'\textbf{{{x:.2f}}}'
             y = f'{y:.2f}'
         else:
             x = f'{x:.2f}'
             y = rf'\textbf{{{y:.2f}}}'
-        print(rf'& {x} & {y}', end=' ')
+        if x_std is not None and y_std is not None:
+            x_std = f'{x_std:.2f}'
+            y_std = f'{y_std:.2f}'
+            print(rf'& {x} \pm {x_std} & {y} \pm {y_std}', end=' ')
+        else:
+            print(rf'& {x} & {y}', end=' ')
 
     def print_row(i_metric, i_fold):
         print('& ', end=' ')
         print(f'Fold {i_fold+1}', end=' ')
         x = scores[0, -1, i_fold, 0, i_metric]
         y = scores[0, -1, i_fold, 1, i_metric]
-        print_cell(x, y)
+        x_std = scores_std[0, -1, i_fold, 0, i_metric]
+        y_std = scores_std[0, -1, i_fold, 1, i_metric]
+        print_cell(x, y, x_std, y_std)
         x = scores[1, -1, i_fold, 0, i_metric]
         y = scores[1, -1, i_fold, 1, i_metric]
-        print_cell(x, y)
+        x_std = scores_std[1, -1, i_fold, 0, i_metric]
+        y_std = scores_std[1, -1, i_fold, 1, i_metric]
+        print_cell(x, y, x_std, y_std)
         print(r'\\')
 
     def print_row_mean(i_metric):
@@ -471,18 +526,34 @@ def fold_table(scores):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--force', action='store_true')
+    args = parser.parse_args()
+
     dset_init = DatasetInitializer(batch_mode=True)
     model_init = ModelInitializer(batch_mode=True)
+
     npzfile = 'temp.npz'
     if os.path.exists(npzfile):
         npzobj = np.load(npzfile)
-        scores, ref_scores = npzobj['scores'], npzobj['ref_scores']
+        scores = npzobj['scores']
+        ref_scores = npzobj['ref_scores']
+        scores_std = npzobj['scores_std']
+        ref_scores_std = npzobj['ref_scores_std']
     else:
-        scores, ref_scores = gather_all_scores()
-        np.savez(npzfile, scores=scores, ref_scores=ref_scores)
+        scores, ref_scores, scores_std, ref_scores_std = gather_all_scores()
+        np.savez(
+            npzfile,
+            scores=scores,
+            ref_scores=ref_scores,
+            scores_std=scores_std,
+            ref_scores_std=ref_scores_std,
+        )
+
     plot_bars(scores, ref_scores, 'single')
     plot_bars(scores, ref_scores, 'double')
     plot_bars(scores, ref_scores, 'triple')
     summary_table(scores)
-    fold_table(scores)
+    fold_table(scores, scores_std)
     plt.show()
