@@ -7,13 +7,15 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.colors as mcolors
+from matplotlib.lines import Line2D
 from scipy.stats import sem
 
 from brever.args import arg_type_path
 from brever.config import DatasetInitializer, ModelInitializer
 
 # plt.rcParams['svg.fonttype'] = 'none'
-plt.rcParams['font.size'] = 6
+plt.rcParams['font.size'] = 7
 plt.rcParams['patch.linewidth'] = .5
 plt.rcParams['hatch.linewidth'] = .5
 plt.rcParams['lines.linewidth'] = .5
@@ -77,6 +79,14 @@ metrics = [
 
 def _m(s):
     return s.replace('$', r'\$') if RAW_MATH else s
+
+
+def flip(items, ncol):
+    return list(itertools.chain(*[items[i::ncol] for i in range(ncol)]))
+
+
+def homothety(x, p1, p2):
+    return x + p1*(x - x[:, [1]]) + p2*(x - x[:, [0]])
 
 
 def get_train_dset(
@@ -263,15 +273,19 @@ def get_test_dsets(index):
 def plot_bars(scores, scores_ref, which):
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
     # hatch = ['', '////']
-    markers = ['o', '^']
-    bar_xspace = 1.0
-    arch_xspace = 4.0
+    markers = ['^', 'v', 's', 'd', 'p']
+    facecolors = [
+        lambda i_arch: (*mcolors.to_rgb(colors[i_arch]), 0.5),
+        lambda i_arch: 'none',
+    ]
+    bar_xspace = 0.5
+    arch_xspace = 0.5
 
     config_names = [r'$N=1$', r'$N=4$']
     figsize = {
-        'single': (7.24, 4.07),
-        'double': (7.24, 4.07),
-        'triple': (2.66, 4.20),
+        'single': (7.24, 4.27),
+        'double': (7.24, 4.27),
+        'triple': (2.66, 4.57),
     }[which]
     filename = {
         'single': f'results_single_{args.seed}.pdf',
@@ -283,15 +297,20 @@ def plot_bars(scores, scores_ref, which):
         'double': 4,
         'triple': 2,
     }[which]
-    rect = {
-        'single': (0, 0, 1, 0.95),
-        'double': (0, 0, 1, 0.95),
-        'triple': (0, 0, 1, 0.92),
+    legend_fold_cols = {
+        'single': 5,
+        'double': 5,
+        'triple': 3,
     }[which]
-    loc = {
-        'single': 'upper center',
-        'double': 'upper center',
-        'triple': (0.2275, 0.91),
+    rect = {
+        'single': (0, 0, 1, 0.91),
+        'double': (0, 0, 1, 0.91),
+        'triple': (0, 0, 1, 0.85),
+    }[which]
+    bbox_to_anchor = {
+        'single': [0.5, 0.91],
+        'double': [0.5, 0.91],
+        'triple': [0.5, 0.87],
     }[which]
     i_dims = {
         'single': [4, 5, 6],
@@ -303,20 +322,38 @@ def plot_bars(scores, scores_ref, which):
         'double': 3,
         'triple': 1,
     }[which]
-    ylims = [
-        (0, scores_ref[:, i_dims, :, :, 3].max()*1.05),
-        (0, scores_ref[:, i_dims, :, :, 4].max()*1.05),
-        (0, scores_ref[:, i_dims, :, :, 5].max()*1.05),
-    ]
+    _ix = np.ix_(
+        range(scores.shape[0]),
+        i_dims,
+        range(scores.shape[2]),
+        range(scores.shape[3]),
+        [3, 4, 5],
+    )
+    ylims = homothety(np.array([
+        scores[_ix].min(axis=(0, 1, 2, 3)),
+        scores_ref[_ix].max(axis=(0, 1, 2, 3)),
+    ]).T, 0.10, 0.20)
+    # if which == 'single':
+    #     ylims[0, 0] = 0
+    #     ylims[2, 0] = 0
+    # elif which == 'double':
+    #     ylims[1, 0] = -0.05
+    # elif which == 'triple':
+    #     ylims[1, 0] = -0.10
+    #     ylims[2, 0] = 0
     yticks = [
-        np.arange(0, 0.9 + 1e-10, 0.1),
-        np.arange(0, 0.19 + 1e-10, 0.03),
+        np.arange(0, 1.0 + 1e-10, 0.2),
+        np.arange(-0.10, 0.20 + 1e-10, 0.05),
         np.arange(0, 10 + 1e-10, 2),
+    ]
+    labels = [
+        lambda i_arch: arch_labels[i_arch],
+        lambda i_arch: arch_labels[i_arch] + '-ref',
     ]
 
     x = np.arange(len(archs)*2).reshape(len(archs), 2).astype(float)
     x += arch_xspace*np.arange(len(archs)).reshape(-1, 1)
-    xlim = x.min() - bar_xspace - 0.5, x.max() + bar_xspace + 4.0
+    xlim = x.min() - bar_xspace - 0.5, x.max() + bar_xspace + 0.5
 
     fig = plt.figure(figsize=figsize)
     outer_gs = gridspec.GridSpec(1, gs_cols, figure=fig)
@@ -337,13 +374,14 @@ def plot_bars(scores, scores_ref, which):
                             label = arch_labels[i_arch]
                             label = label + '-ref' if is_ref else label
                             ax.scatter(x[i_arch, 1-is_ref], data_[i_fold],
-                                       label=label, marker=markers[is_ref],
-                                       ec=colors[i_arch], fc='none',
-                                       s=20)
+                                       label=labels[is_ref](i_arch), s=30,
+                                       marker=markers[i_fold], linewidth=.75,
+                                       fc=facecolors[is_ref](i_arch),
+                                       ec=colors[i_arch])
                         ax.plot(
                             x[i_arch, ::-1],
                             [data[i_fold], data_ref[i_fold]],
-                            color=colors[i_arch], ls='--'
+                            color=colors[i_arch], ls='--', lw=.75,
                         )
 
                     draw_gen_gap(ax, x, i_arch, data, data_ref, ylims[i_ax])
@@ -364,9 +402,23 @@ def plot_bars(scores, scores_ref, which):
                 if i_gs != 0 or i_config != 0:
                     ax.set_yticklabels([])
 
-    handles, labs = ax.get_legend_handles_labels()[:2]
-    handles, labs = handles[::5], labs[::5]
-    fig.legend(handles, labs, loc=loc, ncol=legend_cols, fontsize='medium')
+    handles = [
+        Line2D([0], [0], marker='o', markeredgecolor=colors[i_arch],
+               markerfacecolor=facecolors[is_ref](i_arch), linestyle='',
+               label=labels[is_ref](i_arch), markeredgewidth=.75)
+        for i_arch, is_ref in itertools.product(range(len(archs)), [1, 0])
+    ]
+    fig.legend(handles=handles, loc='upper center', ncol=legend_cols,
+               fontsize='medium')
+    handles = [
+        Line2D([0], [0], marker=markers[i_fold], markeredgecolor='k',
+               markerfacecolor='none', linestyle='', label=f'Fold {i_fold+1}',
+               markeredgewidth=.75)
+        for i_fold in range(5)
+    ]
+    fig.legend(handles=flip(handles, legend_fold_cols), loc='center',
+               ncol=legend_fold_cols,
+               fontsize='medium', bbox_to_anchor=bbox_to_anchor)
     fig.tight_layout(rect=rect, w_pad=1.8)
     fig.patch.set_visible(False)
     fig.savefig(filename, bbox_inches='tight', pad_inches=0)
@@ -375,8 +427,8 @@ def plot_bars(scores, scores_ref, which):
 def draw_gen_gap(ax, x, i_arch, data, data_ref, ylims):
     # head_length = (ylims[1]-ylims[0])*0.027
     # head_width = 0.22
-    x = x[i_arch, 1] + 0.55
-    y = max((ylims[1]-ylims[0])*0.02, data.mean())
+    x = x[i_arch].mean()
+    y = max(data.max(), data_ref.max()) + (ylims[1]-ylims[0])*0.06
     # dx = 0
     # dy = data.mean() - data_ref.mean() + head_length
     # dy = min(-1e-3, dy)
@@ -388,7 +440,8 @@ def draw_gen_gap(ax, x, i_arch, data, data_ref, ylims):
         gg = 'NaN'
     else:
         gg = rf'{round(100*gg)}$\pm${round(100*gg_sem)}%'
-    ax.annotate(gg, (x, y), ha='left')
+        # gg = rf'{round(100*gg)}%'
+    ax.annotate(gg, (x, y), ha='center')
 
 
 def summary_table(scores):
@@ -463,7 +516,8 @@ def fold_table(scores, scores_std):
         else:
             x = f'{x:.2f}'
             y = rf'\textbf{{{y:.2f}}}'
-        if x_std is not None and y_std is not None:
+        # if x_std is not None and y_std is not None:
+        if False:
             x_std = f'{x_std:.2f}'
             y_std = f'{y_std:.2f}'
             print(rf'& {x} \pm {x_std} & {y} \pm {y_std}', end=' ')
@@ -501,6 +555,7 @@ def fold_table(scores, scores_std):
         print(rf'{{{metrics[i_metric]}}}}}')
         for i_fold in range(5):
             print_row(i_metric, i_fold)
+        print(r'\cline{2-6}')
         print_row_mean(i_metric)
 
     print(r'\begin{table}')
