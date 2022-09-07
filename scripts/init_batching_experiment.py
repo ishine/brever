@@ -99,7 +99,7 @@ def main():
 
     test_paths = init_all_test_dsets(dset_init)
 
-    seeds = [0, 1, 2, 3, 4]
+    seeds = [0, 1, 2]
     fixed_sizes = [1, 2, 4, 8]
     dynamic_sizes = [4.0, 8.0, 16.0, 32.0, 64.0, 128.0]
     batch_samplers = ['random', 'sorted', 'bucket']
