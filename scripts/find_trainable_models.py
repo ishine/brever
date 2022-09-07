@@ -30,7 +30,7 @@ def main():
         for model in models:
             print(model)
 
-    if models and args.evaluate:
+    if models and args.train:
         print(f'{len(models)} models will be trained.')
         resp = input('Do you want to continue? y/n')
         if resp == 'y':
