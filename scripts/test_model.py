@@ -73,6 +73,7 @@ def main():
 
     # test model
     for test_path in args.test_paths:
+        logging.info(f'Evaluating on {test_path}')
         test_model(model, config, test_path)
 
 
