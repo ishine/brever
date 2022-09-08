@@ -152,6 +152,14 @@ def build_test_index(index, dims):
     return test_index
 
 
+def build_test_index_alt(index, dims):
+    # alternative definition of generalization gap
+    test_index = [[i for i in range(5)] for dim in range(3)]
+    for dim in dims:
+        test_index[dim] = index[dim]
+    return test_index
+
+
 def build_kwargs(index):
     kwargs = {}
     for dim_dbs, dbs_idx in zip(databases, index):
@@ -178,9 +186,14 @@ def gather_all_scores():
                     train_index = index_func(i_fold, dims)
                     train_kwargs = build_kwargs(train_index)
                     train_path = get_train_dset(**train_kwargs)
-                    test_idx = build_test_index(train_index, dims)
-                    test_kwargs = build_kwargs(test_idx)
-                    ref_train_path = get_train_dset(**test_kwargs)
+                    if args.alt:
+                        test_idx = build_test_index_alt(train_index, dims)
+                        test_kwargs = build_kwargs(test_idx)
+                        ref_train_path = get_train_dset(**test_kwargs)
+                    else:
+                        test_idx = build_test_index(train_index, dims)
+                        test_kwargs = build_kwargs(test_idx)
+                        ref_train_path = get_train_dset(**test_kwargs)
 
                     test_paths = get_test_dsets(test_idx)
 
@@ -584,6 +597,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--force', action='store_true')
+    parser.add_argument('--alt', action='store_true')
     args = parser.parse_args()
 
     dset_init = DatasetInitializer(batch_mode=True)
