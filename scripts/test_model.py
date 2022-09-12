@@ -102,7 +102,7 @@ def test_model(model, config, test_path):
     # score functions; x is the system input or output, y is the target
     score_funcs = {
         'PESQ': lambda x, y: pesq(
-            config.FS, y, x, 'wb',
+            config.FS, y.numpy(), x.numpy(), 'wb',
         ),
         'STOI': lambda x, y: stoi(
             y.numpy(), x.numpy(), config.FS, extended=False,
