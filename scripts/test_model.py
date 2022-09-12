@@ -99,19 +99,29 @@ def test_model(model, config, test_path):
         **kwargs,
     )
 
+    # score functions; x is the system input or output, y is the target
+    score_funcs = {
+        'PESQ': lambda x, y: pesq(
+            config.FS, y, x, 'wb',
+        ),
+        'STOI': lambda x, y: stoi(
+            y.numpy(), x.numpy(), config.FS, extended=False,
+        ),
+        'ESTOI': lambda x, y: stoi(
+            y.numpy(), x.numpy(), config.FS, extended=True,
+        ),
+        'SNR': lambda x, y: -SNR()(
+            x.view(1, 1, -1), y.view(1, 1, -1), [x.shape[-1]]
+        ).item(),
+        'SISNR': lambda x, y: -SISNR()(
+            x.view(1, 1, -1), y.view(1, 1, -1), [x.shape[-1]],
+        ).item(),
+    }
+
+    # init scores dict
     scores = {
-        'model': {
-            'PESQ': [],
-            'STOI': [],
-            'SNR': [],
-            'SISNR': [],
-        },
-        'ref': {
-            'PESQ': [],
-            'STOI': [],
-            'SNR': [],
-            'SISNR': [],
-        }
+        'model': {key: [] for key in score_funcs.keys()},
+        'ref': {key: [] for key in score_funcs.keys()},
     }
 
     # main loop
@@ -126,69 +136,13 @@ def test_model(model, config, test_path):
         data = data.mean(dim=0)  # (L)
         target = target.mean(dim=0)  # (L)
 
-        # pesq
-        pesq_model = pesq(
-            config.FS,
-            target.numpy(),
-            output.numpy(),
-            'wb',
-        )
-        pesq_ref = pesq(
-            config.FS,
-            target.numpy(),
-            data.numpy(),
-            'wb',
-        )
-        scores['model']['PESQ'].append(pesq_model)
-        scores['ref']['PESQ'].append(pesq_ref)
-
-        # stoi
-        stoi_model = stoi(
-            target.numpy(),
-            output.numpy(),
-            config.FS,
-        )
-        stoi_ref = stoi(
-            target.numpy(),
-            data.numpy(),
-            config.FS,
-        )
-        scores['model']['STOI'].append(stoi_model)
-        scores['ref']['STOI'].append(stoi_ref)
-
-        # snr
-        snr_model = -SNR()(
-            output.view(1, 1, -1),
-            target.view(1, 1, -1),
-            [data.shape[-1]],
-        ).item()
-        snr_ref = -SNR()(
-            data.view(1, 1, -1),
-            target.view(1, 1, -1),
-            [data.shape[-1]],
-        ).item()
-        scores['model']['SNR'].append(snr_model)
-        scores['ref']['SNR'].append(snr_ref)
-
-        # sisnr
-        sisnr_model = -SISNR()(
-            output.view(1, 1, -1),
-            target.view(1, 1, -1),
-            [data.shape[-1]],
-        ).item()
-        sisnr_ref = -SISNR()(
-            data.view(1, 1, -1),
-            target.view(1, 1, -1),
-            [data.shape[-1]],
-        ).item()
-        scores['model']['SISNR'].append(sisnr_model)
-        scores['ref']['SISNR'].append(sisnr_ref)
-
-        if i % args.verbose_period == 0:
-            logging.info(f'PESQi: {sig_figs(pesq_model - pesq_ref)}')
-            logging.info(f'STOIi: {sig_figs(stoi_model - stoi_ref)}')
-            logging.info(f'SNRi: {sig_figs(snr_model - snr_ref)}')
-            logging.info(f'SISNRi: {sig_figs(sisnr_model - sisnr_ref)}')
+        for key, score_func in score_funcs.items():
+            score_model = score_func(output, target)
+            score_ref = score_func(data, target)
+            scores['model'][key].append(score_model)
+            scores['ref'][key].append(score_ref)
+            if i % args.verbose_period == 0:
+                logging.info(f'{key}i: {sig_figs(score_model - score_ref)}')
 
         if args.output_dir is not None:
             dset_id = os.path.basename(os.path.normpath(test_path))
