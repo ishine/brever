@@ -1,13 +1,13 @@
 import argparse
 import logging
 import os
-import json
 
 import numpy as np
 from pesq import pesq
 from pystoi import stoi
 import torch
 import torchaudio
+import h5py
 
 from brever.args import arg_type_path
 from brever.config import get_config
@@ -23,20 +23,6 @@ def sig_figs(x, n=4):
         return x
     else:
         return round(x, -int(np.floor(np.log10(abs(x)))) + (n - 1))
-
-
-def format_scores(x, figures=4):
-    if isinstance(x, dict):
-        x = {key: format_scores(val) for key, val in x.items()}
-    elif isinstance(x, list):
-        x = [format_scores(val) for val in x]
-    elif isinstance(x, np.floating):
-        x = sig_figs(x.item(), figures)
-    elif isinstance(x, float):
-        x = sig_figs(x, figures)
-    else:
-        raise ValueError(f'got unexpected type {type(x)}')
-    return x
 
 
 def main():
@@ -79,11 +65,12 @@ def main():
 
 def test_model(model, config, test_path):
     # check if already tested
-    scores_path = os.path.join(args.input, 'scores.json')
+    scores_path = os.path.join(args.input, 'scores.hdf5')
     if os.path.exists(scores_path):
-        with open(scores_path) as f:
-            saved_scores = json.load(f)
-        if test_path in saved_scores.keys() and not args.force:
+        h5file = h5py.File(scores_path, 'r')
+        already_tested = test_path in h5file.keys()
+        h5file.close()
+        if already_tested and not args.force:
             print(f'model already tested on {test_path}')
             return
 
@@ -100,68 +87,91 @@ def test_model(model, config, test_path):
     )
 
     # score functions; x is the system input or output, y is the target
-    score_funcs = {
-        'PESQ': lambda x, y: pesq(
-            config.FS, y.numpy(), x.numpy(), 'wb',
-        ),
-        'STOI': lambda x, y: stoi(
-            y.numpy(), x.numpy(), config.FS, extended=False,
-        ),
-        'ESTOI': lambda x, y: stoi(
-            y.numpy(), x.numpy(), config.FS, extended=True,
-        ),
-        'SNR': lambda x, y: -SNR()(
-            x.view(1, 1, -1), y.view(1, 1, -1), [x.shape[-1]]
-        ).item(),
-        'SISNR': lambda x, y: -SISNR()(
-            x.view(1, 1, -1), y.view(1, 1, -1), [x.shape[-1]],
-        ).item(),
-    }
+    score_funcs = [
+        {
+            'name': 'PESQ',
+            'func': lambda x, y: pesq(
+                config.FS, y.numpy(), x.numpy(), 'wb',
+            ),
+        },
+        {
+            'name': 'STOI',
+            'func': lambda x, y: stoi(
+                y.numpy(), x.numpy(), config.FS, extended=False,
+            ),
+        },
+        {
+            'name': 'ESTOI',
+            'func': lambda x, y: stoi(
+                y.numpy(), x.numpy(), config.FS, extended=True,
+            ),
+        },
+        {
+            'name': 'SNR',
+            'func': lambda x, y: -SNR()(
+                x.view(1, 1, -1), y.view(1, 1, -1), [x.shape[-1]]
+            ).item(),
+        },
+        {
+            'name': 'SISNR',
+            'func': lambda x, y: -SISNR()(
+                x.view(1, 1, -1), y.view(1, 1, -1), [x.shape[-1]],
+            ).item(),
+        },
+    ]
 
-    # init scores dict
-    scores = {
-        'model': {key: [] for key in score_funcs.keys()},
-        'ref': {key: [] for key in score_funcs.keys()},
-    }
+    # initialize scores
+    n_mix = len(dataset)
+    dset_scores = np.empty((n_mix, len(score_funcs), 2))
 
     # main loop
-    for i in range(len(dataset)):
+    for i_mix in range(n_mix):
 
-        if i % args.verbose_period == 0:
-            logging.info(f'Evaluating on mixture {i}/{len(dataset)}')
+        if i_mix % args.verbose_period == 0:
+            logging.info(f'Evaluating on mixture {i_mix}/{n_mix}')
 
-        data, target = dataset.load_segment(i)  # (2, L) and (S, 2, L)
-        output = model.enhance(data, target=target)  # (L)
+        input_, target = dataset.load_segment(i_mix)  # (2, L) and (S, 2, L)
+        output = model.enhance(input_, target=target)  # (L)
         target = target[0]  # (2, L)
-        data = data.mean(dim=0)  # (L)
+        input_ = input_.mean(dim=0)  # (L)
         target = target.mean(dim=0)  # (L)
 
-        for key, score_func in score_funcs.items():
-            score_model = score_func(output, target)
-            score_ref = score_func(data, target)
-            scores['model'][key].append(score_model)
-            scores['ref'][key].append(score_ref)
-            if i % args.verbose_period == 0:
-                logging.info(f'{key}i: {sig_figs(score_model - score_ref)}')
+        for i_metric, score_func in enumerate(score_funcs):
+            input_score = score_func['func'](input_, target)
+            output_score = score_func['func'](output, target)
+            dset_scores[i_mix, i_metric, 0] = input_score
+            dset_scores[i_mix, i_metric, 1] = output_score
+            if i_mix % args.verbose_period == 0:
+                delta = sig_figs(output_score - input_score)
+                logging.info(f"{score_func['name']}i: {delta}")
 
         if args.output_dir is not None:
             dset_id = os.path.basename(os.path.normpath(test_path))
-            input_filename = f'{dset_id}_{i:05d}_input.flac'
-            output_filename = f'{dset_id}_{i:05d}_output.flac'
+            input_filename = f'{dset_id}_{i_mix:05d}_input.flac'
+            output_filename = f'{dset_id}_{i_mix:05d}_output.flac'
             input_path = os.path.join(args.output_dir, input_filename)
             output_path = os.path.join(args.output_dir, output_filename)
-            torchaudio.save(input_path, data.unsqueeze(0), config.FS)
+            torchaudio.save(input_path, input_.unsqueeze(0), config.FS)
             torchaudio.save(output_path, output.unsqueeze(0), config.FS)
 
     # update scores file
     if os.path.exists(scores_path):
-        with open(scores_path) as f:
-            saved_scores = json.load(f)
+        h5file = h5py.File(scores_path, 'a')
+        if test_path in h5file.keys():
+            h5dset = h5file[test_path]
+        else:
+            h5dset = h5file.create_dataset(test_path, data=dset_scores)
     else:
-        saved_scores = {}
-    saved_scores[test_path] = format_scores(scores)
-    with open(scores_path, 'w') as f:
-        json.dump(saved_scores, f)
+        h5file = h5py.File(scores_path, 'w')
+        h5file['metrics'] = [score_func['name'] for score_func in score_funcs]
+        h5file['which'] = ['input', 'output']
+        h5dset = h5file.create_dataset(test_path, data=dset_scores)
+    h5dset.dims[0].label = 'mixture'
+    h5dset.dims[1].label = 'metric'
+    h5dset.dims[2].label = 'which'
+    h5dset.dims[1].attach_scale(h5file['metrics'])
+    h5dset.dims[2].attach_scale(h5file['which'])
+    h5file.close()
 
 
 if __name__ == '__main__':

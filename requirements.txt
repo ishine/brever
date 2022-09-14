@@ -10,3 +10,4 @@ pystoi==0.3.3
 pesq==0.0.4
 python-sofa==0.2.0
 pytest==7.1.2
+h5py==3.7.0
