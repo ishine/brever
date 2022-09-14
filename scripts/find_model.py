@@ -17,7 +17,7 @@ def main():
     models = []
     for model in matching_models:
         loss_file = os.path.join(model, 'losses.npz')
-        score_file = os.path.join(model, 'scores.json')
+        score_file = os.path.join(model, 'scores.hdf5')
 
         if args.untrained and os.path.exists(loss_file):
             continue

@@ -80,7 +80,7 @@ def main():
     models = []
     for model in all_models:
         loss_file = os.path.join(model, 'losses.npz')
-        score_file = os.path.join(model, 'scores.json')
+        score_file = os.path.join(model, 'scores.hdf5')
 
         if not os.path.exists(loss_file):
             continue
