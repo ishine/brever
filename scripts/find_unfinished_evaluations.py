@@ -1,7 +1,7 @@
 import os
-import json
 import itertools
 import subprocess
+import h5py
 
 from brever.args import ModelArgParser
 from brever.config import DatasetInitializer, ModelFinder
@@ -88,9 +88,9 @@ def main():
         if not os.path.exists(score_file):
             models.append(model)
         else:
-            with open(score_file) as f:
-                scores = json.load(f)
-            if len(scores) == 125:
+            with h5py.File(score_file, 'r') as f:
+                n_evals = len(f['data/datasets/test'].keys())
+            if n_evals == 125:
                 continue
             else:
                 models.append(model)

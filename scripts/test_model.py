@@ -67,9 +67,8 @@ def test_model(model, config, test_path):
     # check if already tested
     scores_path = os.path.join(args.input, 'scores.hdf5')
     if os.path.exists(scores_path):
-        h5file = h5py.File(scores_path, 'r')
-        already_tested = test_path in h5file.keys()
-        h5file.close()
+        with h5py.File(scores_path, 'r') as h5file:
+            already_tested = test_path in h5file.keys()
         if already_tested and not args.force:
             print(f'model already tested on {test_path}')
             return
