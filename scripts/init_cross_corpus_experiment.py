@@ -216,39 +216,6 @@ def main():
                             train_path=arg_type_path(tr_path_ref),
                             **kwargs,
                         )
-                        # alt model the 128 batch size configuration only
-                        if kwargs['batch_size'] == 128.0:
-                            m_ref_alt = init_model(
-                                model_init,
-                                train_path=arg_type_path(tr_path_ref_alt),
-                                **kwargs,
-                            )
-                            add_models(models, m, m_ref, m_ref_alt)
-                        else:
-                            add_models(models, m, m_ref)
-                    # 3 seeds for the 128 batch size configuration
-                    for kwargs in product_dict(
-                        arch=['dnn', 'convtasnet'],
-                        seed=[0, 1, 2],
-                        batch_size=[128.0],
-                    ):
-                        m = init_model(
-                            model_init,
-                            train_path=arg_type_path(tr_path),
-                            **kwargs,
-                        )
-                        m_ref = init_model(
-                            model_init,
-                            train_path=arg_type_path(tr_path_ref),
-                            **kwargs,
-                        )
-                        add_models(models, m, m_ref)
-                    add_train_paths(
-                        train_paths,
-                        tr_path,
-                        tr_path_ref,
-                        tr_path_ref_alt,
-                    )
 
     test_paths = init_all_test_dsets(dset_init)
     write_eval_script(models, test_paths)
