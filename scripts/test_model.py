@@ -70,7 +70,7 @@ def test_model(model, config, test_path):
         with h5py.File(scores_path, 'r') as h5file:
             already_tested = test_path in h5file.keys()
         if already_tested and not args.force:
-            logging.info(f'model already tested on {test_path}')
+            logging.info(f'Model already tested on {test_path}')
             return
 
     # initialize dataset
