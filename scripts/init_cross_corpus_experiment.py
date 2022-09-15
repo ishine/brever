@@ -197,10 +197,6 @@ def main():
                     tr_idx_ref = build_test_index(tr_idx, dims)
                     tr_kw_ref = build_kwargs(tr_idx_ref)
                     tr_path_ref = init_tr_dset(dset_init, **tr_kw_ref)
-                    # alternative reference model
-                    tr_idx_ref_alt = build_test_index_alt(tr_idx, dims)
-                    tr_kw_ref_alt = build_kwargs(tr_idx_ref_alt)
-                    tr_path_ref_alt = init_tr_dset(dset_init, **tr_kw_ref_alt)
                     for kwargs in product_dict(
                         arch=['dnn', 'convtasnet'],
                         seed=[0],
@@ -217,6 +213,11 @@ def main():
                             **kwargs,
                         )
                         add_models(models, m, m_ref)
+                    add_train_paths(
+                        train_paths,
+                        tr_path,
+                        tr_path_ref,
+                    )
 
     test_paths = init_all_test_dsets(dset_init)
     write_eval_script(models, test_paths)
