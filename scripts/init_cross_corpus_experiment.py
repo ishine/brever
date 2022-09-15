@@ -216,6 +216,7 @@ def main():
                             train_path=arg_type_path(tr_path_ref),
                             **kwargs,
                         )
+                        add_models(models, m, m_ref)
 
     test_paths = init_all_test_dsets(dset_init)
     write_eval_script(models, test_paths)
