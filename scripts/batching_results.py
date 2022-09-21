@@ -1,7 +1,8 @@
 import itertools
 import os
-import json
+import h5py
 import logging
+import argparse
 
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
@@ -29,7 +30,7 @@ plt.rcParams['ytick.major.size'] = 1
 plt.rcParams['ytick.major.width'] = .5
 
 
-databases = [
+DATABASES = [
     {
         'kwarg': 'speakers',
         'databases': [
@@ -61,37 +62,42 @@ databases = [
         ],
     },
 ]
+METRICS = [
+    {
+        'name': 'PESQ',
+        'scale': 10,
+    },
+    {
+        'name': 'STOI',
+        'scale': 100,
+    },
+    {
+        'name': 'SNR',
+        'scale': 1,
+    },
+]
+N_METRICS = len(METRICS)
 
 
 def fmt_time(time_):
-    h, m, s = int(time_//3600), int((time_ % 3600)//60), int(time_ % 60)
-    return f'{h:>2} h {m:>2} m {s:>2} s'
-
-
-def fmt_memory(memory):
-    memory = round(memory/1e9, 2)
-    return f'{memory:>5} GB'
-
-
-def fmt_score(score):
-    return f"{score:.2e}"
-
-
-def fmt_time_tex(time_):
     h, m = int(time_//3600), int((time_ % 3600)//60)
     return fr'{h} h {m:02d} m'
 
 
-def fmt_score_tex(score, is_max):
+def fmt_score(score, is_max):
     score = f"{score:.2f}"
     if is_max:
         score = fr"\textbf{{{score}}}"
     return score
 
 
-def fmt_memory_tex(memory):
+def fmt_memory(memory):
     memory = round(memory/1e9, 1)
     return f'{memory} GB'
+
+
+def fmt_padding(padding_fraction):
+    return f'{round(padding_fraction*100, 1)}\\%'
 
 
 def get_padding(model):
@@ -113,6 +119,7 @@ def get_padding(model):
         segment_length=config.TRAINING.SEGMENT_LENGTH,
         fs=config.FS,
         model=model,
+        silent=True,
         **kwargs,
     )
 
@@ -135,15 +142,10 @@ def get_padding(model):
         dataset=train_split,
         **kwargs,
     )
-    # val_batch_sampler = batch_sampler_class(
-    #     dataset=val_split,
-    #     **kwargs,
-    # )
 
     batch_sizes, pad_amounts = train_batch_sampler.calc_batch_stats()
-    percent = sum(pad_amounts)/(sum(batch_sizes)-sum(pad_amounts))*100
-    percent = f'{round(percent, 1)}\\%'
-    return percent
+    fraction = sum(pad_amounts)/(sum(batch_sizes)-sum(pad_amounts))
+    return fraction
 
 
 def complement(idx_list):
@@ -157,6 +159,28 @@ def build_test_index(index, dims):
     return test_index
 
 
+class TrainCurvePlotter:
+    def __init__(self):
+        self.colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        self.counter = 0
+
+    def plot(self, ax, model, batch_size, batch_sampler, dynamic):
+        path = os.path.join(model, 'losses.npz')
+        data = np.load(path)
+        batch_type = 'dynamic' if dynamic else 'fixed'
+        label = (
+            f'batch_sampler={batch_sampler}, '
+            f'batch_size={batch_size}, '
+            f'batch_type={batch_type}'
+        )
+        color = self.colors[self.counter]
+        l, = ax.plot(data['train'], label=label, color=color)
+        _, = ax.plot(data['val'], '--', color=color)
+
+    def next_color(self):
+        self.counter = (self.counter + 1) % len(self.colors)
+
+
 def main():
     dset_init = DatasetInitializer(batch_mode=True)
     model_init = ModelInitializer(batch_mode=True)
@@ -164,14 +188,7 @@ def main():
     plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True)
     plt.rc('grid', color='w', linestyle='solid')
 
-    summary = {}
-
     fig, ax = plt.subplots(figsize=(4, 3))
-
-    fig_test, axes_test = plt.subplots(1, 3, figsize=(5, 1.5))
-    axes_test[0].set_title('PESQi')
-    axes_test[1].set_title('STOIi')
-    axes_test[2].set_title('SNRi')
 
     p_train = dset_init.get_path_from_kwargs(
         kind='train',
@@ -198,7 +215,6 @@ def main():
     plt.ylabel('Count')
     plt.grid()
     # plt.savefig('dist.svg', bbox_inches='tight', pad_inches=0)
-    # plt.show()
 
     p_test = dset_init.get_path_from_kwargs(
         kind='test',
@@ -212,56 +228,28 @@ def main():
         seed=42,
     )
 
-    def plot_models(models, scores, batch_sizes, batch_type):
+    train_curver_plotter = TrainCurvePlotter()
+
+    def plot_models(scores, batch_sizes, batch_type):
+        stats, scores = scores[:, :3], scores[:, 3:]
         max_score = np.nanmax(scores, axis=0)
-        for model, score, batch_size in zip(models, scores, batch_sizes):
-            plot_model(model, score, batch_size, max_score, batch_type)
+        for stat, score, batch_size in zip(stats, scores, batch_sizes):
+            plot_model(stat, score, batch_size, max_score, batch_type)
 
-    def plot_model(model, score, batch_size, max_score, batch_type):
-        path = os.path.join(model, 'losses.npz')
-        if not os.path.exists(path):
-            logging.warning(f"{path} not found, skipping")
-            return
-        data = np.load(path)
-
-        summary[model] = {}
-
-        label = model
-
-        l, = ax.plot(data['train'], label=label)
-        _, = ax.plot(data['val'], '--', color=l.get_color())
-
-        state = torch.load(os.path.join(model, 'checkpoint.pt'),
-                           map_location='cpu')
-        summary[model]['Training time'] = fmt_time(state['time_spent'])
-        summary[model]['GPU usage'] = fmt_memory(state['max_memory_allocated'])
-        summary[model]['Min. val. loss'] = fmt_score(min(data['val']))
-
-        i_model = len(summary)
-        pesq, stoi, snr, pesq_mis, stoi_mis, snr_mis = score
+    def plot_model(stat, score, batch_size, max_score, batch_type):
         is_max = score == max_score
-
-        summary[model]['Test PESQi'] = fmt_score(pesq)
-        summary[model]['Test STOIi'] = fmt_score(stoi)
-        summary[model]['Test SNRi'] = fmt_score(snr)
-
-        axes_test[0].bar([i_model], [pesq], width=1, label=label)
-        axes_test[1].bar([i_model], [stoi], width=1, label=label)
-        axes_test[2].bar([i_model], [snr], width=1, label=label)
-
         if batch_type == 'seq.':
             batch_size = int(batch_size)
         batch_size = f'{batch_size} {batch_type}'
         print(fr' & {batch_size}', end='')
-        print(fr' & {fmt_time_tex(state["time_spent"])}', end='')
-        print(fr' & {fmt_memory_tex(state["max_memory_allocated"])}', end='')
-        print(fr' & {get_padding(model)}', end='')
-        print(fr' & {fmt_score_tex(pesq*10, is_max[0])}', end='')
-        print(fr' & {fmt_score_tex(stoi*100, is_max[1])}', end='')
-        print(fr' & {fmt_score_tex(snr, is_max[2])}', end='')
-        print(fr' & {fmt_score_tex(pesq_mis*10, is_max[3])}', end='')
-        print(fr' & {fmt_score_tex(stoi_mis*100, is_max[4])}', end='')
-        print(fr' & {fmt_score_tex(snr_mis, is_max[5])}', end='')
+        print(fr' & {fmt_time(stat[0])}', end='')
+        print(fr' & {fmt_memory(stat[1])}', end='')
+        print(fr' & {fmt_padding(stat[2])}', end='')
+        for i_offset in [0, 3]:  # allows to grab matched or mismatched score
+            for i_m, m in enumerate(METRICS):
+                i_s = i_m + i_offset
+                score_fmt = fmt_score(score[i_s]*m["scale"], is_max[i_s])
+                print(fr' & {score_fmt}', end='')
         print(r'\\')
 
     def get_test_dsets(index):
@@ -269,9 +257,9 @@ def main():
         for i, j, k in itertools.product(*index):
             test_path = dset_init.get_path_from_kwargs(
                 kind='test',
-                speakers={databases[0]['databases'][i]},
-                noises={databases[1]['databases'][j]},
-                rooms={databases[2]['databases'][k]},
+                speakers={DATABASES[0]['databases'][i]},
+                noises={DATABASES[1]['databases'][j]},
+                rooms={DATABASES[2]['databases'][k]},
                 speech_files=[0.8, 1.0],
                 noise_files=[0.8, 1.0],
                 room_files='odd',
@@ -281,43 +269,42 @@ def main():
             test_paths.append(test_path)
         return test_paths
 
+    train_index = [[1], [0], [0]]
+    test_idx = build_test_index(train_index, [])
+    p_test_mismatch = get_test_dsets(test_idx)
+
     def load_score(model):
         if not os.path.exists(model):
             raise FileNotFoundError(f'model {model} does not exist')
-        score_file = os.path.join(model, 'scores.json')
-        if not os.path.exists(score_file):
-            return [np.nan for _ in range(6)]
-        with open(score_file) as f:
-            scores = json.load(f)
-        if p_test not in scores.keys():
-            logging.warning(f'model {model} is not tested on {p_test}')
-            return [np.nan for _ in range(6)]
-        pesq = np.mean(scores[p_test]['model']['PESQ'])
-        stoi = np.mean(scores[p_test]['model']['STOI'])
-        snr = np.mean(scores[p_test]['model']['SNR'])
-        pesq -= np.mean(scores[p_test]['ref']['PESQ'])
-        stoi -= np.mean(scores[p_test]['ref']['STOI'])
-        snr -= np.mean(scores[p_test]['ref']['SNR'])
-        matched = [pesq, stoi, snr]
+        filename = os.path.join(model, 'scores.hdf5')
+        h5f = h5py.File(filename)
+        if p_test not in h5f.keys():
+            raise KeyError(f'model {model} is not tested on {p_test}')
+        metric_idx = [
+            list(h5f['metrics'].asstr()).index(m['name']) for m in METRICS
+        ]
+        matched_scores = h5f[p_test][:, metric_idx, :].mean(axis=0)
+        matched_scores = matched_scores[:, 1] - matched_scores[:, 0]
 
-        train_index = [[1], [0], [0]]
-        test_idx = build_test_index(train_index, [])
-        test_paths = get_test_dsets(test_idx)
-        mismatched = []
-        for test_path in test_paths:
-            if test_path not in scores.keys():
-                logging.warning(f'model {model} is not tested on {test_path}')
-                return [np.nan for _ in range(6)]
-            pesq = np.mean(scores[test_path]['model']['PESQ'])
-            stoi = np.mean(scores[test_path]['model']['STOI'])
-            snr = np.mean(scores[test_path]['model']['SNR'])
-            pesq -= np.mean(scores[test_path]['ref']['PESQ'])
-            stoi -= np.mean(scores[test_path]['ref']['STOI'])
-            snr -= np.mean(scores[test_path]['ref']['SNR'])
-            mismatched.append([pesq, stoi, snr])
-        mismatched = np.array(mismatched).mean(axis=0)
+        mismatched_scores = []
+        for p_test_mis in p_test_mismatch:
+            if p_test_mis not in h5f.keys():
+                raise KeyError(f'model {model} is not tested on {p_test_mis}')
+            _scores = h5f[p_test_mis][:, metric_idx, :].mean(axis=0)
+            _scores = _scores[:, 1] - _scores[:, 0]
+            mismatched_scores.append(_scores)
+        mismatched_scores = np.mean(mismatched_scores, axis=0)
 
-        return matched + mismatched.tolist()
+        state = torch.load(os.path.join(model, 'checkpoint.pt'),
+                           map_location='cpu')
+        stats = np.array([
+            state["time_spent"],
+            state["max_memory_allocated"],
+            get_padding(model),
+        ])
+
+        h5f.close()
+        return np.concatenate([stats, matched_scores, mismatched_scores])
 
     def routine(batch_sampler):
         for i, (dynamic, batch_type) in enumerate(zip(
@@ -325,7 +312,6 @@ def main():
             ['seq.', 's'],
         )):
 
-            models = []
             scores = []
 
             if dynamic:
@@ -334,21 +320,26 @@ def main():
                 batch_sizes = fixed_sizes
 
             for batch_size in batch_sizes:
-
-                m = model_init.get_path_from_kwargs(
-                    arch='convtasnet',
-                    train_path=arg_type_path(p_train),
-                    batch_size=float(batch_size),
-                    batch_sampler=batch_sampler,
-                    dynamic_batch_size=dynamic,
-                    segment_length=segment_length,
-                    # seed=seed,
-                )
-                models.append(m)
-                scores.append(load_score(m))
+                scores_seeds = []
+                for seed in args.seeds:
+                    model = model_init.get_path_from_kwargs(
+                        arch='convtasnet',
+                        train_path=arg_type_path(p_train),
+                        batch_size=float(batch_size),
+                        batch_sampler=batch_sampler,
+                        dynamic_batch_size=dynamic,
+                        segment_length=segment_length,
+                        seed=seed,
+                    )
+                    scores_seeds.append(load_score(model))
+                    train_curver_plotter.plot(
+                        ax, model, batch_size, batch_sampler, dynamic,
+                    )
+                scores.append(np.mean(scores_seeds, axis=0))
+                train_curver_plotter.next_color()
 
             scores = np.array(scores)
-            plot_models(models, scores, batch_sizes, batch_type)
+            plot_models(scores, batch_sizes, batch_type)
 
             if i == 1:
                 print(r'\hline \hline')
@@ -376,19 +367,17 @@ def main():
     print(r'c', end='')
     print(r'}', end='')
 
+    multicolspec = fr'\multicolumn{{{N_METRICS}}}{{c}}'
     print(r'\hline \hline')
-    print(r'&&&&&\multicolumn{3}{c}{Match}&\multicolumn{3}{c}{Mismatch}\\')
+    print(fr'&&&&&{multicolspec}{{Match}}&{multicolspec}{{Mismatch}}\\')
     print(r'Strategy')
     print(r'& \multicolumn{1}{c}{Batch size}')
     print(r'& \multicolumn{1}{c}{Time}')
     print(r'& \multicolumn{1}{c}{Memory}')
     print(r'& \multicolumn{1}{c}{Padding}')
-    print(r'& $\Delta$PESQ')
-    print(r'& $\Delta$STOI')
-    print(r'& $\Delta$SNR')
-    print(r'& $\Delta$PESQ')
-    print(r'& $\Delta$STOI')
-    print(r'& $\Delta$SNR')
+    for _ in range(2):
+        for m in METRICS:
+            print(rf'& $\Delta${m["name"]}')
     print(r' \\ \hline \hline')
 
     print(r'\multirow{10}{*}{\rotatebox[origin=c]{90}{Random}}')
@@ -399,7 +388,8 @@ def main():
     routine('bucket')
 
     print(r'\end{tabular}')
-    print(r'\caption{Caption}')
+    print(r'\caption{Training statistics and scores in matched and mismatched '
+          'conditions for different batching strategies.}')
     print(r'\label{tab:batching}')
     print(r'\end{table*}')
     print('')
@@ -413,12 +403,13 @@ def main():
     ax.add_artist(lh)
     ax.grid()
 
-    pretty_table(summary)
-
-    fig_test.tight_layout()
-
-    plt.show()
+    if args.show_plots:
+        plt.show()
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--seeds', type=int, nargs='+', default=[0, 1, 2])
+    parser.add_argument('--show-plots', action='store_true')
+    args = parser.parse_args()
     main()
