@@ -47,7 +47,7 @@ class BreverDataset(torch.utils.data.Dataset):
     def __init__(self, path, segment_length=4.0, overlap_length=0.0, fs=16e3,
                  components=['foreground', 'background'],
                  segment_strategy='pass', tar=True, model=None,
-                 dynamic_batch_size=None):
+                 dynamic_batch_size=None, silent=False):
         self.path = path
         self.segment_length = round(segment_length*fs)
         self.overlap_length = round(overlap_length*fs)
@@ -60,6 +60,7 @@ class BreverDataset(torch.utils.data.Dataset):
             self.archive = TarArchiveInterface(os.path.join(path, 'audio.tar'))
         else:
             self.archive = None
+        self.silent = silent
         self.segment_info = self.get_segment_info()
         self.preloaded_data = None
         self._item_lengths = None
@@ -88,10 +89,11 @@ class BreverDataset(torch.utils.data.Dataset):
         if self.segment_length == 0.0 and self.dynamic_batch_size is not None:
             max_mix_length = max(mix_lengths)
             if self.dynamic_batch_size < max_mix_length:
-                logging.warning('The dynamic batch size is smaller than '
-                                'the maximum mixture length. Setting the '
-                                'segment length to the dynamic batch size '
-                                f'({self.dynamic_batch_size}).')
+                if not self.silent:
+                    logging.warning('The dynamic batch size is smaller than '
+                                    'the maximum mixture length. Setting the '
+                                    'segment length to the dynamic batch size '
+                                    f'({self.dynamic_batch_size}).')
                 self.segment_length = self.dynamic_batch_size
 
         segment_info = []
