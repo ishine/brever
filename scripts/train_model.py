@@ -23,6 +23,8 @@ def main():
     config_path = os.path.join(args.input, 'config.yaml')
     config = get_config(config_path)
     cuda = config.TRAINING.CUDA and not args.cpu
+    epochs = config.TRAINING.EPOCHS if args.epochs is None else args.epochs
+    workers = config.TRAINING.WORKERS if args.workers is None else args.workers
 
     # initialize logger
     log_file = os.path.join(args.input, 'log.log')
@@ -91,8 +93,8 @@ def main():
         train_dataset=train_split,
         val_dataset=val_split,
         dirpath=args.input,
-        workers=config.TRAINING.WORKERS,
-        epochs=config.TRAINING.EPOCHS,
+        workers=workers,
+        epochs=epochs,
         learning_rate=config.TRAINING.LEARNING_RATE,
         weight_decay=config.TRAINING.WEIGHT_DECAY,
         cuda=cuda,
@@ -124,10 +126,14 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--force', action='store_true',
                         help='train even if already trained')
     parser.add_argument('--cpu', action='store_true',
-                        help='force training on cpu')
+                        help='force training on cpu, ignoring config file')
     parser.add_argument('--no-preload', action='store_true',
                         help='force no preload ')
     parser.add_argument('--no-norm', action='store_true',
                         help='force no feature normalization')
+    parser.add_argument('--epochs', type=int,
+                        help='number of epochs, ignoring config file')
+    parser.add_argument('--workers', type=int,
+                        help='number of workers, ignoring config file')
     args = parser.parse_args()
     main()
