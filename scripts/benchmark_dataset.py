@@ -43,6 +43,7 @@ def main():
     elapsed_time = 0
     start_time = time.time()
     for i in range(args.epochs):
+        dataloader.set_epoch(i)
         for data, target, lengths in dataloader:
             pass
         dt = time.time() - start_time - elapsed_time
