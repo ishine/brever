@@ -1,43 +1,41 @@
 import argparse
 import time
 
-import brever.data
+from brever.data import BreverDataset, BreverDataLoader
+from brever.batching import get_batch_sampler
 
 
 def main():
     print('Initializing dataset')
-    dataset = {
-        'dnn': brever.data.DNNDataset,
-        'convtasnet': brever.data.ConvTasNetDataset,
-    }[args.arch]
-    kwargs = {
-        'dnn': {
-            'features': args.features
-        },
-        'convtasnet': {},
-    }[args.arch]
-    dataset = dataset(
-        args.input,
+    kwargs = {}
+    if args.sources is not None:
+        kwargs['components'] = args.sources
+    if args.dynamic:
+        kwargs['dynamic_batch_size'] = args.batch_size
+    dataset = BreverDataset(
+        path=args.input,
         segment_length=args.segment_length,
-        **kwargs
+        fs=args.fs,
+        **kwargs,
     )
 
     print('Initializing batch sampler')
-    sampler = {
-        'bucket': brever.data.BucketBatchSampler,
-    }[args.sampler]
-    kwargs = {
-        'bucket': {
-            'max_batch_size': args.max_batch_size,
-            'max_item_length': args.segment_length,
-        },
-    }[args.sampler]
-    sampler = sampler(dataset, **kwargs)
+    batch_sampler_class, kwargs = get_batch_sampler(
+        name=args.sampler,
+        batch_size=args.batch_size,
+        fs=args.fs,
+        num_buckets=args.buckets,
+        dynamic=args.dynamic,
+    )
+    batch_sampler = batch_sampler_class(
+        dataset=dataset,
+        **kwargs,
+    )
 
     print('Initializing data loader')
-    dataloader = brever.data.BreverDataLoader(
+    dataloader = BreverDataLoader(
         dataset=dataset,
-        batch_sampler=sampler,
+        batch_sampler=batch_sampler,
         num_workers=args.workers,
     )
 
@@ -45,7 +43,7 @@ def main():
     elapsed_time = 0
     start_time = time.time()
     for i in range(args.epochs):
-        for data, target in dataloader:
+        for data, target, lengths in dataloader:
             pass
         dt = time.time() - start_time - elapsed_time
         elapsed_time = time.time() - start_time
@@ -57,27 +55,14 @@ def main():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='benchmark a dataset')
     parser.add_argument('input', help='dataset directory')
-    parser.add_argument('--arch')
-    parser.add_argument('--features', nargs='+')
-    parser.add_argument('--sampler')
-    parser.add_argument('--segment-length', type=float)
-    parser.add_argument('--max-batch-size', type=float)
-    parser.add_argument('--items-per-batch', type=int)
-    parser.add_argument('--epochs', type=int)
-    parser.add_argument('--workers', type=int)
-    parser.add_argument('--fs', type=int)
-    parser.set_defaults(
-        arch='convtasnet',
-        features={'logfbe'},
-        sampler='bucket',
-        segment_length=4.0,
-        max_batch_size=16.0,
-        items_per_batch=4,
-        epochs=1,
-        workers=0,
-        fs=16e3,
-    )
+    parser.add_argument('--segment-length', type=float, default=0.0)
+    parser.add_argument('--sampler', type=str, default='bucket')
+    parser.add_argument('--dynamic', action='store_true')
+    parser.add_argument('--batch-size', type=float, default=1)
+    parser.add_argument('--buckets', type=int, default=10)
+    parser.add_argument('--epochs', type=int, default=1)
+    parser.add_argument('--workers', type=int, default=0)
+    parser.add_argument('--fs', type=int, default=16e3)
+    parser.add_argument('--sources', type=str, nargs='+')
     args = parser.parse_args()
-    args.segment_length = int(round(args.segment_length)*args.fs)
-    args.max_batch_size = int(round(args.max_batch_size)*args.fs)
     main()
