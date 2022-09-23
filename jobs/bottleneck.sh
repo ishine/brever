@@ -9,7 +9,7 @@ if [ $? -ne 0 ]; then exit 1; fi
 eval set -- "$OPTS"
 
 VERBOSE=false
-QUEUE="hpc"
+QUEUE="gpuv100"
 CORES=1
 MEMORY=8
 WALLTIME=24
@@ -47,6 +47,7 @@ echo "#BSUB -R \"rusage[mem=${MEMORY}GB]\"" >> ${JOBFILE}
 echo "#BSUB -R \"span[hosts=1]\"" >> ${JOBFILE}
 echo "#BSUB -oo jobs/logs/bottleneck_%J.out" >> ${JOBFILE}
 echo "#BSUB -eo jobs/logs/bottleneck_%J.err" >> ${JOBFILE}
+
 if [ ${QUEUE} == "gpuv100" ] || [ ${QUEUE} == "gpua100" ]
 then
     echo "#BSUB -gpu \"num=1:mode=exclusive_process\"" >> ${JOBFILE}

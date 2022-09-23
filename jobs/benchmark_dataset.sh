@@ -47,6 +47,7 @@ echo "#BSUB -R \"rusage[mem=${MEMORY}GB]\"" >> ${JOBFILE}
 echo "#BSUB -R \"span[hosts=1]\"" >> ${JOBFILE}
 echo "#BSUB -oo jobs/logs/benchmark_%J.out" >> ${JOBFILE}
 echo "#BSUB -eo jobs/logs/benchmark_%J.err" >> ${JOBFILE}
+
 if [ ${QUEUE} == "gpuv100" ] || [ ${QUEUE} == "gpua100" ]
 then
     echo "#BSUB -gpu \"num=1:mode=exclusive_process\"" >> ${JOBFILE}
