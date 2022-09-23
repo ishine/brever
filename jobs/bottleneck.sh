@@ -45,8 +45,8 @@ echo "#BSUB -n ${CORES}" >> ${JOBFILE}
 echo "#BSUB -W ${WALLTIME}:00" >> ${JOBFILE}
 echo "#BSUB -R \"rusage[mem=${MEMORY}GB]\"" >> ${JOBFILE}
 echo "#BSUB -R \"span[hosts=1]\"" >> ${JOBFILE}
-echo "#BSUB -oo jobs/logs/benchmark_%J.out" >> ${JOBFILE}
-echo "#BSUB -eo jobs/logs/benchmark_%J.err" >> ${JOBFILE}
+echo "#BSUB -oo jobs/logs/bottleneck_%J.out" >> ${JOBFILE}
+echo "#BSUB -eo jobs/logs/bottleneck_%J.err" >> ${JOBFILE}
 if [ ${QUEUE} == "gpuv100" ] || [ ${QUEUE} == "gpua100" ]
 then
     echo "#BSUB -gpu \"num=1:mode=exclusive_process\"" >> ${JOBFILE}
@@ -73,7 +73,7 @@ then
 fi
 
 
-COMMAND="python scripts/benchmark_dataset.py ${1} ${ARGS}"
+COMMAND="python -m torch.utils.bottleneck scripts/bottleneck.py ${1} ${ARGS}"
 if [ ${VERBOSE} = true ]
 then
     echo "Submitting \"${COMMAND}\" as COMMAND"
