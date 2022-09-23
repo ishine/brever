@@ -17,7 +17,10 @@ def main():
     # check if already trained
     loss_path = os.path.join(args.input, 'losses.npz')
     if os.path.exists(loss_path) and not args.force:
-        raise FileExistsError(f'training already done: {loss_path}')
+        if args.force:
+            os.remove(loss_path)
+        else:
+            raise FileExistsError(f'training already done: {loss_path}')
 
     # load model config
     config_path = os.path.join(args.input, 'config.yaml')
