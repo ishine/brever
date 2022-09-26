@@ -144,7 +144,6 @@ class ModelArgParser(argparse.ArgumentParser):
 
     arg_map = {
         'dnn': {
-            'batch_norm': ['MODEL', 'BATCH_NORM', 'TOGGLE'],
             'dropout': ['MODEL', 'DROPOUT'],
             'hidden_layers': ['MODEL', 'HIDDEN_LAYERS'],
             'norm_type': ['MODEL', 'NORMALIZATION', 'TYPE'],
@@ -194,7 +193,6 @@ class ModelArgParser(argparse.ArgumentParser):
         )
 
         sub = subs.add_parser('dnn')
-        sub.add_argument('--batch-norm', type=arg_type_bool)
         sub.add_argument('--dropout', type=float)
         sub.add_argument('--hidden-layers', type=int, nargs='+')
         sub.add_argument('--norm-type', type=str)

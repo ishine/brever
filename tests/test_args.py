@@ -74,7 +74,6 @@ def test_dnn_args():
         '--dynamic-batch-size', '0',
         # model args
         'dnn',
-        '--batch-norm', '0',
         '--dropout', '0',
         '--hidden-layers', '0', '0',
         '--norm-type', 'foo',

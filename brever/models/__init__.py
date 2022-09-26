@@ -17,8 +17,6 @@ def initialize_model(config):
             mel_filters=config.MODEL.MEL_FILTERS,
             hidden_layers=config.MODEL.HIDDEN_LAYERS,
             dropout=config.MODEL.DROPOUT,
-            batchnorm=config.MODEL.BATCH_NORM.TOGGLE,
-            batchnorm_momentum=config.MODEL.BATCH_NORM.MOMENTUM,
             normalization=config.MODEL.NORMALIZATION.TYPE,
         )
     elif config.ARCH == 'convtasnet':

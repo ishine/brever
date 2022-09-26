@@ -24,8 +24,6 @@ class DNN(BreverBaseModel):
         mel_filters: int = 64,
         hidden_layers: list[int] = [1024, 1024],
         dropout: float = 0.2,
-        batchnorm: bool = False,
-        batchnorm_momentum: float = 0.1,
         normalization: str = 'static',
     ) -> None:
         super().__init__(criterion)
@@ -52,10 +50,8 @@ class DNN(BreverBaseModel):
         self.dnn = _DNN(
             input_size=input_size,
             output_size=output_size,
-            hidden_layers=[1024, 1024],
-            dropout=0.2,
-            batchnorm=False,
-            batchnorm_momentum=0.1,
+            hidden_layers=hidden_layers,
+            dropout=dropout,
         )
         if normalization == 'static':
             self.normalization = StaticNormalizer(input_size)
@@ -132,17 +128,13 @@ class DNN(BreverBaseModel):
 
 class _DNN(nn.Module):
     def __init__(self, input_size, output_size, hidden_layers=[1024, 1024],
-                 dropout=0.2, batchnorm=False, batchnorm_momentum=0.1):
+                 dropout=0.2):
         super().__init__()
         self.operations = nn.ModuleList()
         start_size = input_size
         for i in range(len(hidden_layers)):
             end_size = hidden_layers[i]
             self.operations.append(nn.Linear(start_size, end_size))
-            if batchnorm:
-                self.operations.append(
-                    nn.BatchNorm1d(end_size, momentum=batchnorm_momentum)
-                )
             self.operations.append(nn.ReLU())
             self.operations.append(nn.Dropout(dropout))
             start_size = end_size
