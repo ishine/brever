@@ -310,13 +310,13 @@ class TrainCurvePlotter:
         self.ax.grid()
 
 
-class ModelFinder:
+class ModelGetter:
     def __init__(self, model_init, p_train, segment_length):
         self.model_init = model_init
         self.p_train = p_train
         self.segment_length = segment_length
 
-    def find(self, batch_sampler, dynamic, batch_size, seed):
+    def get(self, batch_sampler, dynamic, batch_size, seed):
         return self.model_init.get_path_from_kwargs(
             arch='convtasnet',
             train_path=arg_type_path(self.p_train),
@@ -369,8 +369,8 @@ class SubSectionPrinter:
 
 
 class SeedLoader:
-    def __init__(self, model_finder, score_loader, train_curve_plotter):
-        self.model_finder = model_finder
+    def __init__(self, model_getter, score_loader, train_curve_plotter):
+        self.model_getter = model_getter
         self.score_loader = score_loader
         self.train_curve_plotter = train_curve_plotter
         self.params = None
@@ -379,7 +379,7 @@ class SeedLoader:
         self.params = kwargs
 
     def load_seed(self, seed):
-        model = self.model_finder.find(seed=seed, **self.params)
+        model = self.model_getter.get(seed=seed, **self.params)
         score = self.score_loader.load(model)
         self.train_curve_plotter.plot(
             model, **self.params,
@@ -481,9 +481,9 @@ def main():
 
     p_train, p_match, p_mismatch = get_dataset_paths(dset_init)
     score_loader = ScoreLoader(p_match, p_mismatch)
-    model_finder = ModelFinder(model_init, p_train, segment_length)
+    model_getter = ModelGetter(model_init, p_train, segment_length)
     plotter = TrainCurvePlotter(ax)
-    seed_loader = SeedLoader(model_finder, score_loader, plotter)
+    seed_loader = SeedLoader(model_getter, score_loader, plotter)
     printer = SectionPrinter(plotter, seed_loader, fixed_sizes, dynamic_sizes)
 
     caption = (
