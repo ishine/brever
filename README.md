@@ -1,14 +1,25 @@
-# Brever
+# brever
 Binaural speech segregation in noisy and reverberant environments using deep neural networks.
 
-With Brever you can:
+"brever" reads "reverb" backwards.
+
+Core features:
 * Generate datasets of noisy and reverberant mixtures from a range of supported databases of speech utterances, noise recordings and binaural room impulse responses (BRIRs)
 * Train PyTorch-based neural networks to perform speech enhancement. Currently implemented models are:
-  * Feed-forward neural network (FFNN)
-  * Conv-TasNet
+  * A feed-forward neural network (FFNN)-based system
+  * Conv-TasNet ([Y. Luo and N. Mesgarani](https://ieeexplore.ieee.org/abstract/document/8707065))
+  * DCCRN (coming soon) ([Y. Hu et al.](https://www.isca-speech.org/archive/interspeech_2020/hu20g_interspeech.html))
+  * MetricGAN+ (coming soon) ([S. Fu et al.](https://www.isca-speech.org/archive/interspeech_2021/fu21_interspeech.html))
 * Evaluate trained models in terms of different metrics: SNR, PESQ and STOI
 
-"Brever" reads "reverb" backwards.
+Design considerations and additional features:
+* Command line-exclusive usage; no notebooks, no Google Colab
+* A single dataset class for all models; no need to subclass for every model
+* A single trainer class for all models; no need to subclass for every model
+* Causal-only models; non-causal models are adapted to be causal
+* Single-file model definitions; no need to inspect multiple files to understand what models do
+* Hash ID-based model and dataset organization for large scale experiments
+* Independent parameter randomization when generating mixture datasets; each mixture parameter (e.g. SNR, number of noise sources, speech corpus...) has a dedicated random generator such that two datasets presenting the same random seed are identical expect along the parameter dimensions they differ.
 
 # Installation
 
@@ -41,9 +52,6 @@ External databases of speech utterances, noise recordings and binaural room impu
 - Speech databases:
   - [TIMIT](https://doi.org/10.35111/17gk-bn40)
   - [LibriSpeech](http://www.openslr.org/12)
-  - ~~HINT~~
-  - ~~IEEE~~
-  - ~~ARCTIC~~
   - [WSJ](https://doi.org/10.35111/ewkm-cg47)
   - [VCTK](https://doi.org/10.7488/ds/2645)
   - [Clarity](https://doi.org/10.17866/rd.salford.16918180.v3)
@@ -109,4 +117,4 @@ You can evaluate a trained model using the `scripts/test_model.py` script:
 python scripts/test_model.py models/ece4a25b/ data/datasets/test/<dataset_id>/
 ```
 
-This creates a `scores.json` file containing the SNR, PESQ and STOI scores for the enhanced mixtures from the model as well as the unprocessed input mixtures.
+This creates a `scores.hdf5` file containing the SNR, PESQ and STOI scores for the enhanced mixtures from the model as well as the unprocessed input mixtures.
