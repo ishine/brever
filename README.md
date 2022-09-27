@@ -3,7 +3,7 @@ Binaural speech segregation in noisy and reverberant environments using deep neu
 
 "brever" reads "reverb" backwards.
 
-Core features:
+### Core features
 * Generate datasets of noisy and reverberant mixtures from a range of supported databases of speech utterances, noise recordings and binaural room impulse responses (BRIRs)
 * Train PyTorch-based neural networks to perform speech enhancement. Currently implemented models are:
   * A feed-forward neural network (FFNN)-based system
@@ -12,7 +12,7 @@ Core features:
   * MetricGAN+ (coming soon) ([S. Fu et al.](https://www.isca-speech.org/archive/interspeech_2021/fu21_interspeech.html))
 * Evaluate trained models in terms of different metrics: SNR, PESQ and STOI
 
-Design considerations and additional features:
+### Design considerations and additional features
 * Command line-exclusive usage; no notebooks, no Google Colab
 * A single dataset class for all models; no need to subclass for every model
 * A single trainer class for all models; no need to subclass for every model
