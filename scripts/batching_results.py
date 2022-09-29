@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import scipy.stats
+import random
 
 from brever.args import arg_type_path
 from brever.config import DatasetInitializer, ModelInitializer, get_config
@@ -82,7 +83,7 @@ N_METRICS = len(METRICS)
 
 def fmt_time(time_):
     h, m = int(time_//3600), int((time_ % 3600)//60)
-    return fr'{h} h {m:02d} m'
+    return fr'{h}\,h\,{m:02d}\,m'
 
 
 def fmt_score(score, is_max=False):
@@ -94,7 +95,7 @@ def fmt_score(score, is_max=False):
 
 def fmt_memory(memory):
     memory = round(memory/1e9, 1)
-    return f'{memory} GB'
+    return rf'{memory}\,GB'
 
 
 def fmt_padding(padding_fraction):
@@ -105,6 +106,11 @@ def get_padding(model):
     # load model config
     config_path = os.path.join(model, 'config.yaml')
     config = get_config(config_path)
+
+    # seed for reproducibility
+    random.seed(config.TRAINING.SEED)
+    np.random.seed(config.TRAINING.SEED)
+    torch.manual_seed(config.TRAINING.SEED)
 
     # initialize model
     model = initialize_model(config)
@@ -347,11 +353,11 @@ class SubSectionPrinter:
         is_max_score = score == self.max_score
         is_max_sem = sem == self.max_sem
         if self.dynamic:
-            batch_unit = 's'
+            batch_unit = r'\,s'
         else:
-            batch_unit = 'seq.'
+            batch_unit = ' seq.'
             batch_size = int(batch_size)
-        batch_size = f'{batch_size} {batch_unit}'
+        batch_size = f'{batch_size}{batch_unit}'
         print(fr'& {batch_size}', end=' ')
         print(fr'& {fmt_time(stat[0])}', end=' ')
         print(fr'& {fmt_memory(stat[1])}', end=' ')
@@ -450,14 +456,22 @@ class SectionPrinter:
     def print_first_row(self):
         multicolspec = fr'\multicolumn{{{N_METRICS}}}{{c}}'
         print(fr'&&&&&{multicolspec}{{Match}}&{multicolspec}{{Mismatch}}\\')
+        print(r'\cmidrule(lr){6-8} \cmidrule(lr){9-11}')
         cols = [
-            r'Strategy',
-            r'\multicolumn{1}{c}{Batch size}',
+            r'Strat.',
+            r'\multicolumn{1}{c}{\makecell{Batch\\[-2pt]size}}',
             r'\multicolumn{1}{c}{Time}',
             r'\multicolumn{1}{c}{Memory}',
-            r'\multicolumn{1}{c}{Padding}',
+            r'\multicolumn{1}{c}{ZPR}',
         ]
-        cols += [rf'$\Delta${m["name"]}' for _ in range(2) for m in METRICS]
+        for _ in range(2):
+            for m in METRICS:
+                m_fmt = fr'$\Delta${m["name"]}'
+                if m["scale"] != 1:
+                    exp = -int(np.log10(m["scale"]))
+                    scale_fmt = fr'{{\scriptsize$(\times 10^{{{exp}}})$}}'
+                    m_fmt = fr'\makecell{{{m_fmt}\\[-2pt]{scale_fmt}}}'
+                cols.append(m_fmt)
         print(' & '.join(cols) + r' \\')
         print(r'\hline \hline')
 
