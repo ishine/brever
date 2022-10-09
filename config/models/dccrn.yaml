@@ -1,0 +1,40 @@
+ARCH: dccrn
+FS: 16000
+TRAINING:
+  CRITERION: SNR
+  CUDA: true
+  EARLY_STOP:
+    PATIENCE: 10
+    TOGGLE: false
+  CONVERGENCE:
+    WINDOW: 10
+    THRESHOLD: 1.0e-6
+    TOGGLE: false
+  EPOCHS: 150
+  LEARNING_RATE: 1.0e-3
+  WORKERS: 4
+  OPTIMIZER: Adam
+  WEIGHT_DECAY: 0.0
+  PATH: data/processed/train/foo/
+  SEED: 0
+  VAL_SIZE: 0.1
+  PRELOAD: false
+  GRAD_CLIP: 5.0  # 0.0 to disable
+  SEGMENT_LENGTH: 0.0  # 0.0 to disable
+  BATCH_SAMPLER:
+    WHICH: bucket
+    BATCH_SIZE: 128.0
+    NUM_BUCKETS: 10
+    DYNAMIC: True
+MODEL:
+  STFT:
+    FRAME_LENGTH: 512
+    HOP_LENGTH: 256
+    WINDOW: hann
+  CHANNELS: [16, 32, 64, 128, 256, 256]
+  KERNEL_SIZE: !!python/tuple [5, 2]
+  STRIDE: !!python/tuple [2, 1]
+  PADDING: !!python/tuple [2, 0]
+  OUTPUT_PADDING: !!python/tuple [1, 0]
+  LSTM_CHANNELS: 128
+  LSTM_LAYERS: 2
