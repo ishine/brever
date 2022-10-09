@@ -384,16 +384,17 @@ class SeedLoader:
     def set_params(self, **kwargs):
         self.params = kwargs
 
-    def load_seed(self, seed):
+    def load_seed(self, seed, plot=True):
         model = self.model_getter.get(seed=seed, **self.params)
         score = self.score_loader.load(model)
-        self.train_curve_plotter.plot(
-            model, **self.params,
-        )
+        if plot:
+            self.train_curve_plotter.plot(
+                model, **self.params,
+            )
         return score
 
-    def load_seeds(self, seeds, return_sem=False):
-        scores = [self.load_seed(seed) for seed in seeds]
+    def load_seeds(self, seeds, return_sem=False, plot=True):
+        scores = [self.load_seed(seed, plot=plot) for seed in seeds]
         mean = np.mean(scores, axis=0)
         if return_sem:
             return mean, scipy.stats.sem(scores, axis=0)
@@ -423,7 +424,10 @@ class SectionPrinter:
                 dynamic=dynamic,
                 batch_size=batch_size,
             )
-            mean, sem = self.seed_loader.load_seeds(args.seeds, True)
+            mean, sem = self.seed_loader.load_seeds(
+                args.seeds,
+                return_sem=True,
+            )
             scores.append(mean)
             sems.append(sem)
             self.train_curve_plotter.next_color()
@@ -483,6 +487,59 @@ class SectionPrinter:
         print('')
 
 
+class AltPlotter:
+    def __init__(self, seed_loader, dynamic_sizes):
+        self.seed_loader = seed_loader
+        self.dynamic_sizes = dynamic_sizes
+        self.colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+    def plot(self):
+        fig, axes = plt.subplots(1, 3)
+        for i_sampler, batch_sampler in enumerate([
+            'random',
+            'sorted',
+            'bucket',
+        ]):
+            means, sems = [], []
+            sems = []
+            for batch_size in self.dynamic_sizes:
+                self.seed_loader.set_params(
+                    batch_sampler=batch_sampler,
+                    dynamic=True,
+                    batch_size=batch_size,
+                )
+                mean, sem = self.seed_loader.load_seeds(
+                    args.seeds,
+                    return_sem=True,
+                    plot=False,
+                )
+                means.append(mean[-6:])
+                sems.append(sem[-6:])
+            means, sems = np.array(means), np.array(sems)
+            for i in range(3):
+                for offset, marker, label in zip(
+                    [0, 3],
+                    ['^', 'v'],
+                    ['match', 'mismatch'],
+                ):
+                    axes[i].errorbar(
+                        np.arange(len(means[:, i+offset])),
+                        means[:, i+offset],
+                        yerr=sems[:, i+offset],
+                        label=f'{batch_sampler} - {label}',
+                        marker=marker,
+                        color=self.colors[i_sampler],
+                        markersize=3,
+                    )
+        for i, m in enumerate(METRICS):
+            axes[i].set_title(m['name'])
+            axes[i].grid()
+        handles, labels = axes[0].get_legend_handles_labels()
+        ncol = 3
+        fig.legend(handles=handles, loc='upper center', ncol=ncol)
+        fig.tight_layout(rect=(0, 0, 1, 0.9))
+
+
 def main():
     dset_init = DatasetInitializer(batch_mode=True)
     model_init = ModelInitializer(batch_mode=True)
@@ -499,6 +556,9 @@ def main():
     plotter = TrainCurvePlotter(ax)
     seed_loader = SeedLoader(model_getter, score_loader, plotter)
     printer = SectionPrinter(plotter, seed_loader, fixed_sizes, dynamic_sizes)
+
+    alt_plotter = AltPlotter(seed_loader, dynamic_sizes)
+    alt_plotter.plot()
 
     caption = (
         'Training statistics and scores in matched and mismatched conditions '
